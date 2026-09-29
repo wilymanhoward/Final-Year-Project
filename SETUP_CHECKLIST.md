@@ -116,6 +116,25 @@ The IMGUI window only shows in the Editor/Link. For standalone runs:
 - [ ] Commit scenes, prefabs, CaseDefinition assets, ProjectSettings changes and all `.meta` files. Push.
 - [ ] Tell Claude which steps were done and anything that differed from this list.
 
+## Troubleshooting: app stuck on the loading screen on the Quest (diagnosed from the headset log)
+Symptom: the Quest shows the dark Meta loading environment forever. `adb logcat` shows Unity starting fine and
+endless `Waiting for available buffer SurfaceView[...UnityPlayerGameActivity]` lines, and **no OpenXR/VR session**.
+Cause: no XR provider. `Assets/XR/XRGeneralSettingsPerBuildTarget.asset` has empty `Keys/Values`, and neither
+`com.unity.xr.openxr` nor `com.unity.xr.oculus` is installed, so the app runs as a flat 2D window and never
+starts a VR session. (Meta XR SDK 207 itself is installed.) Also, `SampleScene` (the only scene in Build Profiles)
+has no OVRCameraRig/OVRManager. Fix, in the Editor:
+- [ ] **Edit > Project Settings > XR Plug-in Management > Android tab (the Quest icon)**: tick **OpenXR**.
+      Accept the install prompt (the Unity OpenXR Plugin; Meta recommends 1.15.x for SDK v74+; let Unity choose the
+      version that matches 6000.3). Do the same on the desktop tab only if you want to test in Link.
+- [ ] **XR Plug-in Management > OpenXR > Android tab > OpenXR Feature Groups**: tick **Meta XR** (Meta XR Feature,
+      Meta XR Foveation, Meta XR Subsampled Layout on).
+- [ ] **Meta > Tools > Project Setup Tool**: Android tab > **Fix All**, then **Apply All**.
+- [ ] Put a camera rig in the scene you build: open `Assets/_Project/Scenes/Main.unity` (section 4), delete the
+      default Main Camera, add the **Camera Rig** (and **Passthrough**) building blocks, then add that scene to
+      **Build Profiles > Scene List** and remove `SampleScene`.
+- [ ] Rebuild and install. On a good run the log contains OpenXR/`XR_` lines and the headset switches to your scene.
+- [ ] Commit and push `Packages/manifest.json`, `Packages/packages-lock.json`, `ProjectSettings/` and `Assets/XR/`.
+
 ## Troubleshooting: app takes a long time to launch on the Quest
 Already fixed in the repo (pull first): Unity splash screen off; Android now uses only `Mobile_RPAsset`
 (it was also bundling the PC render pipeline's shaders); HDR, terrain holes, LOD cross-fade, light cookies,
