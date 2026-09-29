@@ -77,6 +77,9 @@ Packages/packages-lock.json linguist-generated
 # 3D models
 *.3dm                   lfs
 *.3ds                   lfs
+*.glb                   lfs
+*.gltf                  lfs
+*.usdz                  lfs
 *.blend                 lfs
 *.blend1                lfs
 *.c4d                   lfs
@@ -100,6 +103,8 @@ Packages/packages-lock.json linguist-generated
 # Audio
 *.aif                   lfs
 *.aiff                  lfs
+*.flac                  lfs
+*.m4a                   lfs
 *.it                    lfs
 *.mod                   lfs
 *.mp3                   lfs
@@ -116,6 +121,7 @@ Packages/packages-lock.json linguist-generated
 *.mp4                   lfs
 *.mpeg                  lfs
 *.mpg                   lfs
+*.webm                  lfs
 *.ogv                   lfs
 *.wmv                   lfs
 
@@ -154,6 +160,7 @@ Packages/packages-lock.json linguist-generated
 
 # Executable/Installer
 *.apk                   lfs
+*.aab                   lfs
 *.exe                   lfs
 
 # Documents
