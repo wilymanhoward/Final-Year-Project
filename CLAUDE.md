@@ -136,6 +136,15 @@ _Last updated: session 1 (project foundation, Week 1–2 scope)._
   stub harness; not yet run inside Unity).
 - `SETUP_CHECKLIST.md` with the Editor steps.
 
+**Session 2 (slow app launch on Quest)**
+- Repo on GitHub still has no Meta XR SDK / XR Plug-in Management and only `SampleScene` in the build, so a
+  Quest build from it is not a VR app. Waiting for the user to install `com.meta.xr.sdk.all` and push the manifest.
+- Startup fixes: splash off; Graphics default RP = `Mobile_RPAsset` (the PC asset's shaders were bundled into Android);
+  Mobile_RPAsset: HDR off, MSAA 4x, render scale 1, terrain holes/LOD cross-fade/light cookies/light layers/lens flares
+  off, shadow distance 10 m. Troubleshooting section added to `SETUP_CHECKLIST.md`.
+- Asked the user whether the unused packages `com.unity.ai.inference` (Sentis, adds `SENTIS_ANALYTICS_ENABLED`),
+  `com.unity.ai.assistant` and `com.unity.visualscripting` can be removed (bigger build, slower start).
+
 **Open questions for the user**
 1. Hand tracking, controllers or both? (Code supports both; default = both.)
 2. Confirm room 4 x 4 m and time cap 15 min.
