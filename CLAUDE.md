@@ -142,8 +142,10 @@ _Last updated: session 1 (project foundation, Week 1–2 scope)._
 - Startup fixes: splash off; Graphics default RP = `Mobile_RPAsset` (the PC asset's shaders were bundled into Android);
   Mobile_RPAsset: HDR off, MSAA 4x, render scale 1, terrain holes/LOD cross-fade/light cookies/light layers/lens flares
   off, shadow distance 10 m. Troubleshooting section added to `SETUP_CHECKLIST.md`.
-- Asked the user whether the unused packages `com.unity.ai.inference` (Sentis, adds `SENTIS_ANALYTICS_ENABLED`),
-  `com.unity.ai.assistant` and `com.unity.visualscripting` can be removed (bigger build, slower start).
+- Removed (user approved) `com.unity.ai.inference`, `com.unity.ai.assistant`, `com.unity.visualscripting` plus their
+  now-unused dependencies (`com.unity.dt.app-ui`, `com.unity.nuget.newtonsoft-json`, `com.unity.2d.sprite`), the
+  Android define symbols `SENTIS_ANALYTICS_ENABLED;APP_UI_EDITOR_ONLY`, the App UI build config object and the
+  AI Assistant project settings.
 
 **Open questions for the user**
 1. Hand tracking, controllers or both? (Code supports both; default = both.)
