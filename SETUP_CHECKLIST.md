@@ -115,3 +115,21 @@ The IMGUI window only shows in the Editor/Link. For standalone runs:
 ## 14. Commit
 - [ ] Commit scenes, prefabs, CaseDefinition assets, ProjectSettings changes and all `.meta` files. Push.
 - [ ] Tell Claude which steps were done and anything that differed from this list.
+
+## Troubleshooting: app takes a long time to launch on the Quest
+Already fixed in the repo (pull first): Unity splash screen off; Android now uses only `Mobile_RPAsset`
+(it was also bundling the PC render pipeline's shaders); HDR, terrain holes, LOD cross-fade, light cookies,
+light layers and lens flares off (fewer shader variants), MSAA 4x, render scale 1.0, shadow distance 10 m.
+
+Check these on your PC, in this order:
+- [ ] **Is it actually a VR app?** If the app opens in a flat 2D window, XR isn't set up: do sections 2–3
+      (Meta XR SDK + XR Plug-in Management + Project Setup Tool) and push `Packages/manifest.json`.
+- [ ] **File > Build Profiles > Android**: untick **Autoconnect Profiler**, **Deep Profiling**,
+      **Script Debugging** and especially **Wait For Managed Debugger**. Any of these can make the app sit on the
+      loading screen waiting for a connection. For study builds, untick **Development Build** entirely.
+- [ ] **The first launch after installing is always slower** (Vulkan shaders are compiled and cached on the device).
+      Launch it a second time before judging. If the second launch is fast, this was the cause.
+- [ ] Build Profiles > Android > **Run Device** = your Quest, and use **Build And Run** (not Patch And Run) for timing tests.
+- [ ] Measure it: with the Quest connected, run
+      `adb logcat -c` then launch the app, then `adb logcat -d -s Unity ActivityManager > launch_log.txt`
+      and send `launch_log.txt` to Claude (it shows where the time goes).
