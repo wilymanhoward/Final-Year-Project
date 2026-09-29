@@ -105,3 +105,16 @@ InitTestScene*.unity*
 
 # Auto-generated scenes by play mode tests
 /[Aa]ssets/[Ii]nit[Tt]est[Ss]cene*.unity*
+
+# ---- FYP project additions ----
+# Android signing keys (never commit)
+*.keystore
+*.jks
+# Study data must never be committed by accident (it lives on the headset / a secure drive)
+*.csv
+!/Assets/**/*Template*.csv
+/StudyData/
+experiment_config.json
+# OS clutter
+.DS_Store
+Thumbs.db
