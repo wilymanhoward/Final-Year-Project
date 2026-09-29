@@ -49,6 +49,8 @@ Read this first in every session. Update **Current status** at the end of each s
   `SETUP_CHECKLIST.md` for the user.
 - Keep scripts small and single-purpose. Prefer plain C# classes for logic so it can be unit tested.
 - Don't commit study data (`*.csv` is gitignored).
+- **Git: commit and push directly to `main`** (user's standing instruction). No feature branches or PRs
+  unless asked. Fetch first and fast-forward/merge; never force-push `main`.
 
 ## Coding conventions
 - Namespace: `FYP.Detective` for runtime code, `FYP.Detective.Tests` for tests.
