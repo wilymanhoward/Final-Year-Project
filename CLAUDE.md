@@ -136,6 +136,17 @@ _Last updated: session 1 (project foundation, Week 1–2 scope)._
   stub harness; not yet run inside Unity).
 - `SETUP_CHECKLIST.md` with the Editor steps.
 
+**Session 2 (slow app launch on Quest)**
+- Repo on GitHub still has no Meta XR SDK / XR Plug-in Management and only `SampleScene` in the build, so a
+  Quest build from it is not a VR app. Waiting for the user to install `com.meta.xr.sdk.all` and push the manifest.
+- Startup fixes: splash off; Graphics default RP = `Mobile_RPAsset` (the PC asset's shaders were bundled into Android);
+  Mobile_RPAsset: HDR off, MSAA 4x, render scale 1, terrain holes/LOD cross-fade/light cookies/light layers/lens flares
+  off, shadow distance 10 m. Troubleshooting section added to `SETUP_CHECKLIST.md`.
+- Removed (user approved) `com.unity.ai.inference`, `com.unity.ai.assistant`, `com.unity.visualscripting` plus their
+  now-unused dependencies (`com.unity.dt.app-ui`, `com.unity.nuget.newtonsoft-json`, `com.unity.2d.sprite`), the
+  Android define symbols `SENTIS_ANALYTICS_ENABLED;APP_UI_EDITOR_ONLY`, the App UI build config object and the
+  AI Assistant project settings.
+
 **Open questions for the user**
 1. Hand tracking, controllers or both? (Code supports both; default = both.)
 2. Confirm room 4 x 4 m and time cap 15 min.
