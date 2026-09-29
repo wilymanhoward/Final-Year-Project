@@ -137,8 +137,21 @@ _Last updated: session 1 (project foundation, Week 1–2 scope)._
 - `SETUP_CHECKLIST.md` with the Editor steps.
 
 **Session 2 (slow app launch on Quest)**
-- Repo on GitHub still has no Meta XR SDK / XR Plug-in Management and only `SampleScene` in the build, so a
-  Quest build from it is not a VR app. Waiting for the user to install `com.meta.xr.sdk.all` and push the manifest.
+- Now running locally with the metavr MCP + Quest 3 connected. Meta XR SDK **207.0.0** (`com.meta.xr.sdk.all`) is
+  installed and pushed. **Root cause of the app stuck loading (from logcat):** no XR provider. `Assets/XR/
+  XRGeneralSettingsPerBuildTarget.asset` is empty and `com.unity.xr.openxr` is not installed, so the app runs as a
+  flat 2D SurfaceView and never creates a VR session; `SampleScene` also has no OVRCameraRig. Fix steps are in
+  `SETUP_CHECKLIST.md` ("app stuck on the loading screen"), all Editor work for the user. Not yet confirmed fixed.
+- Verified via Meta docs (vr_docs_get_page `unity-project-setup`): Unity OpenXR Plugin is the recommended provider for
+  SDK v74+ (Oculus XR Plugin deprecated); enable the **Meta XR** OpenXR feature group; then Project Setup Tool Fix All.
+  I did not add `com.unity.xr.openxr` to the manifest myself (don't change package versions without asking).
+- Git: the user's local commit had accidentally included Unity build output (`FYP Mixed Reality_BackUpThisFolder_
+  ButDontShipItWithYourGame/`, `FYP_BurstDebugInformation_DoNotShip/`, ~20M lines). Removed from the commit before
+  pushing and gitignored (`*_BackUpThisFolder_ButDontShipItWithYourGame/`, `*_BurstDebugInformation_DoNotShip/`).
+  Merged with origin/main and pushed (5399062). Files written from PowerShell must be BOM-free (use
+  `[IO.File]::WriteAllText(path, text, New-Object Text.UTF8Encoding($false))`), or Unity/JSON parsers can choke.
+- The installed test package id is still the template default `com.UnityTechnologies.com.unity.template.urpblank`;
+  rename it in Player Settings (e.g. `com.<name>.fypdetective`) before the study builds.
 - Startup fixes: splash off; Graphics default RP = `Mobile_RPAsset` (the PC asset's shaders were bundled into Android);
   Mobile_RPAsset: HDR off, MSAA 4x, render scale 1, terrain holes/LOD cross-fade/light cookies/light layers/lens flares
   off, shadow distance 10 m. Troubleshooting section added to `SETUP_CHECKLIST.md`.
