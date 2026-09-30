@@ -158,6 +158,18 @@ _Last updated: session 1 (project foundation, Week 1–2 scope)._
   `OVRManager.trackingOriginType`/`TrackingOrigin.FloorLevel`, `OVRProjectConfig.CachedProjectConfig`,
   `insightPassthroughSupport = FeatureSupport.Required`, `handTrackingSupport = ControllersAndHands`. NOT yet compiled
   in Unity or run: if the user reports a compile error or wrong result, fix that first.
+- Controllers/hands: `Main.unity` had the rig but no controller/hand visuals (`OVRCameraRig.prefab` has empty
+  anchors and no OVRControllerHelper/OVRHand). `MainSceneBuilder` now also has **FYP > Add Controllers and Hands to
+  Rig** (idempotent, saves the scene), mirroring Meta's Controller/Hand Tracking block routines: `OVRControllerPrefab.prefab`
+  under `LeftControllerAnchor`/`RightControllerAnchor` with `OVRControllerHelper.m_controller = LTouch/RTouch`;
+  `OVRHandPrefabBuildingBlock.prefab` under `LeftHandAnchor`/`RightHandAnchor` with serialized `OVRHand.HandType`,
+  `OVRSkeleton._skeletonType`, `OVRMesh._meshType` set via SerializedObject (their setters are internal), using the public
+  `OVREnumExtensions.AsSkeletonType/AsMeshType(version)` and `OVRRuntimeSettings.Instance.HandSkeletonVersion`.
+  Already in place: `OVRProjectConfig.handTrackingSupport = ControllersAndHands` and manifest entries
+  (`oculus.software.handtracking`, `HAND_TRACKING`). OpenXR Android features: only Meta XR Feature/Foveation/Subsampled
+  Layout/SpaceWarp + Oculus Touch profile are ON; Touch Pro/Plus profiles, Hand Interaction Poses, Hand Tracking
+  (Unity XR Hands) are OFF: not needed for OVRInput/OVRHand, revisit if we use Unity Input System actions or XR Hands.
+  Not yet compiled or run in Unity.
 - The installed test package id is still the template default `com.UnityTechnologies.com.unity.template.urpblank`;
   rename it in Player Settings (e.g. `com.<name>.fypdetective`) before the study builds.
 - Startup fixes: splash off; Graphics default RP = `Mobile_RPAsset` (the PC asset's shaders were bundled into Android);
