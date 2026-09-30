@@ -129,9 +129,15 @@ has no OVRCameraRig/OVRManager. Fix, in the Editor:
 - [ ] **XR Plug-in Management > OpenXR > Android tab > OpenXR Feature Groups**: tick **Meta XR** (Meta XR Feature,
       Meta XR Foveation, Meta XR Subsampled Layout on).
 - [ ] **Meta > Tools > Project Setup Tool**: Android tab > **Fix All**, then **Apply All**.
-- [ ] Put a camera rig in the scene you build: open `Assets/_Project/Scenes/Main.unity` (section 4), delete the
-      default Main Camera, add the **Camera Rig** (and **Passthrough**) building blocks, then add that scene to
-      **Build Profiles > Scene List** and remove `SampleScene`.
+- [x] OpenXR 1.16.1 installed and the Android loader enabled (done; the app now starts as a VR app).
+- [ ] **Empty scene / no passthrough / no head tracking** (the default `SampleScene` only has a plain camera):
+      run the menu item **FYP > Create Main Scene** (`Assets/_Project/Editor/MainSceneBuilder.cs`). It builds
+      `Assets/_Project/Scenes/Main.unity` with the Meta `OVRCameraRig` (head + hands/controllers),
+      the Passthrough underlay (transparent camera background, `isInsightPassthroughEnabled`), the project config
+      set to Passthrough = Required and Hands + Controllers, `SessionSystems` (SessionManager, DataLogger,
+      ExperimenterPanel), a `PlayerRig`, a small test cube, placeholder `CaseX_Definition` / `CaseY_Definition`
+      assets, and makes it the only scene in **Build Profiles**. Then **Meta > Tools > Project Setup Tool > Fix All**,
+      rebuild, and reinstall. (This replaces sections 4-6 of the manual list above.)
 - [ ] Rebuild and install. On a good run the log contains OpenXR/`XR_` lines and the headset switches to your scene.
 - [ ] Commit and push `Packages/manifest.json`, `Packages/packages-lock.json`, `ProjectSettings/` and `Assets/XR/`.
 
