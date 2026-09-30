@@ -1,0 +1,20 @@
+{
+    "name": "FYP.Detective.Editor",
+    "rootNamespace": "FYP.Detective.EditorTools",
+    "references": [
+        "FYP.Detective",
+        "Oculus.VR",
+        "Oculus.VR.Editor"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

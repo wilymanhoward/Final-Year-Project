@@ -150,6 +150,14 @@ _Last updated: session 1 (project foundation, Week 1–2 scope)._
   pushing and gitignored (`*_BackUpThisFolder_ButDontShipItWithYourGame/`, `*_BurstDebugInformation_DoNotShip/`).
   Merged with origin/main and pushed (5399062). Files written from PowerShell must be BOM-free (use
   `[IO.File]::WriteAllText(path, text, New-Object Text.UTF8Encoding($false))`), or Unity/JSON parsers can choke.
+- User installed `com.unity.xr.openxr` 1.16.1 and enabled the Android OpenXR loader: the app now launches as VR
+  but shows an empty scene (SampleScene), no passthrough, no head tracking. Added an Editor tool
+  `Assets/_Project/Editor/MainSceneBuilder.cs` (menu **FYP > Create Main Scene**, asmdef `FYP.Detective.Editor` ->
+  refs `FYP.Detective`, `Oculus.VR`, `Oculus.VR.Editor`). Verified in the installed SDK 207 source: `OVRCameraRig.prefab`
+  (holds OVRManager), `PassthroughUnderlay.prefab` (holds OVRPassthroughLayer), `OVRManager.isInsightPassthroughEnabled`,
+  `OVRManager.trackingOriginType`/`TrackingOrigin.FloorLevel`, `OVRProjectConfig.CachedProjectConfig`,
+  `insightPassthroughSupport = FeatureSupport.Required`, `handTrackingSupport = ControllersAndHands`. NOT yet compiled
+  in Unity or run: if the user reports a compile error or wrong result, fix that first.
 - The installed test package id is still the template default `com.UnityTechnologies.com.unity.template.urpblank`;
   rename it in Player Settings (e.g. `com.<name>.fypdetective`) before the study builds.
 - Startup fixes: splash off; Graphics default RP = `Mobile_RPAsset` (the PC asset's shaders were bundled into Android);
