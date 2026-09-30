@@ -138,6 +138,12 @@ has no OVRCameraRig/OVRManager. Fix, in the Editor:
       ExperimenterPanel), a `PlayerRig`, a small test cube, placeholder `CaseX_Definition` / `CaseY_Definition`
       assets, and makes it the only scene in **Build Profiles**. Then **Meta > Tools > Project Setup Tool > Fix All**,
       rebuild, and reinstall. (This replaces sections 4-6 of the manual list above.)
+- [ ] **No controllers / hands visible**: the rig prefab only has empty anchors. Open `Main.unity` and run
+      **FYP > Add Controllers and Hands to Rig** (also runs automatically inside *Create Main Scene*). It adds Meta's
+      `OVRControllerPrefab` under the left/right controller anchors and the hand prefab under the left/right hand
+      anchors (same setup as the Controller Tracking / Hand Tracking building blocks), skips ones already there,
+      and saves the scene. Project config (Hands + Controllers) and the manifest entries for hand tracking are already set.
+      On the headset, put the controllers down (or hold them still) for hands to take over, pick them up to switch back.
 - [ ] Rebuild and install. On a good run the log contains OpenXR/`XR_` lines and the headset switches to your scene.
 - [ ] Commit and push `Packages/manifest.json`, `Packages/packages-lock.json`, `ProjectSettings/` and `Assets/XR/`.
 
