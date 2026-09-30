@@ -170,6 +170,14 @@ _Last updated: session 1 (project foundation, Week 1–2 scope)._
   Layout/SpaceWarp + Oculus Touch profile are ON; Touch Pro/Plus profiles, Hand Interaction Poses, Hand Tracking
   (Unity XR Hands) are OFF: not needed for OVRInput/OVRHand, revisit if we use Unity Input System actions or XR Hands.
   Not yet compiled or run in Unity.
+- Hand colour: Meta's `DefaultHandMaterial` (shader `OculusSampleAlphaHandOutline`) lerps `_ColorTop` (white) to
+  `_ColorBottom` (blue) by fresnel, and `OVRMeshRenderer._systemGestureMaterial` swaps to a yellow/peach material on the
+  system gesture. `MainSceneBuilder` adds **FYP > Use Neutral Hand Material** (also auto-applied in AddHand): copies the
+  material to `Assets/_Project/Art/Materials/HandNeutral.mat` with Top == Bottom == skin tone, assigns it to the
+  SkinnedMeshRenderer (`m_Materials[0]`) and `_systemGestureMaterial` via SerializedObject. The prefab's
+  OVRSkeletonRenderer is disabled, so bones are not drawn. Also added `PrefabUtility.RecordPrefabInstancePropertyModifications`
+  after direct edits to prefab-instance components (OVRManager, cameras, OVRControllerHelper) so they persist in the scene.
+  Not yet compiled or run in Unity.
 - The installed test package id is still the template default `com.UnityTechnologies.com.unity.template.urpblank`;
   rename it in Player Settings (e.g. `com.<name>.fypdetective`) before the study builds.
 - Startup fixes: splash off; Graphics default RP = `Mobile_RPAsset` (the PC asset's shaders were bundled into Android);
