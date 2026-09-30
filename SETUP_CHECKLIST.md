@@ -144,6 +144,11 @@ has no OVRCameraRig/OVRManager. Fix, in the Editor:
       anchors (same setup as the Controller Tracking / Hand Tracking building blocks), skips ones already there,
       and saves the scene. Project config (Hands + Controllers) and the manifest entries for hand tracking are already set.
       On the headset, put the controllers down (or hold them still) for hands to take over, pick them up to switch back.
+- [ ] **Hands are blue / flash peach**: that is Meta's default hand shader (white-to-blue gradient, peach during the
+      system-menu gesture). Run **FYP > Use Neutral Hand Material** in `Main.unity`: it creates
+      `Assets/_Project/Art/Materials/HandNeutral.mat` (one flat skin tone, copied from Meta's material) and uses it for the
+      hand mesh and for the system-gesture swap, then saves the scene. Change the colour by editing **Color Top** and
+      **Color Bottom** on that material (keep them equal). New hands added by the tool get it automatically.
 - [ ] Rebuild and install. On a good run the log contains OpenXR/`XR_` lines and the headset switches to your scene.
 - [ ] Commit and push `Packages/manifest.json`, `Packages/packages-lock.json`, `ProjectSettings/` and `Assets/XR/`.
 
