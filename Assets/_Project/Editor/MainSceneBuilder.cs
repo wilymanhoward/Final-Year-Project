@@ -22,14 +22,7 @@ namespace FYP.Detective.EditorTools
         private const string ControllerPrefabPath = "Packages/com.meta.xr.sdk.core/Prefabs/OVRControllerPrefab.prefab";
         private const string HandPrefabPath =
             "Packages/com.meta.xr.sdk.core/Editor/BuildingBlocks/BlockData/HandTracking/Prefabs/OVRHandPrefabBuildingBlock.prefab";
-        private const string DefaultHandMaterialPath =
-            "Packages/com.meta.xr.sdk.core/Editor/BuildingBlocks/BlockData/HandTracking/Materials/DefaultHandMaterial.mat";
-        private const string NeutralHandMaterialPath = "Assets/_Project/Art/Materials/HandNeutral.mat";
-
-        // One flat skin-like tone (the default hand shader blends white to blue, and swaps to peach on the system gesture).
-        // Only used when HandNeutral.mat is first created; after that, edit the material's Color Top/Bottom in the Inspector.
-        private static readonly Color NeutralHandColor = new Color(0.80f, 0.64f, 0.55f, 1f);
-
+        private const string GhostHandMaterialPath = "Assets/_Project/Art/Materials/HandGhost.mat";
         private const string CaseXPath = "Assets/_Project/Cases/CaseX/CaseX_Definition.asset";
         private const string CaseYPath = "Assets/_Project/Cases/CaseY/CaseY_Definition.asset";
 
@@ -248,15 +241,14 @@ namespace FYP.Detective.EditorTools
             SetInt(instance.GetComponent<OVRHand>(), "HandType", (int)hand);
             SetInt(instance.GetComponent<OVRSkeleton>(), "_skeletonType", (int)hand.AsSkeletonType(version));
             SetInt(instance.GetComponent<OVRMesh>(), "_meshType", (int)hand.AsMeshType(version));
+            ApplyGhostHand(instance);
 
-            var neutral = GetOrCreateNeutralHandMaterial();
-            if (neutral != null) ApplyHandMaterial(instance, neutral);
             return true;
         }
 
-        /// <summary>Gives every hand in the open scene one flat, natural colour (no blue gradient, no peach flash), then saves.</summary>
-        [MenuItem("FYP/Use Neutral Hand Material")]
-        public static void UseNeutralHandMaterialInOpenScene()
+        /// <summary>Gives every hand the translucent grey ghost material with a white outline, then saves the open scene.</summary>
+        [MenuItem("FYP/Use Ghost Hands")]
+        public static void UseGhostHandsInOpenScene()
         {
             var hands = Object.FindObjectsByType<OVRHand>(FindObjectsInactive.Include, FindObjectsSortMode.None);
             if (hands.Length == 0)
@@ -266,44 +258,44 @@ namespace FYP.Detective.EditorTools
                 return;
             }
 
-            var neutral = GetOrCreateNeutralHandMaterial();
-            if (neutral == null)
+            foreach (var hand in hands)
             {
-                EditorUtility.DisplayDialog("Hand material", "Could not find " + DefaultHandMaterialPath, "OK");
-                return;
+                ApplyGhostHand(hand.gameObject);
             }
-
-            foreach (var hand in hands) ApplyHandMaterial(hand.gameObject, neutral);
             EditorSceneManager.MarkSceneDirty(hands[0].gameObject.scene);
             EditorSceneManager.SaveScene(hands[0].gameObject.scene);
             EditorUtility.DisplayDialog("Hand material",
-                $"Applied {NeutralHandMaterialPath} to {hands.Length} hand(s) and saved the scene.\n" +
-                "To change the colour, edit Color Top and Color Bottom on that material (keep them the same).", "OK");
+                $"Applied {GhostHandMaterialPath} to {hands.Length} hand(s) and saved the scene.\n" +
+                "Tune Body Alpha / Outline Width on that material.", "OK");
         }
 
-        private static Material GetOrCreateNeutralHandMaterial()
+        private static Material GetOrCreateGhostHandMaterial()
         {
-            var existing = AssetDatabase.LoadAssetAtPath<Material>(NeutralHandMaterialPath);
+            var existing = AssetDatabase.LoadAssetAtPath<Material>(GhostHandMaterialPath);
             if (existing != null) return existing;
 
-            var source = AssetDatabase.LoadAssetAtPath<Material>(DefaultHandMaterialPath);
-            if (source == null) return null;
-
-            var material = new Material(source) { name = "HandNeutral" };
-            // Top == Bottom removes the white-to-blue gradient across the hand.
-            if (material.HasProperty("_ColorTop")) material.SetColor("_ColorTop", NeutralHandColor);
-            if (material.HasProperty("_ColorBottom")) material.SetColor("_ColorBottom", NeutralHandColor);
-            AssetDatabase.CreateAsset(material, NeutralHandMaterialPath);
+            var shader = Shader.Find("FYP/GhostHand");
+            if (shader == null) return null;
+            var material = new Material(shader) { name = "HandGhost" };
+            AssetDatabase.CreateAsset(material, GhostHandMaterialPath);
             AssetDatabase.SaveAssets();
             return material;
         }
 
-        /// <summary>Uses one material for the hand mesh and for OVRMeshRenderer's system-gesture swap.</summary>
-        private static void ApplyHandMaterial(GameObject hand, Material material)
+        /// <summary>Uses the ghost material for the hand mesh, turns the mesh renderers on, and stops the system-gesture material swap.</summary>
+        private static void ApplyGhostHand(GameObject hand)
         {
+            var material = GetOrCreateGhostHandMaterial();
+            if (material == null)
+            {
+                Debug.LogWarning("[MainSceneBuilder] Shader 'FYP/GhostHand' not found (did Assets/_Project/Art/Shaders/GhostHand.shader compile?).");
+                return;
+            }
+
             var skinned = hand.GetComponentInChildren<SkinnedMeshRenderer>(true);
             if (skinned != null)
             {
+                skinned.enabled = true;
                 var so = new SerializedObject(skinned);
                 var materials = so.FindProperty("m_Materials");
                 if (materials != null && materials.arraySize > 0)
@@ -311,10 +303,17 @@ namespace FYP.Detective.EditorTools
                     materials.GetArrayElementAtIndex(0).objectReferenceValue = material;
                     so.ApplyModifiedPropertiesWithoutUndo();
                 }
+                PrefabUtility.RecordPrefabInstancePropertyModifications(skinned);
             }
 
             var meshRenderer = hand.GetComponentInChildren<OVRMeshRenderer>(true);
-            if (meshRenderer != null) SetObject(meshRenderer, "_systemGestureMaterial", material);
+            if (meshRenderer != null)
+            {
+                meshRenderer.enabled = true;
+                SetObject(meshRenderer, "_systemGestureMaterial", material);
+                SetInt(meshRenderer, "_systemGestureBehavior", (int)OVRMeshRenderer.SystemGestureBehavior.None);
+                PrefabUtility.RecordPrefabInstancePropertyModifications(meshRenderer);
+            }
         }
 
         private static void SetInt(Object target, string fieldName, int value)
