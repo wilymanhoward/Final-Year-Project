@@ -269,7 +269,7 @@ namespace FYP.Detective.EditorTools
                 "Tune Body Alpha / Outline Width on that material.", "OK");
         }
 
-        private static Material GetOrCreateGhostHandMaterial()
+        internal static Material GetOrCreateGhostHandMaterial()
         {
             var existing = AssetDatabase.LoadAssetAtPath<Material>(GhostHandMaterialPath);
             if (existing != null) return existing;

@@ -4,7 +4,11 @@
     "references": [
         "FYP.Detective",
         "Oculus.VR",
-        "Oculus.VR.Editor"
+        "Oculus.VR.Editor",
+        "Oculus.Interaction",
+        "Oculus.Interaction.OVR",
+        "Oculus.Interaction.Editor",
+        "Oculus.Interaction.OVR.Editor"
     ],
     "includePlatforms": [
         "Editor"
