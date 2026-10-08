@@ -73,6 +73,14 @@ namespace FYP.Detective.Tests
             var r = AnswerChecker.Check("s", null, "s", null);
             Assert.IsTrue(r.IsCorrect);
         }
+
+        [Test]
+        public void CorrectEvidence_AndKeyTotal()
+        {
+            var r = AnswerChecker.Check("butler", Key, "butler", new[] { "letter", "cup" });
+            CollectionAssert.AreEqual(new[] { "letter" }, r.CorrectEvidenceIds);
+            Assert.AreEqual(2, r.KeyEvidenceTotal);
+        }
     }
 
     public class CaseStateTests
@@ -137,7 +145,22 @@ namespace FYP.Detective.Tests
             s.Begin();
             Assert.AreEqual(0, s.FoundClues.Count);
             Assert.AreEqual(0, s.ContaminationErrors);
+            Assert.AreEqual(0, s.ContaminationCount(BodyPart.Head));
             Assert.IsNull(s.EndReason);
+        }
+
+        [Test]
+        public void Contamination_IsCountedPerBodyPart()
+        {
+            var s = new CaseState();
+            s.Begin();
+            s.RecordContamination("z1", BodyPart.Head);
+            s.RecordContamination("z2", BodyPart.RightHand);
+            s.RecordContamination("z1", BodyPart.RightHand);
+            Assert.AreEqual(3, s.ContaminationErrors);
+            Assert.AreEqual(1, s.ContaminationCount(BodyPart.Head));
+            Assert.AreEqual(0, s.ContaminationCount(BodyPart.LeftHand));
+            Assert.AreEqual(2, s.ContaminationCount(BodyPart.RightHand));
         }
     }
 

@@ -14,6 +14,24 @@ namespace FYP.Detective
 
         public bool HasRightHand;
         public Vector3 RightHandPosition;
+
+        /// <summary>
+        /// Same sample expressed in the frame of <paramref name="origin"/> / <paramref name="rotation"/>
+        /// (e.g. CaseRoot). Missing parts stay missing.
+        /// </summary>
+        public PoseSample ToLocal(Vector3 origin, Quaternion rotation)
+        {
+            var inverse = Quaternion.Inverse(rotation);
+            var local = this;
+            if (HasHead)
+            {
+                local.HeadPosition = inverse * (HeadPosition - origin);
+                local.HeadRotation = inverse * HeadRotation;
+            }
+            if (HasLeftHand) local.LeftHandPosition = inverse * (LeftHandPosition - origin);
+            if (HasRightHand) local.RightHandPosition = inverse * (RightHandPosition - origin);
+            return local;
+        }
     }
 
     /// <summary>One CSV row: either a 10 Hz "sample" or a discrete "event".</summary>
@@ -42,5 +60,9 @@ namespace FYP.Detective
         public const string ErrorContamination = "error_contamination";
         public const string ErrorReasoning = "error_reasoning";
         public const string AnswerSubmitted = "answer_submitted";
+        public const string PlacementSet = "placement_set";
+        public const string PlacementLoaded = "placement_loaded";
+        public const string AppPaused = "app_paused";
+        public const string AppResumed = "app_resumed";
     }
 }

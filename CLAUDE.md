@@ -37,7 +37,7 @@ Read this first in every session. Update **Current status** at the end of each s
 
 ### Data
 - CSV in `Application.persistentDataPath`
-  (on Quest: `/sdcard/Android/data/<package id>/files/`).
+  (on Quest: `/sdcard/Android/data/com.xmum.fyp.detective/files/`). Package id: **`com.xmum.fyp.detective`**.
 - Filename: `{pairCode}_{participantId}_{condition}_{case}_{yyyyMMdd_HHmmss}.csv`, plus a
   `..._summary.csv` with one row of totals per run.
 - Flushed to disk every 1 s, on every event, and on app pause/focus loss/quit.
@@ -53,8 +53,11 @@ Read this first in every session. Update **Current status** at the end of each s
 | `com.unity.xr.openxr` | 1.16.1 | Android loader = `OpenXRLoader`; enabled features: Meta XR Feature, Foveation, Subsampled Layout, SpaceWarp, Oculus Touch profile |
 | `com.unity.xr.management` / `core-utils` / `hands` | 4.6.1 / 2.6.0 / 1.7.3 | dependencies only (Unity XR Hands OpenXR feature is OFF) |
 
-Not installed: AR Foundation, `com.unity.xr.meta-openxr`, **Netcode for GameObjects** (needed for Week 3;
-adding it is a package change, ask first).
+Not installed: AR Foundation, `com.unity.xr.meta-openxr`, **Netcode for GameObjects**.
+
+**Package decisions (user, session 3):**
+- **Netcode for GameObjects: approved, but install it in the Week 3 session**, not before.
+- **MRUK: do not use in Week 2.** Placement is head-based + `OVRSpatialAnchor` only.
 
 **Anchor / colocation API in this stack** (signatures checked in the installed 207 source):
 - Local anchors: `OVRSpatialAnchor` component; `SaveAnchorAsync()`, `OVRSpatialAnchor.LoadUnboundAnchorsAsync(...)`,
@@ -66,7 +69,7 @@ adding it is a package change, ask first).
   `OVRColocationSession.ColocationSessionDiscovered` event.
 - Building Blocks available in core: `SpatialAnchorCore`, `SharedSpatialAnchorCore`,
   `MultiplayerBlocks/Shared/Colocation` (+ NGO and Photon Fusion variants). The NGO variant needs Netcode.
-- MR Utility Kit (MRUK) is installed but unused: an option for Week 2 placement (floor/table detection).
+- MR Utility Kit (MRUK) is installed (part of `sdk.all`) but not used (see decisions above).
 
 ## Rules for Claude
 - Before using any Meta XR SDK class or method, verify it exists in the installed package source
@@ -101,22 +104,29 @@ adding it is a package change, ask first).
 - Doc comments (`///`) on every public type; short inline comments only where the *why* isn't obvious.
 - **No Meta SDK types in `FYP.Detective` (runtime).** Meta components call our public methods through
   UnityEvents wired in the Inspector. That keeps the core assembly compiling and tests running without the SDK.
-  If direct runtime SDK references become necessary, put them in a separate `FYP.Detective.Meta` assembly.
-  The Editor-only assembly `FYP.Detective.Editor` may reference Meta (it does: `Oculus.VR(.Editor)`,
-  `Oculus.Interaction(.OVR)(.Editor)`).
+  Runtime code that needs Meta types lives in **`FYP.Detective.Meta`** (`Scripts/Meta/`, namespace
+  `FYP.Detective.Meta`, refs `FYP.Detective` + `Oculus.VR`). The Editor-only assembly `FYP.Detective.Editor` may
+  reference Meta (`Oculus.VR(.Editor)`, `Oculus.Interaction(.OVR)(.Editor)`, `FYP.Detective.Meta`, `UnityEngine.UI`).
+- Scene setup is done only through **FYP/... Editor menu items** (run by the user) or listed manual steps.
+  Never hand-edit `.unity`/`.prefab`/`.asset` YAML. Menu tools must be idempotent.
+- Every Meta API used must be verified in the installed 207 source; name the file in a comment.
 
 ## Architecture (Assets/_Project)
 
 ```
-Scripts/ (FYP.Detective.asmdef, references Unity.InputSystem)
-  Core/        StudyEnums, ExperimentConfig, CaseState, CaseDefinition (SO), AnswerChecker, PlayerRig
+Scripts/ (FYP.Detective.asmdef, references Unity.InputSystem, UnityEngine.UI)
+  Core/        StudyEnums, ExperimentConfig, CaseState, CaseDefinition (SO), AnswerChecker, PlayerRig,
+               CaseRoot, PlacementMath, PlacementRecord (+PlacementMethod)
   Experiment/  SessionTimer, SessionManager, ExperimentConfigStore
-  Logging/     PoseSample (+LogRow, LogEvents), CsvFormatter, CsvLogWriter, DataLogger
+  Logging/     PoseSample (+LogRow, LogEvents), CsvFormatter, CsvLogWriter, DataLogger,
+               SessionMeta (+BuildInfo), SessionMetaBuilder
   Interaction/ ZoneEntryTracker, FloorFootprint, ExclusionZone, Clue
-  UI/          EvidenceSelection, EvidenceBoard, ExperimenterPanel
+  UI/          EvidenceSelection, EvidenceBoard, ExperimenterPanel, StatusLabel
+  Meta/        (FYP.Detective.Meta.asmdef) ScenePlacement, ExperimenterControllerShortcuts
 Editor/ (FYP.Detective.Editor.asmdef, Editor-only)
-  MainSceneBuilder  menus: FYP > Create Main Scene / Add Controllers and Hands to Rig / Use Ghost Hands
-  GrabSetupTool     menu:  FYP > Make Selected Object Grabbable
+  MainSceneBuilder    menus: FYP > Create Main Scene / Add Controllers and Hands to Rig / Use Ghost Hands
+  GrabSetupTool       menu:  FYP > Make Selected Object Grabbable
+  PlacementSetupTool  menu:  FYP > Set Up Case Root and Placement
 Tests/ (FYP.Detective.Tests.asmdef, Editor-only, EditMode NUnit)
 Art/Shaders/GhostHand.shader (URP, "FYP/GhostHand")   Art/Materials/HandGhost.mat
 Scenes/Main.unity   Cases/{CaseX,CaseY}/CaseX|Y_Definition.asset (placeholder data)   Prefabs/ (empty)
@@ -126,6 +136,8 @@ Data flow:
 `ExperimenterPanel → SessionManager (owns CaseState + SessionTimer) → events → DataLogger`
 `Clue / ExclusionZone / EvidenceBoard → CaseState methods → CaseState events → DataLogger`
 `PlayerRig` (CenterEyeAnchor / LeftHandAnchor / RightHandAnchor) is read by `DataLogger` and `ExclusionZone`.
+`ScenePlacement → CaseRoot (pose / anchor child) + SessionManager.SetPlacement(PlacementRecord) → DataLogger`
+`DataLogger` writes positions relative to `CaseRoot`, and `{base}_meta.json` (`SessionMeta`) at session start and end.
 
 ### Design decisions (confirm with the user if in doubt)
 - **Completed** = the session ended because an answer was submitted before the cap. Correctness is separate
@@ -138,9 +150,32 @@ Data flow:
   part that triggered it is logged. Only counted while a session is running.
 - **Clue found** = first Interaction SDK select (grab) in a run. **Tagging implies found.**
 - **Timing** uses `Time.realtimeSinceStartupAsDouble` (not affected by timeScale). Elapsed is clamped to the cap.
+- **Pauses (user decision, session 4):** total time keeps running while the app is paused (headset off / background;
+  Unity stops updating, so there are no samples). Paused time is tracked separately (`PauseTracker`, from
+  `OnApplicationPause`): `active_s = elapsed_s - paused_s`, plus `paused_s` and `pause_count`, in the summary CSV and
+  meta JSON. **Use active time for analysis.** `app_paused` / `app_resumed` event rows mark each gap. The time cap
+  still applies to total time.
+- **No session without a summary:** while running, `_summary.csv` and `_meta.json` are written at start, every 5 s
+  and on every pause with end reason **`Interrupted`**, then overwritten at the real end. `SessionEndReason`:
+  Submitted, TimeCap, Aborted (experimenter), Interrupted (app closed mid-session, `OnApplicationQuit`). A file still
+  saying Interrupted means the app was killed or crashed.
+- **Start requires a placement** (`SessionManager.requirePlacement`, default on); the refusal reason is shown via
+  `ExperimenterPanel.BuildStatus()` ("not started: Place the scene first").
 - Log rows = `sample` (10 Hz) or `event`, in one file. Event rows also carry the current pose.
   Missing tracking = empty cells, never zeros. `head_yaw_deg`/`head_pitch_deg` are computed from the head
   forward vector (for future head-gaze analysis). `frame_dt_ms` lets you check fps from the log.
+- **Placement (Phase A):** experimenter stands on the taped floor mark facing the front wall and presses
+  Place Scene Here. CaseRoot = head (x,z) at floor height (TrackingSpace y; tracking origin = Floor Level, checked
+  in `Main.unity`), rotation = head yaw only. Anchor flow: create `OVRSpatialAnchor` → `WhenLocalizedAsync` →
+  `SaveAnchorAsync` → UUID in PlayerPrefs (`FYP.Detective.CaseAnchorUuid`); CaseRoot becomes a child of the anchor
+  object. Load = `LoadUnboundAnchorsAsync` → `LocalizeAsync` → `BindTo`. Manual = same pose, no anchor. Clear =
+  `EraseAnchorsAsync` + delete the PlayerPrefs key + CaseRoot back to origin. 15 s timeout → "Anchor failed - use
+  Manual". Placement is refused while a session runs. Placement happens before a run (no log file open), so
+  `placement_set`/`placement_loaded` is written right after `session_start` with `at_utc` = when it happened.
+- **Logged positions** (10 Hz samples and event rows) are CaseRoot-local; head rotation/yaw/pitch too.
+  CSV columns are unchanged; `session_start` detail has `frame=CaseRoot|world` and the meta JSON `positionFrame`.
+- **Evidence score** (meta JSON, to confirm with the user) = number of key evidence items submitted
+  (`evidenceScore` of `evidenceScoreMax`); wrong items are `wrongEvidenceCount` (and reasoning errors).
 - **Hand look:** participants see translucent dark "ghost" hands with a white rim (custom shader
   `FYP/GhostHand`: depth prepass + alpha-blended fresnel rim; tune Body Colour/Alpha and Outline Width/Sharpness
   on `HandGhost.mat`). The OVRHand system-gesture material swap is set to None.
@@ -161,7 +196,16 @@ Data flow:
   `LeftControllerAnchor`, `RightControllerAnchor`.
 - `OVRCameraRig.prefab`, `PassthroughUnderlay.prefab`, `OVRManager.isInsightPassthroughEnabled`,
   `OVRManager.trackingOriginType` / `TrackingOrigin.FloorLevel`, `OVRProjectConfig` hand-tracking/passthrough settings.
-- Anchors / colocation: see **XR stack** above.
+- Anchors / colocation: see **XR stack** above. Used in Phase A (`Scripts/OVRSpatialAnchor.cs`):
+  `AddComponent<OVRSpatialAnchor>()`, `WhenLocalizedAsync()`, `Uuid`, `SaveAnchorAsync()`,
+  `LoadUnboundAnchorsAsync(IEnumerable<Guid>, List<UnboundAnchor>)`, `UnboundAnchor.Localized/LocalizeAsync()/
+  TryGetPose/BindTo`, `EraseAnchorsAsync(IEnumerable<OVRSpatialAnchor>, IEnumerable<Guid>)`; results are
+  `OVRResult<…>.Success/.Status` (`Scripts/Util/Async/OVRResult.cs`), awaitable `OVRTask` (`Scripts/Util/Async/OVRTask.cs`).
+  Load pattern copied from `Scripts/BuildingBlocks/SpatialAnchorManagerBlockScripts/SpatialAnchorCoreBuildingBlock.cs`.
+- `OVRInput.Get/GetDown(Button, Controller)` with `Button.One/Two/PrimaryThumbstick`, `Controller.LTouch/RTouch`
+  (`Scripts/OVRInput.cs`). `OVRManager.TrackingOrigin.FloorLevel` (`Scripts/OVRManager.cs`).
+- Project config: `anchorSupport = Enabled` (`Assets/Oculus/OculusProjectConfig.asset`), manifest has
+  `com.oculus.permission.USE_ANCHOR_API`. `sharedAnchorSupport` is still 0 (needed in Week 3).
 - Not yet verified: `OVRHand.IsTracked` behaviour for logging (do untracked hand anchors freeze at the last pose?).
 
 ## How to test
@@ -173,7 +217,8 @@ Data flow:
 
 ## Current status
 
-_Last updated: session 3 (status refresh + Week 2 audit, 2026-10-07)._
+_Last updated: session 4 (Week 2 Phase A, 2026-10-08). Week 2 work runs in phases A–E; stop after each phase
+for the user's "next", commit only after the user confirms the phase works on the headset._
 
 **Done (sessions 1–3)**
 - Foundation (session 1): folder structure, 3 asmdefs, 20 runtime scripts, EditMode tests, `SETUP_CHECKLIST.md`,
@@ -189,6 +234,28 @@ _Last updated: session 3 (status refresh + Week 2 audit, 2026-10-07)._
 - Grab tool (commit 56b4577): **FYP > Make Selected Object Grabbable** calls `OVRQuickActionsAPI.AddOVRInteractionRig()`
   if no ISDK rig exists, then `QuickActionsAPI.AddGrabInteraction(target)`, then puts the ghost material on the ISDK
   hand meshes and saves the scene. Compiles (session 3 batch run); **not yet run/saved into `Main.unity`**.
+- Grab tool applied to the test cube and saved (commit efd0564, includes `Assets/InteractionSDK/ComprehensiveInteractors.prefab`
+  created by Meta's rig wizard). User confirmed grabbing works and the ghost hands look right on the headset.
+- **Week 2 Phase A (session 4): CaseRoot + placement.** `CaseRoot`, `PlacementMath`, `PlacementRecord`,
+  `SessionMeta(+Builder)`, `StatusLabel`; `FYP.Detective.Meta` assembly with `ScenePlacement` (anchor/load/manual/clear)
+  and `ExperimenterControllerShortcuts` (A place, B load, X manual, hold Y clear, hold right stick start, hold left stick
+  abort); menu **FYP > Set Up Case Root and Placement**. Extended (not rewritten): `DataLogger` (CaseRoot-local
+  poses, placement event, meta JSON), `SessionManager` (`Placement`, `SetPlacement`, `EndUtc`), `CaseState`
+  (`ContaminationCount(BodyPart)`), `AnswerResult` (`CorrectEvidenceIds`, `KeyEvidenceTotal`). Batch tests 77/77.
+  Headset test 1: anchor created but `SaveAnchorAsync` returned `FailurePermissionInsufficient` (documented in
+  `Scripts/OVRAnchor/OVRAnchor.cs` as "user has not granted all the required permissions"). The only runtime
+  permission involved is Spatial data `com.oculus.permission.USE_SCENE`; the user enabled it in the headset settings
+  (`dumpsys package` then showed `granted=true, USER_SET`). Fix: `ScenePlacement` checks
+  `OVRPermissionsRequester.IsPermissionGranted(Permission.Scene)` before Place/Load and requests it with Unity's
+  `UnityEngine.Android.Permission.RequestUserPermission(…, PermissionCallbacks)` (granted/denied/dismissed → status).
+  Headset test 2 (logcat capture): placement, anchors, CaseRoot-local logging (head 0/0, yaw ~0 on the mark), meta,
+  10 Hz while focused all OK. Problems found and fixed: the stick-click shortcuts misfired (left hold never aborted,
+  59 repeated starts) → now physical `OVRInput.RawButton` A/B/X/Y/LThumbstick/RThumbstick with `Controller.Touch`,
+  start = hold right stick, every shortcut logged as `[Shortcuts] …`; a session could start without placement → now
+  refused; pauses left 51–92 s sample gaps unexplained → pause events + active time; a run left "Running" with no
+  summary → snapshots marked Interrupted.
+  User's own settings (kept, in the Phase A commit): package id `com.xmum.fyp.detective`,
+  `sharedAnchorSupport`/`colocationSessionSupport` = Supported, `allowVisibilityMesh` = 1.
 - **Tests (session 3): first run inside Unity, batch mode: 60/60 passed** (AnswerChecker 8, CaseState 5,
   CsvFormatter 18, CsvLogWriter 2, EvidenceSelection 1, ExperimentConfig 10, FloorFootprint 4, SessionTimer 3,
   ZoneEntryTracker 9). No compile errors or warnings from `Assets/_Project`.
@@ -219,7 +286,7 @@ Grab tool vs. "clue found": the tool doesn't add `InteractableUnityEventWrapper`
 2. Delete template content (`TutorialInfo/`, `Readme.asset`, `Scenes/SampleScene`) and `HandNeutral.mat`? Currently kept.
 3. Confirm the reasoning-error rule above.
 4. OK to add Netcode for GameObjects (needed for Week 3 colocation)?
-5. Rename the package id from `com.UnityTechnologies.com.unity.template.urpblank` before the study builds.
+5. (Done, user) Package id renamed to `com.xmum.fyp.detective`.
 
 **Next up (Week 2)**
 - `CaseRoot` + scene placement (local `OVRSpatialAnchor`, optionally MRUK floor/table); log positions CaseRoot-local.

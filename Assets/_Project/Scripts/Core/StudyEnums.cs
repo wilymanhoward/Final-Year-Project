@@ -29,7 +29,13 @@ namespace FYP.Detective
     {
         Submitted = 0,
         TimeCap = 1,
+        /// <summary>Ended on purpose by the experimenter.</summary>
         Aborted = 2,
+        /// <summary>
+        /// The app was closed mid-session. Also written to the summary/meta files while a session is still
+        /// running, so a run that is killed or crashes is left marked "Interrupted".
+        /// </summary>
+        Interrupted = 3,
     }
 
     /// <summary>Which tracked point entered an exclusion zone.</summary>

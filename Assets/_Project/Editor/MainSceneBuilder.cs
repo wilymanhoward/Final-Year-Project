@@ -370,7 +370,7 @@ namespace FYP.Detective.EditorTools
         }
 
         /// <summary>Sets a private [SerializeField] object reference by field name.</summary>
-        private static void SetObject(Object target, string fieldName, Object value)
+        internal static void SetObject(Object target, string fieldName, Object value)
         {
             var so = new SerializedObject(target);
             var prop = so.FindProperty(fieldName);
@@ -383,7 +383,7 @@ namespace FYP.Detective.EditorTools
             so.ApplyModifiedPropertiesWithoutUndo();
         }
 
-        private static Transform FindDeep(Transform root, string name)
+        internal static Transform FindDeep(Transform root, string name)
         {
             foreach (Transform child in root)
             {

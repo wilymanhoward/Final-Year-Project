@@ -30,6 +30,7 @@ namespace FYP.Detective
         private readonly HashSet<string> _tagged = new HashSet<string>(StringComparer.Ordinal);
         private readonly Dictionary<string, int> _contaminationByZone = new Dictionary<string, int>(StringComparer.Ordinal);
         private readonly List<string> _submittedEvidence = new List<string>();
+        private readonly int[] _contaminationByPart = new int[3];   // indexed by BodyPart
 
         public SessionPhase Phase { get; private set; } = SessionPhase.NotStarted;
         public double ElapsedSeconds { get; private set; }
@@ -51,6 +52,28 @@ namespace FYP.Detective
 
         public bool IsRunning => Phase == SessionPhase.Running;
 
+        /// <summary>Time the app was paused during the run (headset off, app in background).</summary>
+        public double PausedSeconds { get; private set; }
+        public int PauseCount { get; private set; }
+
+        /// <summary>Elapsed time minus paused time. Use this for analysis.</summary>
+        public double ActiveSeconds => Math.Max(0, ElapsedSeconds - PausedSeconds);
+
+        /// <summary>Updated by the session manager on pause/resume and at the end. Ignored when not running.</summary>
+        public void SetPauseStats(double pausedSeconds, int pauseCount)
+        {
+            if (!IsRunning) return;
+            PausedSeconds = Math.Max(0, pausedSeconds);
+            PauseCount = Math.Max(0, pauseCount);
+        }
+
+        /// <summary>Contamination entries triggered by one body part (head, left hand, right hand).</summary>
+        public int ContaminationCount(BodyPart part)
+        {
+            int i = (int)part;
+            return i >= 0 && i < _contaminationByPart.Length ? _contaminationByPart[i] : 0;
+        }
+
         public bool IsClueFound(string clueId) => clueId != null && _found.Contains(clueId);
         public bool IsClueTagged(string clueId) => clueId != null && _tagged.Contains(clueId);
 
@@ -69,8 +92,11 @@ namespace FYP.Detective
             _tagged.Clear();
             _contaminationByZone.Clear();
             _submittedEvidence.Clear();
+            Array.Clear(_contaminationByPart, 0, _contaminationByPart.Length);
             Phase = SessionPhase.NotStarted;
             ElapsedSeconds = 0;
+            PausedSeconds = 0;
+            PauseCount = 0;
             EndReason = null;
             ContaminationErrors = 0;
             ReasoningErrors = 0;
@@ -140,6 +166,8 @@ namespace FYP.Detective
             zoneId = zoneId ?? string.Empty;
             _contaminationByZone.TryGetValue(zoneId, out int count);
             _contaminationByZone[zoneId] = count + 1;
+            int part = (int)bodyPart;
+            if (part >= 0 && part < _contaminationByPart.Length) _contaminationByPart[part]++;
             ContaminationErrors++;
             ContaminationRecorded?.Invoke(new ContaminationInfo(zoneId, bodyPart, ElapsedSeconds));
             Changed?.Invoke();

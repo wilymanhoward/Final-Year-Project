@@ -90,6 +90,8 @@ namespace FYP.Detective
             var c = session.Config;
             var s = session.State;
             string phase = s.Phase == SessionPhase.Ended ? "Ended (" + s.EndReason + ")" : s.Phase.ToString();
+            if (!s.IsRunning && !string.IsNullOrEmpty(session.LastStartError))
+                phase += " - not started: " + session.LastStartError;
             return string.Format(CultureInfo.InvariantCulture,
                 "{0} | {1} | Cond {2} | Case {3}\n{4}  {5} / {6}\nClues {7} found, {8} tagged | Contam {9} | Reason {10}",
                 c.pairCode, c.participantId, c.ConditionCode, c.CaseCode,

@@ -115,11 +115,17 @@ namespace FYP.Detective
             "submitted_suspect", "suspect_correct",
             "submitted_evidence", "wrong_evidence", "missing_evidence",
             "contamination_by_zone",
+            "active_s", "paused_s", "pause_count",
         };
 
         public static string SummaryHeader => string.Join(Separator, SummaryColumns);
 
-        public static string FormatSummary(CaseState state, ExperimentConfig config, string caseTitle, DateTime startUtc)
+        /// <summary>
+        /// One summary row. <paramref name="endReasonOverride"/> replaces end_reason, e.g. "Interrupted" for the
+        /// snapshot written while a session is still running.
+        /// </summary>
+        public static string FormatSummary(CaseState state, ExperimentConfig config, string caseTitle, DateTime startUtc,
+            string endReasonOverride = null)
         {
             var inv = CultureInfo.InvariantCulture;
             var r = state.LastResult;
@@ -127,7 +133,7 @@ namespace FYP.Detective
             {
                 config?.pairCode, config?.participantId, config?.ConditionCode, config?.CaseCode, caseTitle,
                 startUtc.ToUniversalTime().ToString(UtcFormat, inv),
-                state.EndReason.HasValue ? state.EndReason.Value.ToString() : "",
+                endReasonOverride ?? (state.EndReason.HasValue ? state.EndReason.Value.ToString() : ""),
                 Bool(state.Completed),
                 Bool(r != null && r.IsCorrect),
                 state.ElapsedSeconds.ToString(TimeFormat, inv),
@@ -142,6 +148,9 @@ namespace FYP.Detective
                 r != null ? JoinIds(r.WrongEvidenceIds) : "",
                 r != null ? JoinIds(r.MissingEvidenceIds) : "",
                 JoinZoneCounts(state.ContaminationByZone),
+                state.ActiveSeconds.ToString(TimeFormat, inv),
+                state.PausedSeconds.ToString(TimeFormat, inv),
+                state.PauseCount.ToString(inv),
             };
             var sb = new StringBuilder(256);
             for (int i = 0; i < cells.Length; i++)

@@ -1,0 +1,17 @@
+{
+    "name": "FYP.Detective.Meta",
+    "rootNamespace": "FYP.Detective.Meta",
+    "references": [
+        "FYP.Detective",
+        "Oculus.VR"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
