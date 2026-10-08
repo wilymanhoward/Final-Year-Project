@@ -175,8 +175,28 @@ namespace FYP.Detective.Tests
             var cells = Split(line);
             Assert.AreEqual(CsvFormatter.SummaryColumns.Length, cells.Length, line);
             Assert.AreEqual(
-                "G03,P05,B,Y,Case Y,2026-10-01T14:00:00.000Z,Submitted,1,0,100.500,900,2,1,2,1,s1,1,c1;c2,c1,,z1=2",
+                "G03,P05,B,Y,Case Y,2026-10-01T14:00:00.000Z,Submitted,1,0,100.500,900,2,1,2,1,s1,1,c1;c2,c1,,z1=2,100.500,0.000,0",
                 line);
+        }
+
+        [Test]
+        public void Summary_Snapshot_UsesOverrideAndPauseColumns()
+        {
+            var state = new CaseState();
+            state.Begin();
+            state.SetElapsed(60);
+            state.SetPauseStats(12.25, 2);
+
+            string line = CsvFormatter.FormatSummary(state, Config(), "Case Y",
+                new DateTime(2026, 10, 1, 14, 0, 0, DateTimeKind.Utc), SessionMeta.InterruptedReason);
+            var cells = Split(line);
+            Assert.AreEqual(CsvFormatter.SummaryColumns.Length, cells.Length, line);
+            Assert.AreEqual("Interrupted", cells[Array.IndexOf(CsvFormatter.SummaryColumns, "end_reason")]);
+            Assert.AreEqual("0", cells[Array.IndexOf(CsvFormatter.SummaryColumns, "completed")]);
+            Assert.AreEqual("60.000", cells[Array.IndexOf(CsvFormatter.SummaryColumns, "elapsed_s")]);
+            Assert.AreEqual("47.750", cells[Array.IndexOf(CsvFormatter.SummaryColumns, "active_s")]);
+            Assert.AreEqual("12.250", cells[Array.IndexOf(CsvFormatter.SummaryColumns, "paused_s")]);
+            Assert.AreEqual("2", cells[Array.IndexOf(CsvFormatter.SummaryColumns, "pause_count")]);
         }
     }
 }

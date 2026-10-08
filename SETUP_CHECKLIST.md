@@ -94,11 +94,22 @@ The IMGUI window only shows in the Editor/Link. For standalone runs:
       `ToggleCondition`, `ToggleCase`, `NextParticipant`, `PreviousParticipant`, `NextPair`, `StartSession`,
       `AbortSession`, `ResetSession`; `onStatusChanged` → a `TMP_Text.text`.
 - [ ] Or preset codes without rebuilding: edit `experiment_config.json` and
-      `adb push experiment_config.json /sdcard/Android/data/<package id>/files/`.
+      `adb push experiment_config.json /sdcard/Android/data/com.xmum.fyp.detective/files/`.
 
 ## 11. Fit the room
 - [ ] Keep all content inside a **4 x 4 m** area centred on the origin, with at least 0.5 m clearance from walls.
 - [ ] Sketch the walking paths so exclusion zones are avoidable.
+
+## 11a. CaseRoot and placement (Week 2 Phase A)
+- [ ] Tracking origin is already **Floor Level** in `Main.unity` (OVRCameraRig > OVRManager > Tracking Origin Type).
+      Leave it; placement uses the TrackingSpace height as the floor.
+- [ ] With `Main.unity` open, run **FYP > Set Up Case Root and Placement**. It adds `CaseRoot` (and moves the test
+      cube under it), `ScenePlacement` + `ExperimenterControllerShortcuts` on `SessionSystems`, a status label, and
+      saves the scene. Running it again is safe.
+- [ ] All future case content (furniture, clues, zones, evidence board) goes **under CaseRoot**.
+- [ ] Tape a floor mark in the lab and decide the "front wall". The experimenter stands on the mark facing it and
+      presses **A** on the right controller (Place Scene Here). **B** = load saved, **X** = manual, hold **Y** = clear,
+      hold the right stick (1.5 s) = start, hold the left stick (1.5 s) = abort. Starting is refused until the scene is placed.
 
 ## 12. Editor test (no headset)
 - [ ] Press Play. The Experimenter window appears top-left. **F5** start, **F6** abort, **F7** reset, **F8** hide window.
@@ -110,7 +121,7 @@ The IMGUI window only shows in the Editor/Link. For standalone runs:
 - [ ] Build And Run with the headset connected (developer mode on).
 - [ ] Check passthrough, grabbing (hands and controllers), clue_found in the log, and zone entries.
 - [ ] Measure fps with the **OVR Metrics Tool** (or the `frame_dt_ms` column): target ≥ 72 fps (≤ 13.9 ms).
-- [ ] Pull data: `adb pull /sdcard/Android/data/<package id>/files/ ./StudyData/` (the `StudyData/` folder is gitignored).
+- [ ] Pull data: `adb pull /sdcard/Android/data/com.xmum.fyp.detective/files/ ./StudyData/` (the `StudyData/` folder is gitignored).
 
 ## 14. Commit
 - [ ] Commit scenes, prefabs, CaseDefinition assets, ProjectSettings changes and all `.meta` files. Push.

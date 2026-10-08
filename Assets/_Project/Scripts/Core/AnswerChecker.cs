@@ -14,6 +14,12 @@ namespace FYP.Detective
         /// <summary>Key evidence ids that were not submitted.</summary>
         public IReadOnlyList<string> MissingEvidenceIds { get; }
 
+        /// <summary>Submitted evidence ids that are key evidence.</summary>
+        public IReadOnlyList<string> CorrectEvidenceIds { get; }
+
+        /// <summary>Number of key evidence items in the case (correct + missing).</summary>
+        public int KeyEvidenceTotal => CorrectEvidenceIds.Count + MissingEvidenceIds.Count;
+
         /// <summary>Right suspect, all key evidence, no wrong evidence.</summary>
         public bool IsCorrect => SuspectCorrect && WrongEvidenceIds.Count == 0 && MissingEvidenceIds.Count == 0;
 
@@ -23,11 +29,13 @@ namespace FYP.Detective
         /// </summary>
         public int ReasoningErrorCount => (SuspectCorrect ? 0 : 1) + WrongEvidenceIds.Count;
 
-        public AnswerResult(bool suspectCorrect, IReadOnlyList<string> wrongEvidenceIds, IReadOnlyList<string> missingEvidenceIds)
+        public AnswerResult(bool suspectCorrect, IReadOnlyList<string> wrongEvidenceIds, IReadOnlyList<string> missingEvidenceIds,
+            IReadOnlyList<string> correctEvidenceIds = null)
         {
             SuspectCorrect = suspectCorrect;
             WrongEvidenceIds = wrongEvidenceIds ?? Array.Empty<string>();
             MissingEvidenceIds = missingEvidenceIds ?? Array.Empty<string>();
+            CorrectEvidenceIds = correctEvidenceIds ?? Array.Empty<string>();
         }
     }
 
@@ -47,9 +55,11 @@ namespace FYP.Detective
             var submitted = ToSet(submittedEvidenceIds);
 
             var wrong = new List<string>();
+            var correct = new List<string>();
             foreach (var id in submitted)
             {
-                if (!key.Contains(id)) wrong.Add(id);
+                if (key.Contains(id)) correct.Add(id);
+                else wrong.Add(id);
             }
 
             var missing = new List<string>();
@@ -61,7 +71,8 @@ namespace FYP.Detective
             // Sorted so logs are deterministic regardless of selection order.
             wrong.Sort(StringComparer.Ordinal);
             missing.Sort(StringComparer.Ordinal);
-            return new AnswerResult(suspectCorrect, wrong, missing);
+            correct.Sort(StringComparer.Ordinal);
+            return new AnswerResult(suspectCorrect, wrong, missing, correct);
         }
 
         private static string Normalize(string id) => id?.Trim() ?? string.Empty;

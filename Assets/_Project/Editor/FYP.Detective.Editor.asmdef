@@ -8,7 +8,9 @@
         "Oculus.Interaction",
         "Oculus.Interaction.OVR",
         "Oculus.Interaction.Editor",
-        "Oculus.Interaction.OVR.Editor"
+        "Oculus.Interaction.OVR.Editor",
+        "FYP.Detective.Meta",
+        "UnityEngine.UI"
     ],
     "includePlatforms": [
         "Editor"

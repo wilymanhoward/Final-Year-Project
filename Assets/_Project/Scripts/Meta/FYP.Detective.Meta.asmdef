@@ -1,9 +1,9 @@
 {
-    "name": "FYP.Detective",
-    "rootNamespace": "FYP.Detective",
+    "name": "FYP.Detective.Meta",
+    "rootNamespace": "FYP.Detective.Meta",
     "references": [
-        "Unity.InputSystem",
-        "UnityEngine.UI"
+        "FYP.Detective",
+        "Oculus.VR"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
