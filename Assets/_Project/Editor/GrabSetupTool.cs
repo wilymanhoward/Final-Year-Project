@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Oculus.Interaction;
 using Oculus.Interaction.Editor.QuickActions;
 using Oculus.Interaction.OVR.Editor.QuickActions;
@@ -8,62 +9,125 @@ using UnityEngine;
 namespace FYP.Detective.EditorTools
 {
     /// <summary>
-    /// Makes an object grabbable with the Meta Interaction SDK, using Meta's own Quick Actions API
-    /// (the same code as right-click > Interaction SDK > Add Grab Interaction). No custom grab code.
+    /// Turns the selected objects into clues using Meta's own Quick Actions API (the same code as right-click >
+    /// Interaction SDK > Add Grab / Poke Interaction). No custom grab code. Each run is idempotent: it only adds
+    /// what is missing (interaction, Clue, InteractableUnityEventWrapper wiring, resetter, tag button).
     /// </summary>
     public static class GrabSetupTool
     {
         private const string TestCubeName = "TestCube (delete me)";
 
-        /// <summary>
-        /// Adds the Interaction SDK rig if missing, then a hand/controller grab interaction to the selected
-        /// object (or the test cube when nothing suitable is selected), and saves the scene.
-        /// </summary>
-        [MenuItem("FYP/Make Selected Object Grabbable")]
+        /// <summary>Grabbable clues: grab interaction + Clue + WhenSelect → MarkFound + reset + tag button.</summary>
+        [MenuItem("FYP/Make Selected Clues Grabbable")]
         public static void MakeSelectedGrabbable()
         {
-            var target = PickTarget();
-            if (target == null)
+            if (!TryGetContext(out var ctx)) return;
+            var targets = PickTargets(fallbackToTestCube: true);
+            if (targets.Count == 0)
             {
-                EditorUtility.DisplayDialog("Grab",
-                    "Select the 3D model in the Hierarchy first (or keep the test cube in the scene).", "OK");
-                return;
-            }
-            if (target.GetComponentInChildren<Grabbable>(true) != null)
-            {
-                EditorUtility.DisplayDialog("Grab", $"'{target.name}' is already grabbable.", "OK");
+                EditorUtility.DisplayDialog("Clues", "Select the clue objects in the Hierarchy first.", "OK");
                 return;
             }
 
-            bool addedRig = false;
-            if (Object.FindObjectsByType<HandVisual>(FindObjectsInactive.Include, FindObjectsSortMode.None).Length == 0)
+            bool addedRig = EnsureInteractionRig();
+            int wrapped = 0;
+            foreach (var target in targets)
             {
-                // Adds Meta's interaction rig under OVRCameraRig and disables the OVRHand meshes (their visuals
-                // are replaced by the Interaction SDK hands, which wrap around grabbed objects).
-                OVRQuickActionsAPI.AddOVRInteractionRig();
-                addedRig = true;
+                if (target.GetComponentInChildren<Grabbable>(true) == null) QuickActionsAPI.AddGrabInteraction(target);
+                var clue = ClueWiring.EnsureClue(target, ctx.Session);
+                wrapped += ClueWiring.WireGrabInteractables(clue);
+                ClueWiring.EnsureResetter(clue, ctx.CaseRoot, ctx.Session);
+                ClueWiring.EnsureTagButton(clue, ctx.Rig.Head);
             }
-
-            QuickActionsAPI.AddGrabInteraction(target);
-            int ghosted = ApplyGhostToInteractionHands();
-
-            EditorSceneManager.MarkSceneDirty(target.scene);
-            EditorSceneManager.SaveScene(target.scene);
-            EditorUtility.DisplayDialog("Grab",
-                $"'{target.name}' is now grabbable (hand pinch/palm grab or controller grip)." +
-                (addedRig ? "\nAdded the Interaction SDK rig." : "") +
-                $"\nGhost material applied to {ghosted} hand mesh(es). Scene saved.", "OK");
+            Finish(ctx, addedRig,
+                $"{targets.Count} grabbable clue(s) set up ({wrapped} interactable(s) wired: WhenSelect → MarkFound).");
         }
 
-        private static GameObject PickTarget()
+        /// <summary>Static clues (e.g. writing on a wall, a flat object facing its local -Z): found by poking.</summary>
+        [MenuItem("FYP/Make Selected Static Clues Pokeable")]
+        public static void MakeSelectedPokeable()
         {
-            var selected = Selection.activeGameObject;
-            if (selected != null && selected.scene.IsValid() && selected.GetComponentInChildren<Renderer>() != null
-                && selected.GetComponentInParent<OVRCameraRig>() == null)
+            if (!TryGetContext(out var ctx)) return;
+            var targets = PickTargets(fallbackToTestCube: false);
+            if (targets.Count == 0)
             {
-                return selected;
+                EditorUtility.DisplayDialog("Clues", "Select the static clue objects (flat, readable side facing local -Z) first.", "OK");
+                return;
             }
-            return GameObject.Find(TestCubeName);
+
+            bool addedRig = EnsureInteractionRig();
+            var failed = new List<string>();
+            foreach (var target in targets)
+            {
+                var clue = ClueWiring.EnsureClue(target, ctx.Session);
+                if (!ClueWiring.EnsurePokeSurface(clue)) failed.Add(target.name);
+                ClueWiring.EnsureTagButton(clue, ctx.Rig.Head);
+            }
+            Finish(ctx, addedRig, $"{targets.Count - failed.Count} static clue(s) set up (poke → MarkFound)." +
+                (failed.Count > 0 ? "\nNo MeshFilter, skipped: " + string.Join(", ", failed) : ""));
+        }
+
+        private struct Context
+        {
+            public SessionManager Session;
+            public PlayerRig Rig;
+            public CaseRoot CaseRoot;
+        }
+
+        private static bool TryGetContext(out Context ctx)
+        {
+            ctx = new Context
+            {
+                Session = Object.FindFirstObjectByType<SessionManager>(),
+                Rig = Object.FindFirstObjectByType<PlayerRig>(),
+                CaseRoot = Object.FindFirstObjectByType<CaseRoot>(FindObjectsInactive.Include),
+            };
+            if (ctx.Session != null && ctx.Rig != null && ctx.CaseRoot != null) return true;
+            EditorUtility.DisplayDialog("Clues",
+                "Open Main.unity and run FYP > Set Up Case Root and Placement first (needs SessionManager, PlayerRig, CaseRoot).", "OK");
+            return false;
+        }
+
+        private static List<GameObject> PickTargets(bool fallbackToTestCube)
+        {
+            var list = new List<GameObject>();
+            foreach (var go in Selection.gameObjects)
+            {
+                if (go.scene.IsValid() && go.GetComponentInChildren<Renderer>() != null
+                    && go.GetComponentInParent<OVRCameraRig>() == null)
+                {
+                    list.Add(go);
+                }
+            }
+            if (list.Count == 0 && fallbackToTestCube)
+            {
+                var cube = GameObject.Find(TestCubeName);
+                if (cube != null) list.Add(cube);
+            }
+            return list;
+        }
+
+        private static bool EnsureInteractionRig()
+        {
+            if (Object.FindObjectsByType<HandVisual>(FindObjectsInactive.Include, FindObjectsSortMode.None).Length > 0) return false;
+            // Adds Meta's interaction rig under OVRCameraRig and disables the OVRHand meshes (their visuals
+            // are replaced by the Interaction SDK hands, which wrap around grabbed objects).
+            OVRQuickActionsAPI.AddOVRInteractionRig();
+            return true;
+        }
+
+        private static void Finish(Context ctx, bool addedRig, string message)
+        {
+            ClueWiring.EnsureHandTrackingMonitor(ctx.Session, ctx.Rig);
+            ClueWiring.EnsureHeadsetPresenceMonitor(ctx.Session);
+            int ghosted = ApplyGhostToInteractionHands();
+            var scene = ctx.Session.gameObject.scene;
+            EditorSceneManager.MarkSceneDirty(scene);
+            EditorSceneManager.SaveScene(scene);
+            EditorUtility.DisplayDialog("Clues", message +
+                (addedRig ? "\nAdded the Interaction SDK rig." : "") +
+                $"\nGhost material on {ghosted} hand mesh(es). HandTrackingMonitor + HeadsetPresenceMonitor present. Scene saved." +
+                "\nCheck each Clue's id matches the CaseDefinition key evidence ids.", "OK");
         }
 
         /// <summary>Puts the ghost material on every Interaction SDK hand mesh (they replace the OVRHand meshes).</summary>

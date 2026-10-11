@@ -6,10 +6,11 @@ namespace FYP.Detective
     /// <summary>
     /// A piece of evidence in the scene. Holds its data and forwards "found"/"tagged"
     /// to <see cref="CaseState"/>. It does NOT implement grabbing - the Meta
-    /// Interaction SDK does. Wire it in the Inspector:
-    ///   Oculus.Interaction.InteractableUnityEventWrapper.WhenSelect -> Clue.MarkFound()
-    /// (one wrapper per interactable, e.g. HandGrabInteractable and GrabInteractable;
-    /// MarkFound is idempotent so double wiring is harmless).
+    /// Interaction SDK does. Wired by the FYP clue menu tools (or by hand in the Inspector):
+    ///   Oculus.Interaction.InteractableUnityEventWrapper.WhenSelect   -> Clue.MarkFound(), Clue.BeginHold()
+    ///   Oculus.Interaction.InteractableUnityEventWrapper.WhenUnselect -> Clue.EndHold()   (grabbable clues)
+    /// (one wrapper per interactable, e.g. HandGrabInteractable and GrabInteractable, or the PokeInteractable
+    /// of a static clue; MarkFound is idempotent so double wiring is harmless). Only counts while a session runs.
     /// Keeping Meta types out of this script means the core assembly compiles and
     /// unit tests run without the SDK.
     /// </summary>
@@ -34,6 +35,23 @@ namespace FYP.Detective
 
         public bool IsFound => session != null && session.State.IsClueFound(clueId);
         public bool IsTagged => session != null && session.State.IsClueTagged(clueId);
+
+        /// <summary>True while a session is running (clues only respond then).</summary>
+        public bool IsSessionRunning => session != null && session.IsRunning;
+
+        private int _holdCount;
+
+        /// <summary>True while at least one interactor holds this clue (it is never reset while held).</summary>
+        public bool IsHeld => _holdCount > 0;
+
+        /// <summary>Hook to WhenSelect of a grab interactable.</summary>
+        public void BeginHold() => _holdCount++;
+
+        /// <summary>Hook to WhenUnselect of a grab interactable.</summary>
+        public void EndHold()
+        {
+            if (_holdCount > 0) _holdCount--;
+        }
 
         private void Awake()
         {

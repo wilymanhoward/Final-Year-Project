@@ -64,5 +64,10 @@ namespace FYP.Detective
         public const string PlacementLoaded = "placement_loaded";
         public const string AppPaused = "app_paused";
         public const string AppResumed = "app_resumed";
+        public const string HmdUnmounted = "hmd_unmounted";
+        public const string HmdMounted = "hmd_mounted";
+        public const string HandTrackingLost = "hand_tracking_lost";
+        public const string HandTrackingRegained = "hand_tracking_regained";
+        public const string ClueReset = "clue_reset";
     }
 }

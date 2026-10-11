@@ -120,12 +120,14 @@ Scripts/ (FYP.Detective.asmdef, references Unity.InputSystem, UnityEngine.UI)
   Experiment/  SessionTimer, SessionManager, ExperimentConfigStore
   Logging/     PoseSample (+LogRow, LogEvents), CsvFormatter, CsvLogWriter, DataLogger,
                SessionMeta (+BuildInfo), SessionMetaBuilder
-  Interaction/ ZoneEntryTracker, FloorFootprint, ExclusionZone, Clue
-  UI/          EvidenceSelection, EvidenceBoard, ExperimenterPanel, StatusLabel
-  Meta/        (FYP.Detective.Meta.asmdef) ScenePlacement, ExperimenterControllerShortcuts
+  Interaction/ ZoneEntryTracker, FloorFootprint, ExclusionZone, Clue, TrackedPointGate, ClueBounds, ClueResetter
+  UI/          EvidenceSelection, EvidenceBoard, ExperimenterPanel, StatusLabel, ClueTagButton
+  Meta/        (FYP.Detective.Meta.asmdef) ScenePlacement, ExperimenterControllerShortcuts, HandTrackingMonitor,
+               HeadsetPresenceMonitor
 Editor/ (FYP.Detective.Editor.asmdef, Editor-only)
   MainSceneBuilder    menus: FYP > Create Main Scene / Add Controllers and Hands to Rig / Use Ghost Hands
-  GrabSetupTool       menu:  FYP > Make Selected Object Grabbable
+  GrabSetupTool       menus: FYP > Make Selected Clues Grabbable / Make Selected Static Clues Pokeable
+  ClueWiring          shared idempotent clue wiring (Clue, InteractableUnityEventWrapper, resetter, tag button)
   PlacementSetupTool  menu:  FYP > Set Up Case Root and Placement
 Tests/ (FYP.Detective.Tests.asmdef, Editor-only, EditMode NUnit)
 Art/Shaders/GhostHand.shader (URP, "FYP/GhostHand")   Art/Materials/HandGhost.mat
@@ -155,6 +157,11 @@ Data flow:
   `OnApplicationPause`): `active_s = elapsed_s - paused_s`, plus `paused_s` and `pause_count`, in the summary CSV and
   meta JSON. **Use active time for analysis.** `app_paused` / `app_resumed` event rows mark each gap. The time cap
   still applies to total time.
+  **Headset off also counts as paused** (session 4): `HeadsetPresenceMonitor` (Meta asm) forwards
+  `OVRManager.HMDUnmounted/HMDMounted` (proximity sensor) to `SessionManager.SetHeadsetWorn`; rows `hmd_unmounted` /
+  `hmd_mounted`; samples keep being logged while it is off. `PauseTracker` has sources App + HeadsetOff and counts
+  the **union**: overlapping sources = one pause, time counted once (`pause_count` = combined pauses).
+  `SessionManager.PauseEnded(seconds)` drives the debug message. Headset already off at session start isn't counted.
 - **No session without a summary:** while running, `_summary.csv` and `_meta.json` are written at start, every 5 s
   and on every pause with end reason **`Interrupted`**, then overwritten at the real end. `SessionEndReason`:
   Submitted, TimeCap, Aborted (experimenter), Interrupted (app closed mid-session, `OnApplicationQuit`). A file still
@@ -176,6 +183,21 @@ Data flow:
   CSV columns are unchanged; `session_start` detail has `frame=CaseRoot|world` and the meta JSON `positionFrame`.
 - **Evidence score** (meta JSON, to confirm with the user) = number of key evidence items submitted
   (`evidenceScore` of `evidenceScoreMax`); wrong items are `wrongEvidenceCount` (and reasoning errors).
+- **Clue wiring (Phase B):** grabbable clue = Meta `AddGrabInteraction` + `Clue` + one `InteractableUnityEventWrapper`
+  per HandGrab/Grab interactable (WhenSelect → `MarkFound` + `BeginHold`, WhenUnselect → `EndHold`) + `ClueResetter`
+  + `ClueTagButton`. Static clue = flat object (readable side = local -Z, like a Quad) + transparent poke canvas
+  (`AddPokeCanvasInteraction`) whose `PokeInteractable` WhenSelect → `MarkFound`. Clue id defaults to the object name.
+- **Tagging:** after a clue is found, a 14 x 5.6 cm pokeable uGUI button floats 8 cm above it facing the player
+  (yaw only) and calls `Clue.ToggleTagged` (logs clue_tagged / clue_untagged). Hidden when not running.
+- **Clue reset:** a loose clue more than 3 m from CaseRoot or > 5 cm below the floor goes back to its start pose
+  (relative to CaseRoot), never while held; logged `clue_reset`. Clues also go back home on every session start.
+- **Hand tracking:** `HandTrackingMonitor` sets `PlayerRig.SetTracked(hand, OVRHand.IsTracked ||
+  OVRInput.GetControllerPositionTracked)`. Untracked hands → empty cells in samples, ignored by zones, events
+  `hand_tracking_lost` / `hand_tracking_regained` (part=LeftHand/RightHand). `TrackedPointGate` per point per zone:
+  a point that (re)gains tracking already inside a zone is ignored until it has been outside, so tracking loss
+  can't create an entry; a point already inside at session start isn't an entry either.
+- **Debug messages:** `StatusLabel.showDebugMessages` (Inspector, default ON) shows "Resumed - paused X.X s" for 3 s
+  when a pause (app and/or headset off) ends during a session. **Turn it OFF on `ExperimenterStatusLabel` before study builds.**
 - **Hand look:** participants see translucent dark "ghost" hands with a white rim (custom shader
   `FYP/GhostHand`: depth prepass + alpha-blended fresnel rim; tune Body Colour/Alpha and Outline Width/Sharpness
   on `HandGhost.mat`). The OVRHand system-gesture material swap is set to None.
@@ -202,6 +224,15 @@ Data flow:
   TryGetPose/BindTo`, `EraseAnchorsAsync(IEnumerable<OVRSpatialAnchor>, IEnumerable<Guid>)`; results are
   `OVRResult<…>.Success/.Status` (`Scripts/Util/Async/OVRResult.cs`), awaitable `OVRTask` (`Scripts/Util/Async/OVRTask.cs`).
   Load pattern copied from `Scripts/BuildingBlocks/SpatialAnchorManagerBlockScripts/SpatialAnchorCoreBuildingBlock.cs`.
+- Phase B (Interaction SDK, `com.meta.xr.sdk.interaction`): `InteractableUnityEventWrapper` (`Runtime/Scripts/Unity/
+  InteractableUnityEventWrapper.cs`: serialized `_interactableView`, `WhenSelect`, `WhenUnselect`, `InjectInteractableView`);
+  `HandGrabInteractable` (`Oculus.Interaction.HandGrab`), `GrabInteractable`, `PokeInteractable`, `PointableCanvas`,
+  `PointableCanvasModule`; `QuickActionsAPI.AddPokeCanvasInteraction(GameObject, bool)` (`Editor/QuickActions/Scripts/
+  QuickActionsAPI.cs`; adds GraphicRaycaster, PokeCanvasInteractable, poke interactors on the rig, EventSystem +
+  PointableCanvasModule). There is NO public poke API for plain 3D objects (`PokeWizard` is internal), hence poke canvases.
+  `OVRHand.IsTracked` (`com.meta.xr.sdk.core/Scripts/Util/OVRHand.cs:140`), `OVRInput.GetControllerPositionTracked`
+  (`Scripts/OVRInput.cs:709`), `OVRInput.RawButton` + `Get/GetDown(RawButton, Controller)`, `OVRManager.HMDMounted/
+  HMDUnmounted` events (`Scripts/OVRManager.cs:305`, not used yet).
 - `OVRInput.Get/GetDown(Button, Controller)` with `Button.One/Two/PrimaryThumbstick`, `Controller.LTouch/RTouch`
   (`Scripts/OVRInput.cs`). `OVRManager.TrackingOrigin.FloorLevel` (`Scripts/OVRManager.cs`).
 - Project config: `anchorSupport = Enabled` (`Assets/Oculus/OculusProjectConfig.asset`), manifest has
@@ -234,6 +265,12 @@ for the user's "next", commit only after the user confirms the phase works on th
 - Grab tool (commit 56b4577): **FYP > Make Selected Object Grabbable** calls `OVRQuickActionsAPI.AddOVRInteractionRig()`
   if no ISDK rig exists, then `QuickActionsAPI.AddGrabInteraction(target)`, then puts the ghost material on the ISDK
   hand meshes and saves the scene. Compiles (session 3 batch run); **not yet run/saved into `Main.unity`**.
+- **Week 2 Phase A committed** (51f2d5b) after headset retest: refused start without placement, one `[Shortcuts]`
+  line per press, pause events, Aborted/Interrupted sessions all with summary + meta. Finding: taking the headset off
+  for ~15 s produced only a 1.4 s app pause (the app keeps running at first; samples continued), so pause time
+  ≠ headset-off time → user approved headset-off detection (added in Phase B, see Pauses).
+- **Week 2 Phase B (session 4, in progress):** clue wiring in the menu tools, tag button, static poke clues, clue
+  reset, hand-tracking monitor + `TrackedPointGate` in zones, new events. Not yet compiled in Unity/headset-tested.
 - Grab tool applied to the test cube and saved (commit efd0564, includes `Assets/InteractionSDK/ComprehensiveInteractors.prefab`
   created by Meta's rig wizard). User confirmed grabbing works and the ghost hands look right on the headset.
 - **Week 2 Phase A (session 4): CaseRoot + placement.** `CaseRoot`, `PlacementMath`, `PlacementRecord`,

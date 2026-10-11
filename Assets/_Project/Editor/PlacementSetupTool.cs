@@ -59,6 +59,9 @@ namespace FYP.Detective.EditorTools
             MainSceneBuilder.SetObject(shortcuts, "placement", placement);
             MainSceneBuilder.SetObject(shortcuts, "panel", panel);
 
+            // Headset off counts as paused time.
+            ClueWiring.EnsureHeadsetPresenceMonitor(session);
+
             // 4. Logger writes CaseRoot-local positions.
             MainSceneBuilder.SetObject(logger, "caseRoot", caseRoot);
 

@@ -83,6 +83,7 @@ namespace FYP.Detective
         public event Action<string> ClueUntagged;
         public event Action<ContaminationInfo> ContaminationRecorded;
         public event Action<AnswerResult> AnswerSubmitted;
+        public event Action<string> ClueReset;
         public event Action Changed;
 
         /// <summary>Clears everything back to NotStarted.</summary>
@@ -171,6 +172,17 @@ namespace FYP.Detective
             ContaminationErrors++;
             ContaminationRecorded?.Invoke(new ContaminationInfo(zoneId, bodyPart, ElapsedSeconds));
             Changed?.Invoke();
+            return true;
+        }
+
+        /// <summary>
+        /// Reports that a loose clue was put back at its start position (fell through the floor / too far away).
+        /// Not game state; raised for logging. Only while running.
+        /// </summary>
+        public bool RecordClueReset(string clueId)
+        {
+            if (!IsRunning || string.IsNullOrEmpty(clueId)) return false;
+            ClueReset?.Invoke(clueId);
             return true;
         }
 

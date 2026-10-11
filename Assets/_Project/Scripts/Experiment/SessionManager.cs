@@ -55,6 +55,16 @@ namespace FYP.Detective
         public event Action AppPaused;
         public event Action AppResumed;
 
+        /// <summary>Raised (only while running) when the headset is taken off / put back on.</summary>
+        public event Action HeadsetRemoved;
+        public event Action HeadsetPutOn;
+
+        /// <summary>
+        /// Raised when a combined pause (app paused and/or headset off) ends, with its length in seconds.
+        /// Overlapping sources count as one pause.
+        /// </summary>
+        public event Action<double> PauseEnded;
+
         private void Awake()
         {
             if (loadSavedConfig) ExperimentConfigStore.TryLoadInto(config);
@@ -123,7 +133,7 @@ namespace FYP.Detective
             if (!State.IsRunning) return;
             double now = Now;
             double elapsed = _timer.Stop(now);
-            _pauses.Resume(now);   // closes a pause still open (e.g. quit while paused)
+            _pauses.EndAll(now);   // closes a pause still open (e.g. quit while paused or with the headset off)
             State.SetPauseStats(_pauses.PausedSeconds(now), _pauses.PauseCount);
             EndUtc = DateTime.UtcNow;
             State.End(reason, elapsed);
@@ -155,18 +165,35 @@ namespace FYP.Detective
             return false;
         }
 
-        // Pause = headset taken off / app in background (Unity stops updating, the clock keeps running).
+        /// <summary>
+        /// Called by the headset-presence adapter (HeadsetPresenceMonitor, from OVRManager.HMDMounted/HMDUnmounted).
+        /// While the headset is off the run counts as paused; samples keep being logged.
+        /// </summary>
+        public void SetHeadsetWorn(bool worn)
+        {
+            if (!ChangePauseSource(PauseSource.HeadsetOff, !worn)) return;
+            if (worn) HeadsetPutOn?.Invoke(); else HeadsetRemoved?.Invoke();
+        }
+
+        // App pause = app in background (Unity stops updating, the clock keeps running).
         // The total time keeps counting; paused time is tracked separately so active time can be analysed.
         private void OnApplicationPause(bool paused)
         {
-            if (!State.IsRunning) return;
+            if (!ChangePauseSource(PauseSource.App, paused)) return;
+            if (paused) AppPaused?.Invoke(); else AppResumed?.Invoke();
+        }
+
+        /// <summary>Updates one pause source and State's pause stats. False if not running or nothing changed.</summary>
+        private bool ChangePauseSource(PauseSource source, bool active)
+        {
+            if (!State.IsRunning) return false;
             double now = Now;
-            bool changed = paused ? _pauses.Pause(now) : _pauses.Resume(now);
-            if (!changed) return;
+            if (!_pauses.SetActive(source, active, now, out _, out bool pauseEnded)) return false;
             State.SetElapsed(_timer.Elapsed(now));
             State.SetPauseStats(_pauses.PausedSeconds(now), _pauses.PauseCount);
-            Debug.Log($"[SessionManager] App {(paused ? "paused" : "resumed")}: pauses={_pauses.PauseCount}, paused_s={State.PausedSeconds:F1}");
-            if (paused) AppPaused?.Invoke(); else AppResumed?.Invoke();
+            Debug.Log($"[SessionManager] {source} {(active ? "on" : "off")}: pauses={_pauses.PauseCount}, paused_s={State.PausedSeconds:F1}");
+            if (pauseEnded) PauseEnded?.Invoke(_pauses.LastPauseSeconds);
+            return true;
         }
 
         private void OnApplicationQuit()
