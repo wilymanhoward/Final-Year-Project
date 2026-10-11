@@ -57,12 +57,16 @@ namespace FYP.Detective
             session.SessionEnded += HandleSessionEnded;
             session.AppPaused += HandleAppPaused;
             session.AppResumed += HandleAppResumed;
+            session.HeadsetRemoved += HandleHeadsetRemoved;
+            session.HeadsetPutOn += HandleHeadsetPutOn;
             var s = session.State;
             s.ClueFound += HandleClueFound;
             s.ClueTagged += HandleClueTagged;
             s.ClueUntagged += HandleClueUntagged;
             s.ContaminationRecorded += HandleContamination;
             s.AnswerSubmitted += HandleAnswerSubmitted;
+            s.ClueReset += HandleClueReset;
+            if (rig != null) rig.TrackingChanged += HandleTrackingChanged;
         }
 
         private void OnDisable()
@@ -73,13 +77,17 @@ namespace FYP.Detective
                 session.SessionEnded -= HandleSessionEnded;
                 session.AppPaused -= HandleAppPaused;
                 session.AppResumed -= HandleAppResumed;
+                session.HeadsetRemoved -= HandleHeadsetRemoved;
+                session.HeadsetPutOn -= HandleHeadsetPutOn;
                 var s = session.State;
                 s.ClueFound -= HandleClueFound;
                 s.ClueTagged -= HandleClueTagged;
                 s.ClueUntagged -= HandleClueUntagged;
                 s.ContaminationRecorded -= HandleContamination;
                 s.AnswerSubmitted -= HandleAnswerSubmitted;
+                s.ClueReset -= HandleClueReset;
             }
+            if (rig != null) rig.TrackingChanged -= HandleTrackingChanged;
             CloseFile();
         }
 
@@ -188,6 +196,21 @@ namespace FYP.Detective
             WriteSnapshot();
         }
 
+        // Headset off: the app keeps running, so 10 Hz samples continue; only the event rows mark the gap.
+        private void HandleHeadsetRemoved()
+        {
+            var s = session.State;
+            LogEvent(LogEvents.HmdUnmounted, FormattableString.Invariant($"pause_count={s.PauseCount};paused_s={s.PausedSeconds:F3}"));
+            WriteSnapshot();
+        }
+
+        private void HandleHeadsetPutOn()
+        {
+            var s = session.State;
+            LogEvent(LogEvents.HmdMounted, FormattableString.Invariant($"pause_count={s.PauseCount};paused_s={s.PausedSeconds:F3}"));
+            WriteSnapshot();
+        }
+
         private void HandleAppResumed()
         {
             var s = session.State;
@@ -280,6 +303,13 @@ namespace FYP.Detective
         private void HandleClueFound(string clueId) => LogEvent(LogEvents.ClueFound, clueId);
         private void HandleClueTagged(string clueId) => LogEvent(LogEvents.ClueTagged, clueId);
         private void HandleClueUntagged(string clueId) => LogEvent(LogEvents.ClueUntagged, clueId);
+        private void HandleClueReset(string clueId) => LogEvent(LogEvents.ClueReset, clueId);
+
+        private void HandleTrackingChanged(BodyPart part, bool tracked)
+        {
+            if (part == BodyPart.Head) return;
+            LogEvent(tracked ? LogEvents.HandTrackingRegained : LogEvents.HandTrackingLost, "part=" + part);
+        }
 
         private void HandleContamination(ContaminationInfo info)
         {

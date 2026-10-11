@@ -111,12 +111,22 @@ The IMGUI window only shows in the Editor/Link. For standalone runs:
       presses **A** on the right controller (Place Scene Here). **B** = load saved, **X** = manual, hold **Y** = clear,
       hold the right stick (1.5 s) = start, hold the left stick (1.5 s) = abort. Starting is refused until the scene is placed.
 
+## 11b. Clues and hand tracking (Week 2 Phase B)
+- [ ] Grabbable clues: select them (under CaseRoot) and run **FYP > Make Selected Clues Grabbable**. It adds Meta's
+      grab interaction, a `Clue` (id = object name; edit to match the CaseDefinition), the select/unselect wiring,
+      a `ClueResetter` and a "Tag as Evidence" button. Safe to run again.
+- [ ] Static clues (flat, readable side facing local -Z like a Quad): select and run
+      **FYP > Make Selected Static Clues Pokeable** (poke = found, plus a tag button).
+- [ ] Both tools add `HandTrackingMonitor` and `HeadsetPresenceMonitor` (headset off = paused) to SessionSystems and save the scene. Save again before committing; commit
+      any new objects/assets they created.
+
 ## 12. Editor test (no headset)
 - [ ] Press Play. The Experimenter window appears top-left. **F5** start, **F6** abort, **F7** reset, **F8** hide window.
 - [ ] Start, wait ~5 s, abort. Check the Console for `[DataLogger] Logging to ...` and open the CSV:
       header + ~10 rows/s + session_start/session_end events + a `_summary.csv`.
 
 ## 13. Build to Quest 3
+- [ ] **Study builds only:** on `ExperimenterStatusLabel`, untick **Show Debug Messages** (participants must never see debug text).
 - [ ] **File > Build Profiles**: add `Main.unity` (remove SampleScene), Android, *Development Build* on for the first tests.
 - [ ] Build And Run with the headset connected (developer mode on).
 - [ ] Check passthrough, grabbing (hands and controllers), clue_found in the log, and zone entries.

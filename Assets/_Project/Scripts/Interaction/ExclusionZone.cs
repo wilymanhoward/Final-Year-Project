@@ -9,7 +9,8 @@ namespace FYP.Detective
     /// scale is ignored, use <see cref="size"/>). The zone counts as occupied if
     /// any tracked point is inside. Each outside -> inside transition is one
     /// contamination error, with a cooldown per zone (see <see cref="ZoneEntryTracker"/>).
-    /// Only counts while a session is running.
+    /// Only counts while a session is running. Untracked points are ignored, and a point that regains
+    /// tracking while already inside doesn't count as entering (<see cref="TrackedPointGate"/>).
     /// </summary>
     public class ExclusionZone : MonoBehaviour
     {
@@ -32,6 +33,9 @@ namespace FYP.Detective
         [SerializeField] private bool showDebugVisual;
 
         private ZoneEntryTracker _tracker;
+        private readonly TrackedPointGate _headGate = new TrackedPointGate();
+        private readonly TrackedPointGate _leftGate = new TrackedPointGate();
+        private readonly TrackedPointGate _rightGate = new TrackedPointGate();
 
         public string ZoneId => zoneId;
         public Vector2 Size => size;
@@ -62,15 +66,22 @@ namespace FYP.Detective
             if (session != null) session.SessionStarted -= HandleSessionStarted;
         }
 
-        private void HandleSessionStarted() => _tracker.Reset();
+        private void HandleSessionStarted()
+        {
+            _tracker.Reset();
+            _headGate.Reset();
+            _leftGate.Reset();
+            _rightGate.Reset();
+        }
 
         private void Update()
         {
             if (session == null || rig == null || !session.IsRunning) return;
 
-            bool inside = IsPointInside(checkHead, rig.Head, out bool headIn)
-                        | IsPointInside(checkHands, rig.LeftHand, out bool leftIn)
-                        | IsPointInside(checkHands, rig.RightHand, out bool rightIn);
+            bool headIn = checkHead && IsPointInside(BodyPart.Head, _headGate);
+            bool leftIn = checkHands && IsPointInside(BodyPart.LeftHand, _leftGate);
+            bool rightIn = checkHands && IsPointInside(BodyPart.RightHand, _rightGate);
+            bool inside = headIn || leftIn || rightIn;
 
             if (_tracker.Update(inside, SessionManager.Now))
             {
@@ -79,11 +90,12 @@ namespace FYP.Detective
             }
         }
 
-        private bool IsPointInside(bool enabled, Transform t, out bool inside)
+        private bool IsPointInside(BodyPart part, TrackedPointGate gate)
         {
-            inside = enabled && t != null && t.gameObject.activeInHierarchy
-                     && FloorFootprint.Contains(t.position, transform.position, transform.eulerAngles.y, size);
-            return inside;
+            bool tracked = rig.IsAvailable(part);
+            bool rawInside = tracked
+                && FloorFootprint.Contains(rig.Get(part).position, transform.position, transform.eulerAngles.y, size);
+            return gate.Update(tracked, rawInside);
         }
 
         private void ApplyDebugVisual()
