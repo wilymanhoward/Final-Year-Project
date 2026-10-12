@@ -121,3 +121,52 @@ namespace FYP.Detective.Tests
         }
     }
 }
+
+namespace FYP.Detective.Tests
+{
+    public class TrackingEventFilterTests
+    {
+        [Test]
+        public void ShortDropout_IsNotLogged()
+        {
+            var f = new TrackingEventFilter(0.2);
+            Assert.AreEqual(TrackingEvent.None, f.Update(true, 0));
+            Assert.AreEqual(TrackingEvent.None, f.Update(false, 1.0));
+            Assert.AreEqual(TrackingEvent.None, f.Update(false, 1.15));
+            Assert.AreEqual(TrackingEvent.None, f.Update(true, 1.19));   // back within 0.2 s: nothing
+        }
+
+        [Test]
+        public void LongLoss_IsLoggedOnce_ThenRegained()
+        {
+            var f = new TrackingEventFilter(0.2);
+            f.Update(true, 0);
+            Assert.AreEqual(TrackingEvent.None, f.Update(false, 1.0));
+            Assert.AreEqual(TrackingEvent.Lost, f.Update(false, 1.25));   // past 0.2 s (1.2 - 1.0 is 0.1999... in floating point)
+            Assert.AreEqual(1.0, f.LostSince, 1e-9);                      // when it really started
+            Assert.AreEqual(TrackingEvent.None, f.Update(false, 3.0));    // not repeated
+            Assert.AreEqual(TrackingEvent.Regained, f.Update(true, 3.1));
+            Assert.AreEqual(TrackingEvent.None, f.Update(true, 3.2));
+        }
+
+        [Test]
+        public void Flicker_ProducesNoEvents()
+        {
+            // the 6 toggles in 0.4 s seen on the headset
+            var f = new TrackingEventFilter(0.2);
+            double[] t = { 11.498, 11.597, 11.638, 11.665, 11.720, 11.901 };
+            for (int i = 0; i < t.Length; i++)
+                Assert.AreEqual(TrackingEvent.None, f.Update(i % 2 == 1, t[i]));
+        }
+
+        [Test]
+        public void Reset_ForgetsAReportedLoss()
+        {
+            var f = new TrackingEventFilter(0.2);
+            f.Update(false, 0);
+            Assert.AreEqual(TrackingEvent.Lost, f.Update(false, 0.3));
+            f.Reset();
+            Assert.AreEqual(TrackingEvent.None, f.Update(true, 1));       // no Regained after reset
+        }
+    }
+}

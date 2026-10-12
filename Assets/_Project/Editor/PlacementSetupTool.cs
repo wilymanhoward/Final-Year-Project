@@ -62,6 +62,10 @@ namespace FYP.Detective.EditorTools
             // Headset off counts as paused time.
             ClueWiring.EnsureHeadsetPresenceMonitor(session);
 
+            // Placement height check: SessionManager compares CaseRoot with the tracking floor.
+            MainSceneBuilder.SetObject(session, "caseRoot", caseRoot);
+            MainSceneBuilder.SetObject(session, "floorReference", trackingSpace);
+
             // 4. Logger writes CaseRoot-local positions.
             MainSceneBuilder.SetObject(logger, "caseRoot", caseRoot);
 

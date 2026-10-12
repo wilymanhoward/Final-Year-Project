@@ -23,6 +23,14 @@ namespace FYP.Detective
         [Tooltip("Refuse to start until the scene has been placed (anchor or manual). Turn off only for desk tests.")]
         [SerializeField] private bool requirePlacement = true;
 
+        [Header("Placement height check")]
+        [Tooltip("Case content root. Empty = found in the scene.")]
+        [SerializeField] private CaseRoot caseRoot;
+        [Tooltip("OVRCameraRig/TrackingSpace: with tracking origin Floor Level its height is the floor. Empty = found by name, else y 0.")]
+        [SerializeField] private Transform floorReference;
+        [Tooltip("Start is refused if CaseRoot is further than this from the floor.")]
+        [SerializeField, Min(0.01f)] private float placementHeightTolerance = PlacementHeight.DefaultTolerance;
+
         private SessionTimer _timer;
         private readonly PauseTracker _pauses = new PauseTracker();
 
@@ -65,9 +73,44 @@ namespace FYP.Detective
         /// </summary>
         public event Action<double> PauseEnded;
 
+        /// <summary>Raised when the headset reset its tracking space (reported by the Meta adapter).</summary>
+        public event Action TrackingRecentered;
+
+        /// <summary>Tracking-space recenters reported since launch.</summary>
+        public int RecenterCount { get; private set; }
+
+        /// <summary>CaseRoot height above the tracking floor in metres (0 when there is no CaseRoot).</summary>
+        public float PlacementHeightOffset
+        {
+            get
+            {
+                if (caseRoot == null) return 0f;
+                float floorY = floorReference != null ? floorReference.position.y : 0f;
+                return caseRoot.transform.position.y - floorY;
+            }
+        }
+
+        /// <summary>True when nothing is placed or the placement sits on the floor (within tolerance).</summary>
+        public bool IsPlacementHeightOk =>
+            Placement.Method == PlacementMethod.None || PlacementHeight.IsOk(PlacementHeightOffset, placementHeightTolerance);
+
+        /// <summary>Called by the Meta adapter when the tracking space is recentered.</summary>
+        public void ReportTrackingRecentered()
+        {
+            RecenterCount++;
+            Debug.Log($"[SessionManager] Tracking recentered (#{RecenterCount}); placement height {PlacementHeightOffset:+0.000;-0.000} m");
+            TrackingRecentered?.Invoke();
+        }
+
         private void Awake()
         {
             if (loadSavedConfig) ExperimentConfigStore.TryLoadInto(config);
+            if (caseRoot == null) caseRoot = FindFirstObjectByType<CaseRoot>();
+            if (floorReference == null)
+            {
+                var trackingSpace = GameObject.Find("TrackingSpace");
+                if (trackingSpace != null) floorReference = trackingSpace.transform;
+            }
             _timer = new SessionTimer(config.TimeCapSeconds);
         }
 
@@ -114,6 +157,7 @@ namespace FYP.Detective
             if (ActiveCase == null) return RefuseStart($"No CaseDefinition assigned for case {config.CaseCode}.");
             if (requirePlacement && Placement.Method == PlacementMethod.None)
                 return RefuseStart("Place the scene first (A = anchor, X = manual).");
+            if (!IsPlacementHeightOk) return RefuseStart(PlacementHeight.WrongMessage(PlacementHeightOffset));
 
             LastStartError = null;
             ExperimentConfigStore.Save(config);
