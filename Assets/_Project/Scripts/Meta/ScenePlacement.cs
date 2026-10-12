@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.Android;
 using UnityEngine.Events;
@@ -21,6 +22,11 @@ namespace FYP.Detective.Meta
     /// OVRPermissionsRequester.ScenePermission in Scripts/OVRPermissionsRequester.cs); without it SaveAnchorAsync
     /// returns FailurePermissionInsufficient. Place/Load check it first and request it with Unity's Android
     /// Permission API (as recommended in OVRPermissionsRequester's remarks). Manual placement doesn't need it.
+    ///
+    /// Tracking-space recenters (OVRManager.display.RecenteredPose, Scripts/OVRDisplay.cs:167, raised when
+    /// OVRPlugin.GetLocalTrackingSpaceRecenterCount changes) are reported to the SessionManager; Place/Load wait until
+    /// tracking has been stable for 3 s (<see cref="TrackingSettleGate"/>), and the placement height is checked after
+    /// placing/loading and continuously before a session (<see cref="PlacementHeight"/>, start is refused if wrong).
     ///
     /// Public methods are meant for buttons / controller shortcuts. Placement is refused while a session runs.
     /// </summary>
@@ -62,6 +68,17 @@ namespace FYP.Detective.Meta
         private float _deadline = -1f;
         private readonly List<OVRSpatialAnchor.UnboundAnchor> _unbound = new List<OVRSpatialAnchor.UnboundAnchor>();
 
+        public const string StatusWaitingForTracking = "Waiting for tracking to settle...";
+        private const float MaxSettleWaitSeconds = 10f;
+        private const float HeightCheckIntervalSeconds = 0.5f;
+
+        // Clock = Time.unscaledTime, so the first seconds after launch also count as "not settled".
+        private readonly TrackingSettleGate _settle = new TrackingSettleGate();
+        private bool _subscribedToRecenter;
+        private int _waitToken;
+        private float _nextHeightCheck;
+        private bool _lastHeightOk = true;
+
         public string Status { get; private set; } = "Not placed";
         public bool IsBusy => _deadline > 0f;
         public bool HasSavedPlacement => PlayerPrefs.HasKey(SavedAnchorKey);
@@ -73,8 +90,25 @@ namespace FYP.Detective.Meta
             if (caseRoot == null) caseRoot = FindFirstObjectByType<CaseRoot>();
         }
 
+        private void OnDisable()
+        {
+            if (_subscribedToRecenter && OVRManager.display != null) OVRManager.display.RecenteredPose -= HandleRecentered;
+            _subscribedToRecenter = false;
+        }
+
         private void Update()
         {
+            // OVRManager.display exists only after OVRManager has initialised, so subscribe as soon as it does.
+            if (!_subscribedToRecenter && OVRManager.display != null)
+            {
+                OVRManager.display.RecenteredPose += HandleRecentered;
+                _subscribedToRecenter = true;
+            }
+            if (Time.unscaledTime >= _nextHeightCheck)
+            {
+                _nextHeightCheck = Time.unscaledTime + HeightCheckIntervalSeconds;
+                CheckHeightBeforeStart();
+            }
             if (_permissionResultReady)
             {
                 _permissionResultReady = false;
@@ -92,12 +126,55 @@ namespace FYP.Detective.Meta
 
         private void OnDestroy() => _operation++;
 
+        private void HandleRecentered()
+        {
+            _settle.NoteChange(Time.unscaledTime);
+            if (session != null) session.ReportTrackingRecentered();
+        }
+
+        /// <summary>Warns (once per change) while a placement before the run is off the floor.</summary>
+        private void CheckHeightBeforeStart()
+        {
+            if (session == null || session.IsRunning || session.Placement.Method == PlacementMethod.None)
+            {
+                _lastHeightOk = true;
+                return;
+            }
+            bool ok = session.IsPlacementHeightOk;
+            if (ok == _lastHeightOk) return;
+            _lastHeightOk = ok;
+            SetStatus(ok ? "Placement height OK" : PlacementHeight.WrongMessage(session.PlacementHeightOffset));
+        }
+
+        /// <summary>Status after placing/loading: the success text, or the height warning if it is off the floor.</summary>
+        private void ReportPlaced(string successStatus)
+        {
+            _lastHeightOk = session.IsPlacementHeightOk;
+            SetStatus(_lastHeightOk ? successStatus : PlacementHeight.WrongMessage(session.PlacementHeightOffset));
+        }
+
+        /// <summary>Waits until tracking has been stable for a few seconds (max 10 s). False if superseded.</summary>
+        private async Task<bool> WaitForTrackingToSettle()
+        {
+            int token = ++_waitToken;
+            if (_settle.IsSettled(Time.unscaledTime)) return true;
+            SetStatus(StatusWaitingForTracking);
+            float giveUpAt = Time.unscaledTime + MaxSettleWaitSeconds;
+            while (!_settle.IsSettled(Time.unscaledTime) && Time.unscaledTime < giveUpAt)
+            {
+                await Task.Yield();
+                if (this == null || token != _waitToken) return false;
+            }
+            return CanChange();
+        }
+
         // ---- Public actions ----
 
         /// <summary>Creates a spatial anchor at the head's floor pose, moves CaseRoot onto it and saves it.</summary>
         public async void PlaceSceneHere()
         {
             if (!CanChange() || !EnsureSpatialDataPermission()) return;
+            if (!await WaitForTrackingToSettle()) return;
             int op = BeginOperation("Creating anchor...");
             Pose pose = HeadFloorPose();
             var go = new GameObject(AnchorObjectName);
@@ -121,7 +198,7 @@ namespace FYP.Detective.Meta
                 {
                     PlayerPrefs.SetString(SavedAnchorKey, anchor.Uuid.ToString("D"));
                     PlayerPrefs.Save();
-                    SetStatus(StatusPlacedSaved);
+                    ReportPlaced(StatusPlacedSaved);
                 }
                 else
                 {
@@ -146,9 +223,10 @@ namespace FYP.Detective.Meta
             if (!EnsureSpatialDataPermission()) return;
             if (_anchor != null && _anchor.Uuid == uuid)
             {
-                SetStatus(StatusLoaded);   // that anchor is already active
+                ReportPlaced(StatusLoaded);   // that anchor is already active
                 return;
             }
+            if (!await WaitForTrackingToSettle()) return;
 
             int op = BeginOperation("Loading saved placement...");
             try
@@ -178,7 +256,7 @@ namespace FYP.Detective.Meta
 
                 UseAnchor(anchor);
                 Commit(PlacementMethod.Anchor, true, uuid.ToString("D"));
-                SetStatus(StatusLoaded);
+                ReportPlaced(StatusLoaded);
             }
             catch (Exception e)
             {
@@ -313,6 +391,7 @@ namespace FYP.Detective.Meta
         private int BeginOperation(string status)
         {
             _operation++;
+            _waitToken++;
             DestroyPending();
             _deadline = Time.unscaledTime + anchorTimeoutSeconds;
             SetStatus(status);
@@ -322,6 +401,7 @@ namespace FYP.Detective.Meta
         private void CancelOperation()
         {
             _operation++;
+            _waitToken++;   // also abandons a pending "waiting for tracking" 
             DestroyPending();
             _deadline = -1f;
         }

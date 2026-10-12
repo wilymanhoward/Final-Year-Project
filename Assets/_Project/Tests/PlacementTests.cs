@@ -117,3 +117,64 @@ namespace FYP.Detective.Tests
         }
     }
 }
+
+namespace FYP.Detective.Tests
+{
+    public class PlacementHeightTests
+    {
+        [Test]
+        public void WithinTolerance_IsOk()
+        {
+            Assert.IsTrue(PlacementHeight.IsOk(0f));
+            Assert.IsTrue(PlacementHeight.IsOk(0.049f));
+            Assert.IsTrue(PlacementHeight.IsOk(-0.049f));
+        }
+
+        [Test]
+        public void OffTheFloor_IsNotOk()
+        {
+            Assert.IsFalse(PlacementHeight.IsOk(0.62f));      // the incident
+            Assert.IsFalse(PlacementHeight.IsOk(-0.08f));
+        }
+
+        [Test]
+        public void Message_ShowsSignedOffset()
+        {
+            Assert.AreEqual("Placement height wrong (+0.62 m) - re-place", PlacementHeight.WrongMessage(0.6216f));
+            Assert.AreEqual("Placement height wrong (-0.10 m) - re-place", PlacementHeight.WrongMessage(-0.1f));
+        }
+    }
+
+    public class TrackingSettleGateTests
+    {
+        [Test]
+        public void FirstSecondsAfterStart_AreNotSettled()
+        {
+            var g = new TrackingSettleGate(3.0, startTime: 0);
+            Assert.IsFalse(g.IsSettled(1.0));
+            Assert.AreEqual(2.0, g.SecondsUntilSettled(1.0), 1e-9);
+            Assert.IsTrue(g.IsSettled(3.5));
+        }
+
+        [Test]
+        public void RecenterBurst_RestartsTheWait()
+        {
+            // the incident: recenters at 44.7, 45.7, 47.1 → settled only from 50.1
+            var g = new TrackingSettleGate(3.0, startTime: 40);
+            g.NoteChange(44.7);
+            g.NoteChange(45.7);
+            g.NoteChange(47.1);
+            Assert.IsFalse(g.IsSettled(50.0));
+            Assert.IsTrue(g.IsSettled(50.2));
+        }
+
+        [Test]
+        public void OlderChange_DoesNotMoveTheWaitBack()
+        {
+            var g = new TrackingSettleGate(3.0, startTime: 0);
+            g.NoteChange(10);
+            g.NoteChange(5);
+            Assert.AreEqual(10, g.LastChange, 1e-9);
+        }
+    }
+}

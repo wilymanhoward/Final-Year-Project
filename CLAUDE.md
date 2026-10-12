@@ -55,6 +55,25 @@ Read this first in every session. Update **Current status** at the end of each s
 
 Not installed: AR Foundation, `com.unity.xr.meta-openxr`, **Netcode for GameObjects**.
 
+**Week 3 networking findings (session 5, read from the 207 source + packages.unity.com):**
+- Meta's NGO multiplayer blocks need NGO >= 1.7.1 (`versionDefines` in
+  `Scripts/BuildingBlocks/MultiplayerBlocks/NGO/Meta.XR.MultiplayerBlocks.NGO.asmdef`). NGO 3.x needs Unity 6000.7, so
+  for 6000.3 the newest compatible is **NGO 2.13.3** (deps: `com.unity.transport` 2.6.0). Not installed yet (needs user OK).
+- Colocation block with "Use Colocation Session" → `LocalMatchmaking` (`Shared/LocalMatchmaking/LocalMatchmaking.cs`:
+  `OVRColocationSession` advertise/discover, Bluetooth + same Wi-Fi) **plus** `CustomMatchmaking`, whose NGO version
+  (`NGO/CustomMatchmaking/CustomMatchmakingNGO.cs`) uses **UGS Authentication + Relay + Lobby** (internet + UGS project).
+  With MRUK installed the block also defaults to MRUK space sharing (`shareSpaceToGuests`).
+- **Shared anchors go through Meta's cloud** (confirmed in `Scripts/OVRAnchor/OVRAnchor.cs` `ShareResult`:
+  `FailureNetworkTimeout`, `FailureNetworkRequestFailed` → check connectivity/firewalls; `FailureCloudStorageDisabled`
+  → OS setting "Share Point Cloud Data" (Enhanced Spatial Services) off; sharing also needs
+  `IMPORT_EXPORT_IOT_MAP_DATA`). So the Wi-Fi needs internet, and the label must explain these failures.
+- User hardware (session 5): 2 Quest 3, developer mode, Enhanced Spatial Services on, Bluetooth not yet checked,
+  campus Wi-Fi (risk: client isolation can block headset-to-headset traffic; test early, fallback = phone hotspot).
+- Direct alternative with verified APIs: host `UnityTransport` direct IP + `OVRColocationSession.StartAdvertisementAsync`
+  (metadata <= 1024 bytes: ip:port; returns group `Guid`) + `OVRSpatialAnchor.ShareAsync(anchors, groupUuid)`; guest
+  `StartDiscoveryAsync` + `ColocationSessionDiscovered` (`Data.AdvertisementUuid`, `Data.Metadata`) → NGO client →
+  `LoadUnboundSharedAnchorsAsync(groupUuid, list)`. No UGS, no Meta user ids.
+
 **Package decisions (user, session 3):**
 - **Netcode for GameObjects: approved, but install it in the Week 3 session**, not before.
 - **MRUK: do not use in Week 2.** Placement is head-based + `OVRSpatialAnchor` only.
@@ -179,6 +198,13 @@ Data flow:
   `EraseAnchorsAsync` + delete the PlayerPrefs key + CaseRoot back to origin. 15 s timeout → "Anchor failed - use
   Manual". Placement is refused while a session runs. Placement happens before a run (no log file open), so
   `placement_set`/`placement_loaded` is written right after `session_start` with `at_utc` = when it happened.
+- **Placement height check (session 5):** `SessionManager.PlacementHeightOffset` = CaseRoot y - TrackingSpace y
+  (`floorReference`); start is refused if |offset| > 5 cm ("Placement height wrong (+0.62 m) - re-place").
+  `ScenePlacement` subscribes `OVRManager.display.RecenteredPose` (`Scripts/OVRDisplay.cs:167`) → `SessionManager.
+  ReportTrackingRecentered()`; Place/Load wait until tracking is stable for 3 s (`TrackingSettleGate`, launch counts as
+  a change, max wait 10 s, "Waiting for tracking to settle..."); the height is checked after place/load and every 0.5 s
+  before a run (label on change). Log rows: `placement_check` (when=session_start / after_recenter; height_m, ok,
+  recenters) and `tracking_recentered` (count) during a run; the after-recenter check runs 1 s later.
 - **Logged positions** (10 Hz samples and event rows) are CaseRoot-local; head rotation/yaw/pitch too.
   CSV columns are unchanged; `session_start` detail has `frame=CaseRoot|world` and the meta JSON `positionFrame`.
 - **Evidence score** (meta JSON, to confirm with the user) = number of key evidence items submitted
@@ -269,6 +295,11 @@ for the user's "next", commit only after the user confirms the phase works on th
   line per press, pause events, Aborted/Interrupted sessions all with summary + meta. Finding: taking the headset off
   for ~15 s produced only a 1.4 s app pause (the app keeps running at first; samples continued), so pause time
   ≠ headset-off time → user approved headset-off detection (added in Phase B, see Pauses).
+- **Phase B close-out (session 5):** 0.2 s hand-tracking log filter (`TrackingEventFilter`, events only; zones/samples
+  raw). Floor-height incident diagnosed: anchor 257269b6 saved at y=0/yaw 44.7 (10:05:35) loaded at y=+0.62/yaw 90.2
+  (10:13:50), 3.4 s after a burst of 3 "Recenter event detected" (`OVRDisplay.cs:150-153`,
+  `OVRPlugin.GetLocalTrackingSpaceRecenterCount` changed) right after HMDMounted → tracking space (floor + yaw) changed
+  between save and load. Physical position not provable from logs; safety check proposed. Tests 105/105.
 - **Week 2 Phase B (session 4, in progress):** clue wiring in the menu tools, tag button, static poke clues, clue
   reset, hand-tracking monitor + `TrackedPointGate` in zones, new events. Not yet compiled in Unity/headset-tested.
 - Grab tool applied to the test cube and saved (commit efd0564, includes `Assets/InteractionSDK/ComprehensiveInteractors.prefab`

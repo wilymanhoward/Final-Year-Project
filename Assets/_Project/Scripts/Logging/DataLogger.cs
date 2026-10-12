@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.IO;
 using System.Text;
 using UnityEngine;
@@ -37,6 +38,9 @@ namespace FYP.Detective
         private double _nextSampleTime;
         private double _nextFlushTime;
         private double _nextSnapshotTime;
+        private double _pendingPlacementCheckAt = -1;   // re-check the height shortly after a recenter
+        private readonly TrackingEventFilter _leftTrackingFilter = new TrackingEventFilter();
+        private readonly TrackingEventFilter _rightTrackingFilter = new TrackingEventFilter();
         private ExperimentConfig _config;   // snapshot taken at session start
         private string _metaPath;
 
@@ -59,6 +63,7 @@ namespace FYP.Detective
             session.AppResumed += HandleAppResumed;
             session.HeadsetRemoved += HandleHeadsetRemoved;
             session.HeadsetPutOn += HandleHeadsetPutOn;
+            session.TrackingRecentered += HandleTrackingRecentered;
             var s = session.State;
             s.ClueFound += HandleClueFound;
             s.ClueTagged += HandleClueTagged;
@@ -66,7 +71,6 @@ namespace FYP.Detective
             s.ContaminationRecorded += HandleContamination;
             s.AnswerSubmitted += HandleAnswerSubmitted;
             s.ClueReset += HandleClueReset;
-            if (rig != null) rig.TrackingChanged += HandleTrackingChanged;
         }
 
         private void OnDisable()
@@ -79,6 +83,7 @@ namespace FYP.Detective
                 session.AppResumed -= HandleAppResumed;
                 session.HeadsetRemoved -= HandleHeadsetRemoved;
                 session.HeadsetPutOn -= HandleHeadsetPutOn;
+                session.TrackingRecentered -= HandleTrackingRecentered;
                 var s = session.State;
                 s.ClueFound -= HandleClueFound;
                 s.ClueTagged -= HandleClueTagged;
@@ -87,7 +92,6 @@ namespace FYP.Detective
                 s.AnswerSubmitted -= HandleAnswerSubmitted;
                 s.ClueReset -= HandleClueReset;
             }
-            if (rig != null) rig.TrackingChanged -= HandleTrackingChanged;
             CloseFile();
         }
 
@@ -96,6 +100,13 @@ namespace FYP.Detective
             if (_writer == null) return;
             double now = SessionManager.Now;
             double interval = 1.0 / sampleRateHz;
+
+            UpdateTrackingEvents();
+            if (_pendingPlacementCheckAt > 0 && now >= _pendingPlacementCheckAt)
+            {
+                _pendingPlacementCheckAt = -1;
+                LogPlacementCheck("after_recenter");
+            }
 
             if (now >= _nextSampleTime)
             {
@@ -166,6 +177,8 @@ namespace FYP.Detective
             double now = SessionManager.Now;
             _nextSampleTime = now;
             _nextFlushTime = now + flushIntervalSeconds;
+            _leftTrackingFilter.Reset();
+            _rightTrackingFilter.Reset();
             var caseDef = session.ActiveCase;
             var placement = session.Placement;
             LogEvent(LogEvents.SessionStart, FormattableString.Invariant(
@@ -173,6 +186,8 @@ namespace FYP.Detective
             // Placement happens before the run (no file is open then), so it is recorded here;
             // at_utc in the detail is when it actually happened.
             if (placement.Method != PlacementMethod.None) LogEvent(placement.EventName, placement.FormatDetail());
+            _pendingPlacementCheckAt = -1;
+            LogPlacementCheck("session_start");
             WriteSnapshot();
             _nextSnapshotTime = now + snapshotIntervalSeconds;
             Debug.Log("[DataLogger] Logging to " + path);
@@ -209,6 +224,21 @@ namespace FYP.Detective
             var s = session.State;
             LogEvent(LogEvents.HmdMounted, FormattableString.Invariant($"pause_count={s.PauseCount};paused_s={s.PausedSeconds:F3}"));
             WriteSnapshot();
+        }
+
+        // A recenter changes the tracking space; the anchor pose settles over the next frames, so the height is
+        // logged again 1 s later.
+        private void HandleTrackingRecentered()
+        {
+            if (_writer == null) return;
+            LogEvent(LogEvents.TrackingRecentered, "count=" + session.RecenterCount.ToString(CultureInfo.InvariantCulture));
+            _pendingPlacementCheckAt = SessionManager.Now + 1.0;
+        }
+
+        private void LogPlacementCheck(string when)
+        {
+            LogEvent(LogEvents.PlacementCheck, FormattableString.Invariant(
+                $"when={when};height_m={session.PlacementHeightOffset:F3};ok={(session.IsPlacementHeightOk ? 1 : 0)};recenters={session.RecenterCount}"));
         }
 
         private void HandleAppResumed()
@@ -305,10 +335,21 @@ namespace FYP.Detective
         private void HandleClueUntagged(string clueId) => LogEvent(LogEvents.ClueUntagged, clueId);
         private void HandleClueReset(string clueId) => LogEvent(LogEvents.ClueReset, clueId);
 
-        private void HandleTrackingChanged(BodyPart part, bool tracked)
+        // Hand-tracking events are debounced (losses shorter than 0.2 s aren't logged); samples and zones use the raw state.
+        private void UpdateTrackingEvents()
         {
-            if (part == BodyPart.Head) return;
-            LogEvent(tracked ? LogEvents.HandTrackingRegained : LogEvents.HandTrackingLost, "part=" + part);
+            if (rig == null) return;
+            double t = session.ElapsedSeconds;
+            LogTrackingEvent(BodyPart.LeftHand, _leftTrackingFilter.Update(rig.IsTracked(BodyPart.LeftHand), t), _leftTrackingFilter);
+            LogTrackingEvent(BodyPart.RightHand, _rightTrackingFilter.Update(rig.IsTracked(BodyPart.RightHand), t), _rightTrackingFilter);
+        }
+
+        private void LogTrackingEvent(BodyPart part, TrackingEvent e, TrackingEventFilter filter)
+        {
+            if (e == TrackingEvent.Lost)
+                LogEvent(LogEvents.HandTrackingLost, FormattableString.Invariant($"part={part};lost_since_s={filter.LostSince:F3}"));
+            else if (e == TrackingEvent.Regained)
+                LogEvent(LogEvents.HandTrackingRegained, "part=" + part);
         }
 
         private void HandleContamination(ContaminationInfo info)
