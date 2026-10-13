@@ -31,7 +31,7 @@ Read this first in every session. Update **Current status** at the end of each s
 - **Reasoning errors:** wrong suspect / wrong evidence submitted on the evidence board.
 - **Continuous log at 10 Hz:** timestamp, head position + rotation, left/right hand positions, plus discrete
   events (`clue_found`, `clue_tagged`, `error_contamination`, `error_reasoning`, `session_start`, `session_end`).
-  Week 2 goal: positions relative to `CaseRoot` (not built yet, see audit).
+  Positions are relative to `CaseRoot` (Phase A).
 - **Later (don't build yet):** interpersonal distance and shared head-gaze attention. Quest 3 has no eye
   tracking, so attention = head-forward raycast.
 
@@ -258,12 +258,12 @@ Data flow:
   PointableCanvasModule). There is NO public poke API for plain 3D objects (`PokeWizard` is internal), hence poke canvases.
   `OVRHand.IsTracked` (`com.meta.xr.sdk.core/Scripts/Util/OVRHand.cs:140`), `OVRInput.GetControllerPositionTracked`
   (`Scripts/OVRInput.cs:709`), `OVRInput.RawButton` + `Get/GetDown(RawButton, Controller)`, `OVRManager.HMDMounted/
-  HMDUnmounted` events (`Scripts/OVRManager.cs:305`, not used yet).
+  HMDUnmounted` events (`Scripts/OVRManager.cs:305`, used by HeadsetPresenceMonitor); `OVRManager.display.RecenteredPose` (`Scripts/OVRDisplay.cs:167`).
 - `OVRInput.Get/GetDown(Button, Controller)` with `Button.One/Two/PrimaryThumbstick`, `Controller.LTouch/RTouch`
   (`Scripts/OVRInput.cs`). `OVRManager.TrackingOrigin.FloorLevel` (`Scripts/OVRManager.cs`).
 - Project config: `anchorSupport = Enabled` (`Assets/Oculus/OculusProjectConfig.asset`), manifest has
-  `com.oculus.permission.USE_ANCHOR_API`. `sharedAnchorSupport` is still 0 (needed in Week 3).
-- Not yet verified: `OVRHand.IsTracked` behaviour for logging (do untracked hand anchors freeze at the last pose?).
+  `com.oculus.permission.USE_ANCHOR_API`. `sharedAnchorSupport` and `colocationSessionSupport` = Supported (user, session 4).
+- Hand anchors when untracked: handled by HandTrackingMonitor (untracked = empty cells), so a frozen anchor pose is never logged.
 
 ## How to test
 - Unity: Window > General > Test Runner > EditMode > Run All.
@@ -274,93 +274,74 @@ Data flow:
 
 ## Current status
 
-_Last updated: session 4 (Week 2 Phase A, 2026-10-08). Week 2 work runs in phases A–E; stop after each phase
-for the user's "next", commit only after the user confirms the phase works on the headset._
+_Last updated: session 5 (2026-10-13), handover to a new Claude account. Week 2 work runs in phases A–E, Week 3 in
+phases; stop after each phase for the user's headset test, commit only after the user confirms it works._
 
-**Done (sessions 1–3)**
-- Foundation (session 1): folder structure, 3 asmdefs, 20 runtime scripts, EditMode tests, `SETUP_CHECKLIST.md`,
-  `.gitignore`/`.gitattributes` (LFS).
-- XR runtime (session 2): Meta XR SDK 207 + Unity OpenXR 1.16.1 with the Android `OpenXRLoader` (fixed the app stuck
-  on the loading screen). Passthrough via `PassthroughUnderlay`, floor-level tracking origin, splash off,
-  `Mobile_RPAsset` tuned for Quest. Unused AI/visual-scripting packages removed (user approved).
-- Rig (session 2): `Main.unity` built by **FYP > Create Main Scene**; **FYP > Add Controllers and Hands to Rig** adds
-  `OVRControllerPrefab` (LTouch/RTouch) and `OVRHandPrefabBuildingBlock` (left/right) to the anchors.
-- Ghost hands: **FYP > Use Ghost Hands** applies `HandGhost.mat` (shader `FYP/GhostHand`) and turns off the
-  system-gesture material swap. Seen on the headset; the last outline fix (rim only on the silhouette edge) has not
-  been re-confirmed by the user yet. `HandNeutral.mat` is a leftover from an earlier attempt (unused, can be deleted).
-- Grab tool (commit 56b4577): **FYP > Make Selected Object Grabbable** calls `OVRQuickActionsAPI.AddOVRInteractionRig()`
-  if no ISDK rig exists, then `QuickActionsAPI.AddGrabInteraction(target)`, then puts the ghost material on the ISDK
-  hand meshes and saves the scene. Compiles (session 3 batch run); **not yet run/saved into `Main.unity`**.
-- **Week 2 Phase A committed** (51f2d5b) after headset retest: refused start without placement, one `[Shortcuts]`
-  line per press, pause events, Aborted/Interrupted sessions all with summary + meta. Finding: taking the headset off
-  for ~15 s produced only a 1.4 s app pause (the app keeps running at first; samples continued), so pause time
-  ≠ headset-off time → user approved headset-off detection (added in Phase B, see Pauses).
-- **Phase B close-out (session 5):** 0.2 s hand-tracking log filter (`TrackingEventFilter`, events only; zones/samples
-  raw). Floor-height incident diagnosed: anchor 257269b6 saved at y=0/yaw 44.7 (10:05:35) loaded at y=+0.62/yaw 90.2
-  (10:13:50), 3.4 s after a burst of 3 "Recenter event detected" (`OVRDisplay.cs:150-153`,
-  `OVRPlugin.GetLocalTrackingSpaceRecenterCount` changed) right after HMDMounted → tracking space (floor + yaw) changed
-  between save and load. Physical position not provable from logs; safety check proposed. Tests 105/105.
-- **Week 2 Phase B (session 4, in progress):** clue wiring in the menu tools, tag button, static poke clues, clue
-  reset, hand-tracking monitor + `TrackedPointGate` in zones, new events. Not yet compiled in Unity/headset-tested.
-- Grab tool applied to the test cube and saved (commit efd0564, includes `Assets/InteractionSDK/ComprehensiveInteractors.prefab`
-  created by Meta's rig wizard). User confirmed grabbing works and the ghost hands look right on the headset.
-- **Week 2 Phase A (session 4): CaseRoot + placement.** `CaseRoot`, `PlacementMath`, `PlacementRecord`,
-  `SessionMeta(+Builder)`, `StatusLabel`; `FYP.Detective.Meta` assembly with `ScenePlacement` (anchor/load/manual/clear)
-  and `ExperimenterControllerShortcuts` (A place, B load, X manual, hold Y clear, hold right stick start, hold left stick
-  abort); menu **FYP > Set Up Case Root and Placement**. Extended (not rewritten): `DataLogger` (CaseRoot-local
-  poses, placement event, meta JSON), `SessionManager` (`Placement`, `SetPlacement`, `EndUtc`), `CaseState`
-  (`ContaminationCount(BodyPart)`), `AnswerResult` (`CorrectEvidenceIds`, `KeyEvidenceTotal`). Batch tests 77/77.
-  Headset test 1: anchor created but `SaveAnchorAsync` returned `FailurePermissionInsufficient` (documented in
-  `Scripts/OVRAnchor/OVRAnchor.cs` as "user has not granted all the required permissions"). The only runtime
-  permission involved is Spatial data `com.oculus.permission.USE_SCENE`; the user enabled it in the headset settings
-  (`dumpsys package` then showed `granted=true, USER_SET`). Fix: `ScenePlacement` checks
-  `OVRPermissionsRequester.IsPermissionGranted(Permission.Scene)` before Place/Load and requests it with Unity's
-  `UnityEngine.Android.Permission.RequestUserPermission(…, PermissionCallbacks)` (granted/denied/dismissed → status).
-  Headset test 2 (logcat capture): placement, anchors, CaseRoot-local logging (head 0/0, yaw ~0 on the mark), meta,
-  10 Hz while focused all OK. Problems found and fixed: the stick-click shortcuts misfired (left hold never aborted,
-  59 repeated starts) → now physical `OVRInput.RawButton` A/B/X/Y/LThumbstick/RThumbstick with `Controller.Touch`,
-  start = hold right stick, every shortcut logged as `[Shortcuts] …`; a session could start without placement → now
-  refused; pauses left 51–92 s sample gaps unexplained → pause events + active time; a run left "Running" with no
-  summary → snapshots marked Interrupted.
-  User's own settings (kept, in the Phase A commit): package id `com.xmum.fyp.detective`,
-  `sharedAnchorSupport`/`colocationSessionSupport` = Supported, `allowVisibilityMesh` = 1.
-- **Tests (session 3): first run inside Unity, batch mode: 60/60 passed** (AnswerChecker 8, CaseState 5,
-  CsvFormatter 18, CsvLogWriter 2, EvidenceSelection 1, ExperimentConfig 10, FloorFootprint 4, SessionTimer 3,
-  ZoneEntryTracker 9). No compile errors or warnings from `Assets/_Project`.
+**Where we are (start here)**
+- Week 3 has started, but **Phase B is not closed yet**: its last headset retest is still pending (see "Next").
+- Latest commits on `main`: `cb78eb7` placement height check + tracking filters (user-committed, not yet
+  headset-verified), `bf58f32` Phase B clue wiring/reset/hand+headset tracking, `51f2d5b` Phase A.
+- EditMode tests: **111/111 pass** in batch mode (last run session 5). No compile errors/warnings in `Assets/_Project`.
+- Untracked in the repo root (the user's, not Claude's): `.agents/`, `.codex/`, `AGENTS.md`. Ask before touching.
 
-**Week 2 audit (session 3, read-only)**
-Goal: place scene → in-headset setup → start → find/tag clues → avoid protected evidence → submit → end; samples
-(10 Hz, CaseRoot-local), events and meta logged; flush on pause.
+**Done**
+- Sessions 1–3: foundation (asmdefs, pure logic + tests, logging), Meta XR SDK 207 on Unity OpenXR, passthrough,
+  rig with controllers + hands, ghost-hand shader, Interaction SDK rig, status audit.
+- **Week 2 Phase A** (`51f2d5b`, headset-verified): CaseRoot, anchor placement (save/load/manual/clear, Spatial data
+  permission), CaseRoot-local logging, `_meta.json`, controller shortcuts (RawButton, logged), start requires a
+  placement, pause/active time, Interrupted snapshots.
+- **Week 2 Phase B** (`bf58f32`): clue wiring via menu tools (Clue + InteractableUnityEventWrapper), "Tag as
+  Evidence" poke button, static poke clues, clue reset (> 3 m / below floor), HandTrackingMonitor + TrackedPointGate
+  in zones, headset-off pauses (HMDUnmounted/HMDMounted, union with app pauses), debug "Resumed - paused X.X s".
+  Headset-verified: grab → clue_found, tag/untag, hmd + app pause overlap counted once, hand-tracking events.
+  **Not yet verified:** Quad poke, clue reset, left-stick abort.
+- **Phase B close-out** (`cb78eb7`): 0.2 s hand-tracking log filter; placement height check (refuse start if CaseRoot
+  > 5 cm off the floor, wait 3 s for tracking to settle before place/load, `placement_check` / `tracking_recentered`
+  rows). Cause of the 0.62 m incident: tracking space changed (recenter burst after putting the headset on) between
+  saving and loading the anchor; whether the scene physically floated is unknown (user doesn't remember).
+- Test-scene content: `CaseRoot/TestCube (delete me)` (grabbable clue `TestCube_delete_me`) and `CaseRoot/Quad`
+  (static poke clue at 0.8/1.2/1.5, rotation 0 – a Quad faces local -Z, do NOT rotate it 180).
 
-| Step | Status | Gap |
-|---|---|---|
-| Place the scene in the room | Missing | No `CaseRoot`, placement or anchor code; scene has only rig, `SessionSystems`, test cube |
-| In-headset setup panel | Partial | `ExperimenterPanel` actions exist, but its IMGUI window is invisible in the headset; no world-space panel/prefab |
-| Start / timer / cap / end | Done | `SessionManager` + `SessionTimer` |
-| Find clues | Partial | `Clue.MarkFound()` exists; no `Clue` in scene; nothing calls it (needs `InteractableUnityEventWrapper.WhenSelect`) |
-| Tag clues | Partial | `Clue.MarkTagged/ToggleTagged` exist; no gesture/button calls them |
-| Contamination zones | Partial | Logic done; no `ExclusionZone` in scene; possible stale hand anchors when tracking is lost (unverified) |
-| Evidence board submit → end | Partial | `EvidenceBoard` + `AnswerChecker` done; no board/UI in scene; CaseX/Y data are placeholders |
-| 10 Hz samples | Partial | World-space positions, not CaseRoot-local |
-| Events | Done | all required events + `answer_submitted` |
-| Meta file | Partial | Summary CSV per run + `experiment_config.json` (last config); no per-session meta JSON |
-| Flushing | Done | 1 s, every event, `OnApplicationPause`, focus loss; session ended on quit |
+**Decisions made in session 5 (user)**
+- Order: close Phase B → Week 3 networking → Week 2 Phase C (in-headset UI) and D (greybox cases) → E (wrap-up).
+- **NGO 2.13.3 + Unity Transport 2.6.0 approved** (not installed yet). After installing: batch compile at once; if
+  Meta's NGO assemblies fail to compile, revert the manifest immediately and tell the user.
+- **Direct local connection approved** instead of Meta's UGS-based Colocation/CustomMatchmaking block: host
+  UnityTransport on its LAN IP, IP:port in the `OVRColocationSession` advertisement, CaseRoot anchor shared with
+  `OVRSpatialAnchor.ShareAsync(anchor, groupUuid)`, guest loads it with `LoadUnboundSharedAnchorsAsync(groupUuid)`.
+  Shared anchors use Meta's cloud → network needs internet; show clear label messages for `FailureNetworkTimeout`,
+  `FailureNetworkRequestFailed`, `FailureCloudStorageDisabled` ("Share Point Cloud Data"/Enhanced Spatial Services off).
+- **Manual alignment fallback** for 2 headsets (both Manual-place on the same tape mark facing the same wall). If
+  colocation isn't working by the end of Week 3, switch to the fallback and continue to Week 4.
+- Hardware: 2 Quest 3, developer mode, Enhanced Spatial Services on, Bluetooth not yet checked, **campus Wi-Fi**
+  (risk: client isolation / blocked ports → test first; backup = phone hotspot with internet).
 
-Grab tool vs. "clue found": the tool doesn't add `InteractableUnityEventWrapper` or `Clue`, so grabbing fires
-`WhenSelect` on the interactable but nothing reaches `CaseState`. Ghost hands are visual only (no effect on events).
+**Next (in this order)**
+1. **Phase B retest** (build with `cb78eb7`; user runs FYP > Set Up Case Root and Placement once, saves, Build And
+   Run; start a logcat capture first): B right after launch → "Waiting for tracking to settle..." then loaded (or the
+   height warning); hold right stick → Running; poke the Quad → its tag button; carry the cube > 3 m and release →
+   clue_reset; wave a hand at the edge of view → few/no hand_tracking rows; hold left stick → Ended (Aborted);
+   quit, headset off ~30 s, relaunch, B at once → settle wait, and if the height is wrong the start must be refused.
+   Then check the pulled CSV/summary/meta and commit Phase B as closed.
+2. **Week 3 Phase 1:** install NGO 2.13.3 (manifest change already approved) → batch compile → `NetworkManager` +
+   `UnityTransport` host/client over the LAN with a manual IP first; test headset-to-headset on campus Wi-Fi.
+3. **Week 3 Phase 2:** colocation discovery (advertise ip:port), shared CaseRoot anchor, label messages for sharing
+   failures; manual alignment fallback.
+4. **Week 3 Phase 3:** network the shared state (`CaseState` authoritative on the host; clients send found / tag /
+   submit requests; clue positions synced). Each headset still writes its own CSV (pairCode + participantId link them).
+5. Then Week 2 Phase C (setup panel, participant Start, evidence board, end screen), D (greybox Case X/Y generator,
+   room size in one constant), E (device test checklist, adb pull, wrap-up).
+
+**Useful commands / tips**
+- adb: `"/c/Program Files/Unity/Hub/Editor/6000.3.25f1/Editor/Data/PlaybackEngines/AndroidPlayer/SDK/platform-tools/adb.exe"`.
+  In Git Bash set `MSYS_NO_PATHCONV=1` before adb commands with `/sdcard/...` paths.
+- Capture: `adb logcat -c` then `adb logcat -v time -s Unity:V > <file>` (run in background). The capture dies with
+  exit 255 when the headset sleeps/disconnects; restart it.
+- Pull data: `adb pull /sdcard/Android/data/com.xmum.fyp.detective/files/ ./StudyData/` (gitignored).
+- Batch tests: see "How to test" (Unity must be closed; a batch run can take > 10 min after big changes).
 
 **Open questions for the user**
-1. Measure the lab to confirm the 4 x 4 m area (0.5 m margin → 3 x 3 m playable).
-2. Delete template content (`TutorialInfo/`, `Readme.asset`, `Scenes/SampleScene`) and `HandNeutral.mat`? Currently kept.
-3. Confirm the reasoning-error rule above.
-4. OK to add Netcode for GameObjects (needed for Week 3 colocation)?
-5. (Done, user) Package id renamed to `com.xmum.fyp.detective`.
-
-**Next up (Week 2)**
-- `CaseRoot` + scene placement (local `OVRSpatialAnchor`, optionally MRUK floor/table); log positions CaseRoot-local.
-- Grab tool: also add `Clue` + `InteractableUnityEventWrapper` (`WhenSelect → Clue.MarkFound`) per interactable.
-- In-headset experimenter/setup panel (world-space, ISDK poke or ray); clue tagging interaction.
-- Evidence board UI in the scene; exclusion zones placed around protected evidence; Case X blockout inside 3 x 3 m.
-- Hand-tracking validity (`OVRHand.IsTracked`, after verifying) so untracked hands aren't logged/counted.
-- Per-session meta JSON; counterbalancing helper (Latin square for condition x case order).
-- Later: Netcode + Colocation + Shared Spatial Anchors (Week 3); interpersonal distance + head-gaze logging.
+1. Measure the lab to confirm 4 x 4 m (0.5 m margin → 3 x 3 m playable).
+2. Delete template content (`TutorialInfo/`, `Readme.asset`, `Scenes/SampleScene`) and `HandNeutral.mat`?
+3. Confirm the reasoning-error rule and the evidence-score definition.
+4. Check Bluetooth on both headsets (needed for colocation discovery).
