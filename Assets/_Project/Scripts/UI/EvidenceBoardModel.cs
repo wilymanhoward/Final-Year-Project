@@ -65,7 +65,7 @@ namespace FYP.Detective
                     string name = string.IsNullOrEmpty(s.displayName) ? s.id : s.displayName;
                     bool selected = s.id == selectedSuspectId;
                     if (selected) suspectName = name;
-                    if (si < layout.Suspects.Length) layout.Suspects[si++] = new BoardSlot(s.id, name, selected);
+                    if (si < layout.Suspects.Length) layout.Suspects[si++] = new BoardSlot(s.id, SuspectCard(name, s.role, s.alibi), selected);
                 }
             }
 
@@ -101,6 +101,13 @@ namespace FYP.Detective
             if (layout.HiddenEvidence > 0) summary += "\n" + layout.HiddenEvidence + " more tagged clue(s) don't fit - untag some.";
             layout.Summary = summary;
             return layout;
+        }
+
+        /// <summary>Suspect card text: "Name - Role" and the alibi on the next line (each part optional).</summary>
+        public static string SuspectCard(string name, string role, string alibi)
+        {
+            string head = string.IsNullOrEmpty(role) ? name : name + " - " + role;
+            return string.IsNullOrEmpty(alibi) ? head : head + "\n" + alibi;
         }
     }
 }

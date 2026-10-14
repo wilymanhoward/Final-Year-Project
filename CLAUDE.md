@@ -160,6 +160,7 @@ Editor/ (FYP.Detective.Editor.asmdef, Editor-only)
   NetworkSetupTool    menu:  FYP > Set Up Networking
   HeadsetUiTool       menu:  FYP > Set Up Headset UI
   EvidenceBoardTool   menu:  FYP > Set Up Evidence Board
+  CaseSceneTool       menu:  FYP > Build Case Scenes (X + Y)
 Tests/ (FYP.Detective.Tests.asmdef, Editor-only, EditMode NUnit)
 Art/Shaders/GhostHand.shader (URP, "FYP/GhostHand")   Art/Materials/HandGhost.mat
 Scenes/Main.unity   Cases/{CaseX,CaseY}/CaseX|Y_Definition.asset (placeholder data)   Prefabs/ (empty)
@@ -283,6 +284,28 @@ Data flow:
   (participant card Start vs. setup panel Start now / right stick / desktop); `run_armed` row (`at_utc` = when the
   experimenter armed) right after `session_start` when the run was armed; meta `startSource`, `armedUtc`. Team runs
   carry the source in TeamMessage `ReqStart|source` / `Start|case|cond|source`.
+- **Phase D cases (session 6):** content in `docs/cases.md` (Case X "The Missing Design Award", culprit Grace Wong;
+  Case Y "The Missing Keris", culprit Farid Rahman; 4 suspects, K1-K4 + R1-R3, 3 zones each). Code: `CaseSpec` types +
+  `PlayArea` constants (HalfSize 1.5 m, heights floor/table 0.75/eye 1.5), `CaseSpecs.X/Y` (Y = X mirrored x -> -x),
+  `CaseSpecValidator` (counts, height bands, inside area, no clue within 10 cm of a zone, red herrings -> distinct
+  innocents, mean distance diff <= 0.15 m, mirror rule incl. display/desk/door moved). Layout: start mark = CaseRoot at
+  the centre of the 3 x 3 m area facing the front wall; mean clue distance 1.37 m; board at (0, -1.45) facing the start.
+  `FYP > Build Case Scenes (X + Y)` builds Case_X/Case_Y (`CaseContent`: only the active case is shown; grabbable clues
+  are soft-hidden because Netcode needs in-scene network objects active), updates the CaseDefinition assets (title,
+  briefing, suspects with role/alibi, culprit, K1-K4), places the board, deactivates TestCube + Quad. Clue inspect text
+  shows above its tag button; the briefing card shows the case story; the board has 4 suspect cards (name, role, alibi).
+  TeamMessage `Arm` carries the host's case (client adopts case + condition B). `answer_correct` stays strict
+  (culprit + K1-K4 and no red herrings).
+- **Phase D headset tests (session 6):** test 1: glass zone in front of the whole display made K1 unreachable without
+  contamination (8 of 9 entries) -> validator reach rule; test 2: coffee in front of the desk blocked K2, crouching for K3
+  swept a hand into the glass -> rule tightened (standing spot 0.45 m from the clue within +/-60 deg of its natural side,
+  >= 30 cm body clearance from zones, reach line >= 5 cm from zones). Layout now: glass 0.36 x 0.4 at (-1.28, 0.42),
+  coffee 0.40 x 0.5 at (0.30, 0.65) beside the desk, K1 (-0.75, 0.78), K3 (-0.70, 0.74), R1 (-0.50, 1.15); mean clue
+  distance 1.22 m. Test 3: scene under the floor = the Quest's floor estimate ~0.3 m too low at placement (head 2.00 m
+  above the scene; normal 1.58-1.70) -> **floor guard**: A / X refuse when the head is outside 1.20-1.95 m above the
+  floor (press again within 5 s to override), loads warn, `placement_check` logs `head_m`. Test 4 (floor re-set in the Quest):
+  head 1.56 m above the scene, ARM + participant Start logged, K1/K2/K4 taken with no glass/coffee entries; 7 entries were
+  real steps onto the footprints. The floor guard itself wasn't in that build (headset-untested).
 - **Hand look:** participants see translucent dark "ghost" hands with a white rim (custom shader
   `FYP/GhostHand`: depth prepass + alpha-blended fresnel rim; tune Body Colour/Alpha and Outline Width/Sharpness
   on `HandGhost.mat`). The OVRHand system-gesture material swap is set to None.

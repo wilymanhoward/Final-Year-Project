@@ -10,6 +10,8 @@ namespace FYP.Detective
     {
         public string id;
         public string displayName;
+        public string role;
+        [TextArea(1, 3)] public string alibi;
     }
 
     /// <summary>
@@ -21,6 +23,9 @@ namespace FYP.Detective
     {
         [SerializeField] private CaseId caseId = CaseId.X;
         [SerializeField] private string title = "Untitled case";
+        [Tooltip("Shown to the participant on the briefing card before Start.")]
+        [TextArea(3, 8)]
+        [SerializeField] private string briefing = "";
         [SerializeField] private List<SuspectInfo> suspects = new List<SuspectInfo>();
 
         [Header("Correct answer")]
@@ -33,6 +38,7 @@ namespace FYP.Detective
 
         public CaseId CaseId => caseId;
         public string Title => title;
+        public string Briefing => briefing;
         public IReadOnlyList<SuspectInfo> Suspects => suspects;
         public string CorrectSuspectId => correctSuspectId;
         public IReadOnlyList<string> KeyEvidenceIds => keyEvidenceIds;

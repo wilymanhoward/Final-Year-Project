@@ -4,6 +4,27 @@ using UnityEngine;
 
 namespace FYP.Detective.Tests
 {
+    public class FloorPlausibilityTests
+    {
+        [TestCase(1.65f, true)]
+        [TestCase(1.20f, true)]
+        [TestCase(1.95f, true)]
+        [TestCase(2.00f, false)]   // the "scene under the floor" headset test
+        [TestCase(0.80f, false)]
+        public void HeadHeightRange(float head, bool plausible)
+        {
+            Assert.AreEqual(plausible, PlacementHeight.IsHeadHeightPlausible(head));
+        }
+
+        [Test]
+        public void MessagesExplainTheFix()
+        {
+            StringAssert.Contains("2.00 m", PlacementHeight.FloorLooksWrongMessage(2f));
+            StringAssert.Contains("again within 5 s", PlacementHeight.FloorLooksWrongMessage(2f));
+            StringAssert.Contains("re-place with A", PlacementHeight.LoadedFloorLooksWrongMessage(0.9f));
+        }
+    }
+
     public class PlacementMathTests
     {
         private const float Tol = 1e-3f;

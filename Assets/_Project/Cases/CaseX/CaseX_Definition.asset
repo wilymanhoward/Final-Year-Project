@@ -13,16 +13,55 @@ MonoBehaviour:
   m_Name: CaseX_Definition
   m_EditorClassIdentifier: FYP.Detective::FYP.Detective.CaseDefinition
   caseId: 0
-  title: Case X (placeholder)
+  title: The Missing Design Award
+  briefing: Last night, the gold Design of the Year award vanished from the display
+    case at Kite Design Studio, just hours before the company's big exhibition. The
+    case was found open this morning. Four people had a reason to be near the studio
+    last night. Search the room, tag the evidence, and name the person who took the
+    award.
   suspects:
-  - id: X_butler
-    displayName: butler
-  - id: X_gardener
-    displayName: gardener
-  - id: X_cook
-    displayName: cook
-  correctSuspectId: X_butler
+  - id: X_grace
+    displayName: Grace Wong
+    role: Studio manager
+    alibi: '"I locked up at 7:00 pm and went straight home." (No one can confirm.)'
+  - id: X_kumar
+    displayName: Kumar Raj
+    role: Night cleaner
+    alibi: Clocked out at 9:05 pm; security confirms he left the building.
+  - id: X_lena
+    displayName: Lena Ortiz
+    role: Rival designer next door
+    alibi: At a restaurant 7:00-10:00 pm; the restaurant confirms her booking.
+  - id: X_aiman
+    displayName: Aiman Hakim
+    role: Junior designer
+    alibi: At the gym 9:15-10:30 pm; the gym's check-in record confirms it.
+  correctSuspectId: X_grace
   keyEvidenceIds:
-  - X_knife
-  - X_letter
-  experimenterNotes: 
+  - X_K1
+  - X_K2
+  - X_K3
+  - X_K4
+  experimenterNotes: 'Generated from docs/cases.md by FYP > Build Case Scenes.
+
+    Culprit:
+    Grace Wong
+
+    K1 X_K1 - Display case lock panel
+
+    K2 X_K2 - Sign-in sheet
+
+    K3
+    X_K3 - Staff lanyard clip
+
+    K4 X_K4 - Printed email
+
+    R1 X_R1 - Cleaning
+    glove (red herring: Kumar Raj)
+
+    R2 X_R2 - Torn sketch (red herring: Lena
+    Ortiz)
+
+    R3 X_R3 - Sticky note (red herring: Aiman Hakim)
+
+'

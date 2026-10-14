@@ -47,8 +47,10 @@ namespace FYP.Detective
         {
             if (session == null) return;
             var s = session.State;
+            CaseDefinition def = session.ActiveCase;
             ParticipantCardView view = ParticipantCardModel.Compute(
-                session.IsArmed, s.Phase, s.EndReason, session.IsTeamMode || s.IsTeamRun);
+                session.IsArmed, s.Phase, s.EndReason, session.IsTeamMode || s.IsTeamRun,
+                def != null ? def.Title : null, def != null ? def.Briefing : null);
 
             if (view.Visible != _visible || (view.Visible && view.Title != _shownTitle))
             {

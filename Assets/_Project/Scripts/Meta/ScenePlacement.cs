@@ -83,6 +83,7 @@ namespace FYP.Detective.Meta
         private bool _subscribedToRecenter;
         private int _waitToken;
         private float _nextHeightCheck;
+        private float _floorOverrideUntil = -1f;   // "press A again within 5 s to place anyway"
         private bool _lastHeightOk = true;
 
         public string Status { get; private set; } = "Not placed";
@@ -184,6 +185,7 @@ namespace FYP.Detective.Meta
         {
             if (!CanChange() || !EnsureSpatialDataPermission()) return;
             if (!await WaitForTrackingToSettle()) return;
+            if (!FloorLooksRightOrOverridden()) return;
             int op = BeginOperation("Creating anchor...");
             Pose pose = HeadFloorPose();
             var go = new GameObject(AnchorObjectName);
@@ -266,6 +268,7 @@ namespace FYP.Detective.Meta
                 UseAnchor(anchor);
                 Commit(PlacementMethod.Anchor, true, uuid.ToString("D"));
                 ReportPlaced(StatusLoaded);
+                WarnIfLoadedFloorLooksWrong();
             }
             catch (Exception e)
             {
@@ -334,6 +337,7 @@ namespace FYP.Detective.Meta
                 UseAnchor(anchor);
                 Commit(PlacementMethod.SharedAnchor, true, anchorUuid.ToString("D"));
                 ReportPlaced(StatusSharedLoaded);
+                WarnIfLoadedFloorLooksWrong();
             }
             catch (Exception e)
             {
@@ -346,6 +350,7 @@ namespace FYP.Detective.Meta
         public void ManualPlacement()
         {
             if (!CanChange()) return;
+            if (!FloorLooksRightOrOverridden()) return;
             CancelOperation();
             Pose pose = HeadFloorPose();
             ReleaseAnchor();
@@ -432,6 +437,32 @@ namespace FYP.Detective.Meta
         {
             _permissionResult = result;
             _permissionResultReady = true;
+        }
+
+        /// <summary>
+        /// Placing from the head pose assumes the headset's floor is right. If the head is at an implausible height
+        /// above it, refuse once with an explanation; pressing again within 5 s places anyway.
+        /// </summary>
+        private bool FloorLooksRightOrOverridden()
+        {
+            float floorY = trackingSpace != null ? trackingSpace.position.y : 0f;
+            float head = rig.Head.position.y - floorY;
+            if (PlacementHeight.IsHeadHeightPlausible(head)) return true;
+            if (Time.unscaledTime <= _floorOverrideUntil)
+            {
+                _floorOverrideUntil = -1f;
+                Debug.LogWarning($"[ScenePlacement] Placing anyway with the head {head:F2} m above the floor (override)");
+                return true;
+            }
+            _floorOverrideUntil = Time.unscaledTime + 5f;
+            SetStatus(PlacementHeight.FloorLooksWrongMessage(head));
+            return false;
+        }
+
+        private void WarnIfLoadedFloorLooksWrong()
+        {
+            float head = rig.Head.position.y - caseRoot.transform.position.y;
+            if (!PlacementHeight.IsHeadHeightPlausible(head)) SetStatus(PlacementHeight.LoadedFloorLooksWrongMessage(head));
         }
 
         private Pose HeadFloorPose()
