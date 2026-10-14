@@ -10,8 +10,9 @@ namespace FYP.Detective.Tests
         [Test]
         public void MessagesRoundTrip()
         {
-            Assert.IsTrue(TeamMessage.TryParse(TeamMessage.ReqStart(), out var m));
+            Assert.IsTrue(TeamMessage.TryParse(TeamMessage.ReqStart(StartSource.ParticipantStart), out var m));
             Assert.AreEqual(TeamMessageKind.ReqStart, m.Kind);
+            Assert.AreEqual(StartSource.ParticipantStart, m.Source);
 
             Assert.IsTrue(TeamMessage.TryParse(TeamMessage.End(SessionEndReason.Aborted), out m));
             Assert.AreEqual(TeamMessageKind.End, m.Kind);
@@ -33,7 +34,8 @@ namespace FYP.Detective.Tests
             Assert.IsTrue(TeamMessage.TryParse(TeamMessage.ReqSubmit("P01", "s1", Array.Empty<string>()), out m));
             Assert.AreEqual(0, m.EvidenceIds.Count);
 
-            Assert.IsTrue(TeamMessage.TryParse(TeamMessage.Start("Y", "B"), out m));
+            Assert.IsTrue(TeamMessage.TryParse(TeamMessage.Start("Y", "B", StartSource.StartNow), out m));
+            Assert.AreEqual(StartSource.StartNow, m.Source);
             Assert.AreEqual("Y", m.CaseCode);
             Assert.AreEqual("B", m.ConditionCode);
 
@@ -49,7 +51,10 @@ namespace FYP.Detective.Tests
         [TestCase("")]
         [TestCase("Bogus|x")]
         [TestCase("3|x|y")]
+        [TestCase("ReqStart")]
         [TestCase("ReqStart|extra")]
+        [TestCase("ReqStart|1")]
+        [TestCase("Start|Y|B")]
         [TestCase("Found|knife")]
         [TestCase("Found||P01")]
         [TestCase("Tag|knife|2|P01")]
@@ -60,6 +65,13 @@ namespace FYP.Detective.Tests
         public void RejectsMalformedMessages(string text)
         {
             Assert.IsFalse(TeamMessage.TryParse(text, out _));
+        }
+
+        [Test]
+        public void StartSourceCodes()
+        {
+            Assert.AreEqual("participant_start", SessionManager.StartSourceCode(StartSource.ParticipantStart));
+            Assert.AreEqual("start_now", SessionManager.StartSourceCode(StartSource.StartNow));
         }
 
         [Test]

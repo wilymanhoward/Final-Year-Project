@@ -277,6 +277,10 @@ Data flow:
   prebuilt slots, Submit → "Submit? Yes/No", visible only while running) + `EvidenceBoardModel` (pure). Built by
   `FYP > Set Up Evidence Board` under CaseRoot (default local (-1.3, 1.35, 0.6), facing the centre; rerun keeps a
   moved board's pose). Experimenter can also open the setup panel with the left menu button (launch hint on the label).
+- **Start source + arming in the log (session 6):** `session_start` detail has `start_source=participant_start|start_now`
+  (participant card Start vs. setup panel Start now / right stick / desktop); `run_armed` row (`at_utc` = when the
+  experimenter armed) right after `session_start` when the run was armed; meta `startSource`, `armedUtc`. Team runs
+  carry the source in TeamMessage `ReqStart|source` / `Start|case|cond|source`.
 - **Hand look:** participants see translucent dark "ghost" hands with a white rim (custom shader
   `FYP/GhostHand`: depth prepass + alpha-blended fresnel rim; tune Body Colour/Alpha and Outline Width/Sharpness
   on `HandGhost.mat`). The OVRHand system-gesture material swap is set to None.

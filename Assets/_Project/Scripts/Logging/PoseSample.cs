@@ -81,5 +81,7 @@ namespace FYP.Detective
         // Evidence board (Phase C2).
         public const string BoardSuspect = "board_suspect";
         public const string BoardEvidence = "board_evidence";
+        /// <summary>The experimenter armed this run (before the file was open; at_utc = when).</summary>
+        public const string RunArmed = "run_armed";
     }
 }

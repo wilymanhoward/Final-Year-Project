@@ -21,13 +21,13 @@ namespace FYP.Detective
     /// One team-state message, as plain text "kind|field|field..." (sent as a Netcode named message). Ids may not
     /// contain '|' or ','; <see cref="TryParse"/> rejects anything malformed. Pure C#, unit tested.
     /// Fields per kind:
-    ///   ReqStart                     (none)
+    ///   ReqStart                     startSource (StartNow | ParticipantStart)
     ///   ReqEnd / End                 reason
     ///   ReqFound / Found             clue, by
     ///   ReqTag / Tag                 clue, 1|0, by
     ///   ReqSubmit / Submit           by, suspect, evidence (comma-separated, may be empty)
     ///   ReqOwnership                 clue
-    ///   Start                        caseCode, conditionCode
+    ///   Start                        caseCode, conditionCode, startSource
     ///   Contamination                zone, bodyPart, by
     ///   ReqArm / Arm                 1|0
     ///   ReqBoardSuspect / BoardSuspect      suspect ("-" = none), by
@@ -47,13 +47,14 @@ namespace FYP.Detective
         public string CaseCode { get; private set; }
         public string ConditionCode { get; private set; }
         public string ZoneId { get; private set; }
+        public StartSource Source { get; private set; }
         public BodyPart Part { get; private set; }
 
         private static readonly char[] Forbidden = { '|', ',' };
 
         // ---- Builders ----
 
-        public static string ReqStart() => Join(TeamMessageKind.ReqStart);
+        public static string ReqStart(StartSource source) => Join(TeamMessageKind.ReqStart, source.ToString());
         public static string ReqEnd(SessionEndReason r) => Join(TeamMessageKind.ReqEnd, r.ToString());
         public static string End(SessionEndReason r) => Join(TeamMessageKind.End, r.ToString());
         public static string ReqFound(string clue, string by) => Join(TeamMessageKind.ReqFound, Id(clue), Id(by));
@@ -63,7 +64,8 @@ namespace FYP.Detective
         public static string ReqSubmit(string by, string suspect, IEnumerable<string> evidence) => Join(TeamMessageKind.ReqSubmit, Id(by), Id(suspect), Ids(evidence));
         public static string Submit(string by, string suspect, IEnumerable<string> evidence) => Join(TeamMessageKind.Submit, Id(by), Id(suspect), Ids(evidence));
         public static string ReqOwnership(string clue) => Join(TeamMessageKind.ReqOwnership, Id(clue));
-        public static string Start(string caseCode, string conditionCode) => Join(TeamMessageKind.Start, Id(caseCode), Id(conditionCode));
+        public static string Start(string caseCode, string conditionCode, StartSource source) =>
+            Join(TeamMessageKind.Start, Id(caseCode), Id(conditionCode), source.ToString());
         public static string Contamination(string zone, BodyPart part, string by) => Join(TeamMessageKind.Contamination, Id(zone), part.ToString(), Id(by));
         /// <summary>Suspect id meaning "no suspect selected".</summary>
         public const string NoSuspect = "-";
@@ -97,7 +99,8 @@ namespace FYP.Detective
             switch (kind)
             {
                 case TeamMessageKind.ReqStart:
-                    if (f.Length != 1) return false;
+                    if (f.Length != 2 || !TrySource(f[1], out StartSource rs)) return false;
+                    m.Source = rs;
                     break;
                 case TeamMessageKind.ReqEnd:
                 case TeamMessageKind.End:
@@ -126,8 +129,8 @@ namespace FYP.Detective
                     m.ClueId = f[1];
                     break;
                 case TeamMessageKind.Start:
-                    if (f.Length != 3 || !IsSendableId(f[1]) || !IsSendableId(f[2])) return false;
-                    m.CaseCode = f[1]; m.ConditionCode = f[2];
+                    if (f.Length != 4 || !IsSendableId(f[1]) || !IsSendableId(f[2]) || !TrySource(f[3], out StartSource ss)) return false;
+                    m.CaseCode = f[1]; m.ConditionCode = f[2]; m.Source = ss;
                     break;
                 case TeamMessageKind.ReqBoardSuspect:
                 case TeamMessageKind.BoardSuspect:
@@ -154,6 +157,12 @@ namespace FYP.Detective
             }
             message = m;
             return true;
+        }
+
+        private static bool TrySource(string s, out StartSource source)
+        {
+            return Enum.TryParse(s, false, out source) && Enum.IsDefined(typeof(StartSource), source)
+                && !int.TryParse(s, NumberStyles.Integer, CultureInfo.InvariantCulture, out _);
         }
 
         private static bool TryReason(string s, out SessionEndReason r)

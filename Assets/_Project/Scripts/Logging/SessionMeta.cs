@@ -80,6 +80,11 @@ namespace FYP.Detective
         public int partnerContaminationErrors;
         public int teamContaminationErrors;
         public string submittedBy;
+
+        /// <summary>participant_start | start_now.</summary>
+        public string startSource;
+        /// <summary>When the experimenter armed this run ("" = started without arming).</summary>
+        public string armedUtc;
     }
 
     /// <summary>Build and device facts for <see cref="SessionMeta"/>, gathered by the caller from Unity.</summary>

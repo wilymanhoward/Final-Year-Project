@@ -73,16 +73,16 @@ namespace FYP.Detective.Net
 
         // ---- ICaseAuthority ----
 
-        public void RequestStart()
+        public void RequestStart(StartSource source)
         {
-            if (!IsHost) { SendToHost(TeamMessage.ReqStart()); return; }
-            if (!session.StartSession())
+            if (!IsHost) { SendToHost(TeamMessage.ReqStart(source)); return; }
+            if (!session.StartSession(source))
             {
                 SetStatus("Team start refused on the host: " + session.LastStartError);
                 return;
             }
             var c = session.Config;
-            Broadcast(TeamMessage.Start(c.CaseCode, c.ConditionCode));
+            Broadcast(TeamMessage.Start(c.CaseCode, c.ConditionCode, source));
         }
 
         public void RequestArm(bool armed)
@@ -181,7 +181,7 @@ namespace FYP.Detective.Net
         {
             switch (m.Kind)
             {
-                case TeamMessageKind.ReqStart: RequestStart(); break;
+                case TeamMessageKind.ReqStart: RequestStart(m.Source); break;
                 case TeamMessageKind.ReqArm: RequestArm(m.Armed); break;
                 case TeamMessageKind.ReqBoardSuspect: RequestBoardSuspect(m.SuspectId, m.By); break;
                 case TeamMessageKind.ReqBoardEvidence: RequestBoardEvidence(m.ClueId, m.Tagged, m.By); break;
@@ -205,7 +205,7 @@ namespace FYP.Detective.Net
             switch (m.Kind)
             {
                 case TeamMessageKind.Start:
-                    if (!session.ApplyTeamStart(m.CaseCode, m.ConditionCode))
+                    if (!session.ApplyTeamStart(m.CaseCode, m.ConditionCode, m.Source))
                         SetStatus("Host started the team run, but this headset couldn't: " + session.LastStartError);
                     break;
                 case TeamMessageKind.Arm:
