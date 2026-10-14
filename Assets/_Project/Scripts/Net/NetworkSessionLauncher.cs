@@ -175,6 +175,7 @@ namespace FYP.Detective.Net
             {
                 if (clientId == networkManager.LocalClientId) return;
                 Log(LogEvents.NetPeerDisconnected, "client_id=" + clientId.ToString(CultureInfo.InvariantCulture));
+                LogIncidentIfRunning("partner_disconnected;side=host");
                 SetStatus("Partner left - waiting for partner");
                 return;
             }
@@ -183,6 +184,7 @@ namespace FYP.Detective.Net
             if (_clientWasConnected)
             {
                 Log(LogEvents.NetPeerDisconnected, "host=" + _joinAddress + (string.IsNullOrEmpty(reason) ? "" : ";reason=" + reason));
+                LogIncidentIfRunning("partner_disconnected;side=client");
                 SetStatus("Lost the host" + (string.IsNullOrEmpty(reason) ? "" : ": " + reason));
             }
             else
@@ -223,6 +225,14 @@ namespace FYP.Detective.Net
             ExperimentConfig config = session != null ? session.Config.Clone() : new ExperimentConfig();
             ExperimentConfigStore.TryLoadInto(config);
             return config;
+        }
+
+        // A team run that loses its partner keeps going (and keeps condition B); the gap is marked as an incident.
+        private void LogIncidentIfRunning(string detail)
+        {
+            if (session == null || !session.IsRunning) return;
+            Log(LogEvents.Incident, "type=" + detail);
+            SetStatus("INCIDENT: partner disconnected during the run - the run continues as condition " + session.Config.ConditionCode);
         }
 
         private void Log(string eventName, string detail)

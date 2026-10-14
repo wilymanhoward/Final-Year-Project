@@ -68,6 +68,15 @@ namespace FYP.Detective.Tests
         }
 
         [Test]
+        public void ConditionMustMatchTheConnection()
+        {
+            Assert.IsNull(SessionManager.ConditionMismatch(StudyCondition.A, false));
+            Assert.IsNull(SessionManager.ConditionMismatch(StudyCondition.B, true));
+            StringAssert.Contains("needs a connected partner", SessionManager.ConditionMismatch(StudyCondition.B, false));
+            StringAssert.Contains("solo", SessionManager.ConditionMismatch(StudyCondition.A, true));
+        }
+
+        [Test]
         public void StartSourceCodes()
         {
             Assert.AreEqual("participant_start", SessionManager.StartSourceCode(StartSource.ParticipantStart));

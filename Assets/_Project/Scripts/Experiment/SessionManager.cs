@@ -161,25 +161,41 @@ namespace FYP.Detective
         }
 
         /// <summary>
-        /// Why a run couldn't start right now (null if it could): config, case, placement, placement height.
-        /// Also sets the condition from the connection (user decision, session 6): partner connected = B, else A.
+        /// Why a run couldn't start right now (null if it could): config, condition vs. connection, case, placement,
+        /// placement height. The condition is chosen explicitly (user decision, session 6): B needs a connected
+        /// partner, A must have none.
         /// </summary>
         public string CheckCanStart()
         {
             if (State.IsRunning) return "A session is already running.";
-            StudyCondition condition = IsTeamMode ? StudyCondition.B : StudyCondition.A;
-            if (config.condition != condition)
-            {
-                Debug.Log($"[SessionManager] Condition set to {condition} ({(IsTeamMode ? "partner connected" : "no partner")})");
-                config.condition = condition;
-                ConfigChanged?.Invoke();
-            }
             if (!config.Validate(out string error)) return "Invalid config: " + error;
+            string mismatch = ConditionMismatch(config.condition, IsTeamMode);
+            if (mismatch != null) return mismatch;
             if (ActiveCase == null) return $"No CaseDefinition assigned for case {config.CaseCode}.";
             if (requirePlacement && Placement.Method == PlacementMethod.None)
                 return "Place the scene first (A = anchor, X = manual).";
             if (!IsPlacementHeightOk) return PlacementHeight.WrongMessage(PlacementHeightOffset);
             return null;
+        }
+
+        /// <summary>Null if the condition fits the connection, else the reason (pure, unit tested).</summary>
+        public static string ConditionMismatch(StudyCondition condition, bool partnerConnected)
+        {
+            if (condition == StudyCondition.B && !partnerConnected)
+                return "Condition B needs a connected partner (Host / Join first).";
+            if (condition == StudyCondition.A && partnerConnected)
+                return "Condition A is solo - stop the network first (or choose B).";
+            return null;
+        }
+
+        /// <summary>Team client: take the host's condition (B) before arming/starting. Not during a run.</summary>
+        public void AdoptCondition(StudyCondition condition)
+        {
+            if (State.IsRunning || config.condition == condition) return;
+            var c = config.Clone();
+            c.condition = condition;
+            Debug.Log("[SessionManager] Condition " + condition + " taken from the host");
+            ApplyConfig(c);
         }
 
         // ---- Arming (Phase C): the experimenter arms, the participant's Start card starts the run ----
