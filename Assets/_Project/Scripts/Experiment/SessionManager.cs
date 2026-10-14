@@ -160,7 +160,72 @@ namespace FYP.Detective
             return true;
         }
 
-        /// <summary>Experimenter trigger. Returns false (and logs why) if it cannot start.</summary>
+        /// <summary>
+        /// Why a run couldn't start right now (null if it could): config, case, placement, placement height.
+        /// Also sets the condition from the connection (user decision, session 6): partner connected = B, else A.
+        /// </summary>
+        public string CheckCanStart()
+        {
+            if (State.IsRunning) return "A session is already running.";
+            StudyCondition condition = IsTeamMode ? StudyCondition.B : StudyCondition.A;
+            if (config.condition != condition)
+            {
+                Debug.Log($"[SessionManager] Condition set to {condition} ({(IsTeamMode ? "partner connected" : "no partner")})");
+                config.condition = condition;
+                ConfigChanged?.Invoke();
+            }
+            if (!config.Validate(out string error)) return "Invalid config: " + error;
+            if (ActiveCase == null) return $"No CaseDefinition assigned for case {config.CaseCode}.";
+            if (requirePlacement && Placement.Method == PlacementMethod.None)
+                return "Place the scene first (A = anchor, X = manual).";
+            if (!IsPlacementHeightOk) return PlacementHeight.WrongMessage(PlacementHeightOffset);
+            return null;
+        }
+
+        // ---- Arming (Phase C): the experimenter arms, the participant's Start card starts the run ----
+
+        /// <summary>True when the experimenter has armed the next run and the participant may press Start.</summary>
+        public bool IsArmed { get; private set; }
+
+        /// <summary>Raised when <see cref="IsArmed"/> changes.</summary>
+        public event Action<bool> ArmedChanged;
+
+        /// <summary>Experimenter: arm (or disarm) the next run. Team mode: arms/disarms both headsets via the host.</summary>
+        public void RequestArm(bool armed)
+        {
+            if (IsTeamMode) Authority.RequestArm(armed);
+            else ApplyArm(armed);
+        }
+
+        /// <summary>Sets the armed state. Arming is refused (LastStartError says why) if the run couldn't start.</summary>
+        public bool ApplyArm(bool armed)
+        {
+            if (armed)
+            {
+                string reason = CheckCanStart();
+                if (reason != null) return RefuseStart(reason);
+                LastStartError = null;
+            }
+            SetArmed(armed);
+            return true;
+        }
+
+        /// <summary>Participant's Start button: starts the run only if the experimenter armed it.</summary>
+        public void RequestParticipantStart()
+        {
+            if (!IsArmed || State.IsRunning) return;
+            RequestStart();
+        }
+
+        private void SetArmed(bool armed)
+        {
+            if (IsArmed == armed) return;
+            IsArmed = armed;
+            Debug.Log("[SessionManager] " + (armed ? "Armed - waiting for the participant's Start" : "Disarmed"));
+            ArmedChanged?.Invoke(armed);
+        }
+
+        /// <summary>Experimenter trigger (or the participant's Start when armed). Returns false (and logs why) if it cannot start.</summary>
         public bool StartSession()
         {
             if (State.IsRunning)
@@ -168,12 +233,10 @@ namespace FYP.Detective
                 Debug.LogWarning("[SessionManager] Session already running.");
                 return false;
             }
-            if (!config.Validate(out string error)) return RefuseStart("Invalid config: " + error);
-            if (ActiveCase == null) return RefuseStart($"No CaseDefinition assigned for case {config.CaseCode}.");
-            if (requirePlacement && Placement.Method == PlacementMethod.None)
-                return RefuseStart("Place the scene first (A = anchor, X = manual).");
-            if (!IsPlacementHeightOk) return RefuseStart(PlacementHeight.WrongMessage(PlacementHeightOffset));
+            string refusal = CheckCanStart();
+            if (refusal != null) return RefuseStart(refusal);
 
+            SetArmed(false);
             LastStartError = null;
             ExperimentConfigStore.Save(config);
             _timer.CapSeconds = config.TimeCapSeconds;
@@ -255,6 +318,25 @@ namespace FYP.Detective
             if (IsTeamMode) Authority.RequestSubmit(suspectId, evidenceIds, SelfId);
             else ApplySubmission(suspectId, evidenceIds, LocalActor);
         }
+
+        /// <summary>Evidence board: choose the suspect (team: shared board, through the host).</summary>
+        public void RequestBoardSuspect(string suspectId)
+        {
+            if (!State.IsRunning || State.HasSubmitted || State.BoardSuspectId == suspectId) return;
+            if (IsTeamMode) Authority.RequestBoardSuspect(suspectId, SelfId);
+            else State.SetBoardSuspect(suspectId, LocalActor);
+        }
+
+        /// <summary>Evidence board: add/remove a tagged clue (team: shared board, through the host).</summary>
+        public void RequestBoardEvidence(string clueId, bool selected)
+        {
+            if (!State.IsRunning || State.HasSubmitted || State.IsBoardEvidenceSelected(clueId) == selected) return;
+            if (IsTeamMode) Authority.RequestBoardEvidence(clueId, selected, SelfId);
+            else State.SetBoardEvidence(clueId, selected, LocalActor);
+        }
+
+        public bool ApplyBoardSuspect(string suspectId, string by) => State.SetBoardSuspect(suspectId, by);
+        public bool ApplyBoardEvidence(string clueId, bool selected, string by) => State.SetBoardEvidence(clueId, selected, by);
 
         /// <summary>The partner grabbed a clue this headset was holding.</summary>
         public void ReportClueGrabTaken(string clueId, string by) => State.RecordClueGrabTaken(clueId, by);
