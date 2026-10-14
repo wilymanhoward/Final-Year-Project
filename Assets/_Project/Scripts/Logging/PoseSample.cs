@@ -78,5 +78,8 @@ namespace FYP.Detective
         // Team runs (Week 3 Phase 3).
         public const string PartnerContamination = "partner_contamination";
         public const string ClueGrabTaken = "clue_grab_taken";
+        // Evidence board (Phase C2).
+        public const string BoardSuspect = "board_suspect";
+        public const string BoardEvidence = "board_evidence";
     }
 }

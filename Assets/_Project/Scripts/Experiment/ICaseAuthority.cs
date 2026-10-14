@@ -14,10 +14,13 @@ namespace FYP.Detective
         bool IsActive { get; }
 
         void RequestStart();
+        void RequestArm(bool armed);
         void RequestEnd(SessionEndReason reason);
         void RequestClueFound(string clueId, string by);
         void RequestClueTagged(string clueId, bool tagged, string by);
         void RequestSubmit(string suspectId, IReadOnlyList<string> evidenceIds, string by);
+        void RequestBoardSuspect(string suspectId, string by);
+        void RequestBoardEvidence(string clueId, bool selected, string by);
 
         /// <summary>This headset counted a contamination entry of its own body; tell the partner.</summary>
         void ReportContamination(string zoneId, BodyPart part, string by);

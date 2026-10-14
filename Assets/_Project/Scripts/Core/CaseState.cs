@@ -34,6 +34,8 @@ namespace FYP.Detective
         // Team runs: who found / currently has tagged each clue (participant id; null = this headset in a solo run).
         private readonly Dictionary<string, string> _foundBy = new Dictionary<string, string>(StringComparer.Ordinal);
         private readonly Dictionary<string, string> _taggedBy = new Dictionary<string, string>(StringComparer.Ordinal);
+        // Evidence board selection (Phase C2). Game state: shared by the team, cleared every run.
+        private readonly EvidenceSelection _board = new EvidenceSelection();
 
         public SessionPhase Phase { get; private set; } = SessionPhase.NotStarted;
         public double ElapsedSeconds { get; private set; }
@@ -82,6 +84,51 @@ namespace FYP.Detective
         public int CluesTaggedBySelf => CountBySelf(_taggedBy, _tagged);
 
         public string FoundBy(string clueId) => clueId != null && _foundBy.TryGetValue(clueId, out string by) ? by : null;
+
+        // ---- Evidence board (Phase C2) ----
+
+        /// <summary>Suspect currently chosen on the evidence board (null = none).</summary>
+        public string BoardSuspectId => _board.SuspectId;
+
+        /// <summary>Evidence currently chosen on the board (always a subset of the tagged clues).</summary>
+        public IReadOnlyList<string> BoardEvidenceIds => _board.EvidenceIds;
+
+        public bool IsBoardEvidenceSelected(string clueId) => _board.IsEvidenceSelected(clueId);
+
+        /// <summary>Raised after the board selection changed (suspect or evidence).</summary>
+        public event Action BoardChanged;
+        /// <summary>For logging: suspect chosen (null = cleared).</summary>
+        public event Action<string> BoardSuspectSelected;
+        /// <summary>For logging: evidence item chosen (true) or removed (false).</summary>
+        public event Action<string, bool> BoardEvidenceChanged;
+
+        /// <summary>Chooses the suspect on the board. Only while running; false if nothing changed.</summary>
+        public bool SetBoardSuspect(string suspectId, string by = null)
+        {
+            if (!IsRunning || HasSubmitted) return false;
+            string before = _board.SuspectId;
+            _board.SelectSuspect(suspectId);
+            if (_board.SuspectId == before) return false;
+            LastActorId = by;
+            BoardSuspectSelected?.Invoke(_board.SuspectId);
+            BoardChanged?.Invoke();
+            Changed?.Invoke();
+            return true;
+        }
+
+        /// <summary>Adds/removes a board evidence item. Only tagged clues can be added. False if nothing changed.</summary>
+        public bool SetBoardEvidence(string clueId, bool selected, string by = null)
+        {
+            if (!IsRunning || HasSubmitted || string.IsNullOrEmpty(clueId)) return false;
+            if (_board.IsEvidenceSelected(clueId) == selected) return false;
+            if (selected && !_tagged.Contains(clueId)) return false;
+            _board.ToggleEvidence(clueId);
+            LastActorId = by;
+            BoardEvidenceChanged?.Invoke(clueId, selected);
+            BoardChanged?.Invoke();
+            Changed?.Invoke();
+            return true;
+        }
 
         /// <summary>Time the app was paused during the run (headset off, app in background).</summary>
         public double PausedSeconds { get; private set; }
@@ -133,12 +180,15 @@ namespace FYP.Detective
             _submittedEvidence.Clear();
             _foundBy.Clear();
             _taggedBy.Clear();
+            bool hadBoard = _board.SuspectId != null || _board.EvidenceIds.Count > 0;
+            _board.Clear();
             Array.Clear(_contaminationByPart, 0, _contaminationByPart.Length);
             PartnerContaminationErrors = 0;
             SubmittedBy = null;
             LastActorId = null;
             IsTeamRun = false;
             SelfId = null;
+            if (hadBoard) BoardChanged?.Invoke();
             Phase = SessionPhase.NotStarted;
             ElapsedSeconds = 0;
             PausedSeconds = 0;
@@ -209,6 +259,13 @@ namespace FYP.Detective
             _taggedBy.Remove(clueId);
             LastActorId = by;
             ClueUntagged?.Invoke(clueId);
+            // Board shows tagged clues only: an untagged clue leaves the selection too (logged as board_evidence).
+            if (_board.IsEvidenceSelected(clueId))
+            {
+                _board.ToggleEvidence(clueId);
+                BoardEvidenceChanged?.Invoke(clueId, false);
+                BoardChanged?.Invoke();
+            }
             Changed?.Invoke();
             return true;
         }

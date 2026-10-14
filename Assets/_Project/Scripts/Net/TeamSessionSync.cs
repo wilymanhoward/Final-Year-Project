@@ -85,6 +85,13 @@ namespace FYP.Detective.Net
             Broadcast(TeamMessage.Start(c.CaseCode, c.ConditionCode));
         }
 
+        public void RequestArm(bool armed)
+        {
+            if (!IsHost) { SendToHost(TeamMessage.ReqArm(armed)); return; }
+            if (session.ApplyArm(armed)) Broadcast(TeamMessage.Arm(armed));
+            else SetStatus("Arm refused on the host: " + session.LastStartError);
+        }
+
         public void RequestEnd(SessionEndReason reason)
         {
             if (!IsHost) { SendToHost(TeamMessage.ReqEnd(reason)); return; }
@@ -110,6 +117,20 @@ namespace FYP.Detective.Net
             if (!TeamMessage.IsSendableId(suspectId)) return;
             if (!IsHost) { SendToHost(TeamMessage.ReqSubmit(by, suspectId, evidenceIds)); return; }
             if (session.ApplySubmission(suspectId, evidenceIds, by)) Broadcast(TeamMessage.Submit(by, suspectId, evidenceIds));
+        }
+
+        public void RequestBoardSuspect(string suspectId, string by)
+        {
+            if (suspectId != null && !TeamMessage.IsSendableId(suspectId)) return;
+            if (!IsHost) { SendToHost(TeamMessage.ReqBoardSuspect(suspectId, by)); return; }
+            if (session.ApplyBoardSuspect(suspectId, by)) Broadcast(TeamMessage.BoardSuspect(suspectId, by));
+        }
+
+        public void RequestBoardEvidence(string clueId, bool selected, string by)
+        {
+            if (!TeamMessage.IsSendableId(clueId)) return;
+            if (!IsHost) { SendToHost(TeamMessage.ReqBoardEvidence(clueId, selected, by)); return; }
+            if (session.ApplyBoardEvidence(clueId, selected, by)) Broadcast(TeamMessage.BoardEvidence(clueId, selected, by));
         }
 
         public void ReportContamination(string zoneId, BodyPart part, string by)
@@ -161,6 +182,9 @@ namespace FYP.Detective.Net
             switch (m.Kind)
             {
                 case TeamMessageKind.ReqStart: RequestStart(); break;
+                case TeamMessageKind.ReqArm: RequestArm(m.Armed); break;
+                case TeamMessageKind.ReqBoardSuspect: RequestBoardSuspect(m.SuspectId, m.By); break;
+                case TeamMessageKind.ReqBoardEvidence: RequestBoardEvidence(m.ClueId, m.Tagged, m.By); break;
                 case TeamMessageKind.ReqEnd: RequestEnd(m.Reason); break;
                 case TeamMessageKind.ReqFound: RequestClueFound(m.ClueId, m.By); break;
                 case TeamMessageKind.ReqTag: RequestClueTagged(m.ClueId, m.Tagged, m.By); break;
@@ -184,12 +208,18 @@ namespace FYP.Detective.Net
                     if (!session.ApplyTeamStart(m.CaseCode, m.ConditionCode))
                         SetStatus("Host started the team run, but this headset couldn't: " + session.LastStartError);
                     break;
+                case TeamMessageKind.Arm:
+                    if (!session.ApplyArm(m.Armed))
+                        SetStatus("Host armed the team run, but this headset can't start: " + session.LastStartError);
+                    break;
                 case TeamMessageKind.End:
                     _applyingRemoteEnd = true;
                     try { session.EndSession(m.Reason); }
                     finally { _applyingRemoteEnd = false; }
                     break;
                 case TeamMessageKind.Found: session.ApplyClueFound(m.ClueId, m.By); break;
+                case TeamMessageKind.BoardSuspect: session.ApplyBoardSuspect(m.SuspectId, m.By); break;
+                case TeamMessageKind.BoardEvidence: session.ApplyBoardEvidence(m.ClueId, m.Tagged, m.By); break;
                 case TeamMessageKind.Tag: session.ApplyClueTagged(m.ClueId, m.Tagged, m.By); break;
                 case TeamMessageKind.Submit: session.ApplySubmission(m.SuspectId, m.EvidenceIds, m.By); break;
                 case TeamMessageKind.Contamination: session.ApplyPartnerContamination(m.ZoneId, m.Part, m.By); break;

@@ -9,6 +9,10 @@ namespace FYP.Detective
     {
         ReqStart, ReqEnd, ReqFound, ReqTag, ReqSubmit, ReqOwnership,
         Start, End, Found, Tag, Submit,
+        /// <summary>Arm/disarm the next run (ReqArm client → host, Arm host → clients).</summary>
+        ReqArm, Arm,
+        /// <summary>Evidence board selection (Req* client → host, plain host → clients).</summary>
+        ReqBoardSuspect, BoardSuspect, ReqBoardEvidence, BoardEvidence,
         /// <summary>A contamination entry of the sender's body (both directions).</summary>
         Contamination,
     }
@@ -25,6 +29,9 @@ namespace FYP.Detective
     ///   ReqOwnership                 clue
     ///   Start                        caseCode, conditionCode
     ///   Contamination                zone, bodyPart, by
+    ///   ReqArm / Arm                 1|0
+    ///   ReqBoardSuspect / BoardSuspect      suspect ("-" = none), by
+    ///   ReqBoardEvidence / BoardEvidence    clue, 1|0, by
     /// </summary>
     public sealed class TeamMessage
     {
@@ -58,6 +65,21 @@ namespace FYP.Detective
         public static string ReqOwnership(string clue) => Join(TeamMessageKind.ReqOwnership, Id(clue));
         public static string Start(string caseCode, string conditionCode) => Join(TeamMessageKind.Start, Id(caseCode), Id(conditionCode));
         public static string Contamination(string zone, BodyPart part, string by) => Join(TeamMessageKind.Contamination, Id(zone), part.ToString(), Id(by));
+        /// <summary>Suspect id meaning "no suspect selected".</summary>
+        public const string NoSuspect = "-";
+
+        public static string ReqBoardSuspect(string suspect, string by) => Join(TeamMessageKind.ReqBoardSuspect, SuspectField(suspect), Id(by));
+        public static string BoardSuspect(string suspect, string by) => Join(TeamMessageKind.BoardSuspect, SuspectField(suspect), Id(by));
+        public static string ReqBoardEvidence(string clue, bool selected, string by) => Join(TeamMessageKind.ReqBoardEvidence, Id(clue), selected ? "1" : "0", Id(by));
+        public static string BoardEvidence(string clue, bool selected, string by) => Join(TeamMessageKind.BoardEvidence, Id(clue), selected ? "1" : "0", Id(by));
+
+        private static string SuspectField(string suspect) => string.IsNullOrEmpty(suspect) ? NoSuspect : Id(suspect);
+
+        public static string ReqArm(bool armed) => Join(TeamMessageKind.ReqArm, armed ? "1" : "0");
+        public static string Arm(bool armed) => Join(TeamMessageKind.Arm, armed ? "1" : "0");
+
+        /// <summary>ReqArm / Arm: true = arm.</summary>
+        public bool Armed { get; private set; }
 
         /// <summary>True if <paramref name="id"/> can be sent (non-empty, no '|' or ',').</summary>
         public static bool IsSendableId(string id) => !string.IsNullOrEmpty(id) && id.IndexOfAny(Forbidden) < 0;
@@ -106,6 +128,21 @@ namespace FYP.Detective
                 case TeamMessageKind.Start:
                     if (f.Length != 3 || !IsSendableId(f[1]) || !IsSendableId(f[2])) return false;
                     m.CaseCode = f[1]; m.ConditionCode = f[2];
+                    break;
+                case TeamMessageKind.ReqBoardSuspect:
+                case TeamMessageKind.BoardSuspect:
+                    if (f.Length != 3 || !IsSendableId(f[1]) || !IsSendableId(f[2])) return false;
+                    m.SuspectId = f[1] == NoSuspect ? null : f[1]; m.By = f[2];
+                    break;
+                case TeamMessageKind.ReqBoardEvidence:
+                case TeamMessageKind.BoardEvidence:
+                    if (f.Length != 4 || !IsSendableId(f[1]) || (f[2] != "1" && f[2] != "0") || !IsSendableId(f[3])) return false;
+                    m.ClueId = f[1]; m.Tagged = f[2] == "1"; m.By = f[3];
+                    break;
+                case TeamMessageKind.ReqArm:
+                case TeamMessageKind.Arm:
+                    if (f.Length != 2 || (f[1] != "1" && f[1] != "0")) return false;
+                    m.Armed = f[1] == "1";
                     break;
                 case TeamMessageKind.Contamination:
                     if (f.Length != 4 || !IsSendableId(f[1]) || !Enum.TryParse(f[2], false, out BodyPart part)

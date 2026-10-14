@@ -73,6 +73,8 @@ namespace FYP.Detective
             s.ClueReset += HandleClueReset;
             s.PartnerContaminationRecorded += HandlePartnerContamination;
             s.ClueGrabTaken += HandleClueGrabTaken;
+            s.BoardSuspectSelected += HandleBoardSuspect;
+            s.BoardEvidenceChanged += HandleBoardEvidence;
         }
 
         private void OnDisable()
@@ -95,6 +97,8 @@ namespace FYP.Detective
                 s.ClueReset -= HandleClueReset;
                 s.PartnerContaminationRecorded -= HandlePartnerContamination;
                 s.ClueGrabTaken -= HandleClueGrabTaken;
+                s.BoardSuspectSelected -= HandleBoardSuspect;
+                s.BoardEvidenceChanged -= HandleBoardEvidence;
             }
             CloseFile();
         }
@@ -341,6 +345,12 @@ namespace FYP.Detective
         private void HandleClueUntagged(string clueId) => LogEvent(LogEvents.ClueUntagged, clueId + ByField());
         private void HandleClueReset(string clueId) => LogEvent(LogEvents.ClueReset, clueId + ByField());
         private void HandleClueGrabTaken(string clueId) => LogEvent(LogEvents.ClueGrabTaken, clueId + ByField());
+
+        private void HandleBoardSuspect(string suspectId) =>
+            LogEvent(LogEvents.BoardSuspect, "suspect=" + (suspectId ?? "") + ByField());
+
+        private void HandleBoardEvidence(string clueId, bool selected) =>
+            LogEvent(LogEvents.BoardEvidence, "clue=" + clueId + ";selected=" + (selected ? "1" : "0") + ByField());
 
         private string ByField()
         {

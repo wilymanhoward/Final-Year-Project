@@ -158,6 +158,8 @@ Editor/ (FYP.Detective.Editor.asmdef, Editor-only)
   BoundarySetupTool   menu:  FYP > Suppress Boundary (Passthrough)
   LocomotionDisableTool menu: FYP > Disable Locomotion
   NetworkSetupTool    menu:  FYP > Set Up Networking
+  HeadsetUiTool       menu:  FYP > Set Up Headset UI
+  EvidenceBoardTool   menu:  FYP > Set Up Evidence Board
 Tests/ (FYP.Detective.Tests.asmdef, Editor-only, EditMode NUnit)
 Art/Shaders/GhostHand.shader (URP, "FYP/GhostHand")   Art/Materials/HandGhost.mat
 Scenes/Main.unity   Cases/{CaseX,CaseY}/CaseX|Y_Definition.asset (placeholder data)   Prefabs/ (empty)
@@ -257,6 +259,24 @@ Data flow:
   (4) contamination **per person + team total** (each headset detects its own body, per-person per-zone cooldown,
   summary also has the team total). The host's Start/Abort/time cap control both headsets; each headset writes its
   own CSV. Solo runs (no network) behave exactly as before.
+- **Condition follows the connection (user, session 6):** at start/arm `SessionManager.CheckCanStart` sets condition
+  B when a partner is connected, else A (logged, saved to the config).
+- **Phase C UI decisions (user, session 6):** experimenter **arms**, the participant taps **Start** on a briefing card
+  (team: either partner's Start starts both; experimenter "Start now"/right stick still works as fallback); evidence
+  board **fixed in the scene** (under CaseRoot); board lists **tagged clues only**; end screen is **neutral** (no
+  correct/incorrect, so it can't influence the second condition).
+- **Phase C1 (session 6):** `SetupPanel` (left controller menu button; status + 16 pokeable buttons: pair/participant
+  -/+, case, place/load/manual, host/join/stop, arm/disarm/start now/abort; hidden during runs), `ParticipantCard`
+  (`ParticipantCardModel`: armed → briefing + Start, running → hidden, ended → neutral text; re-placed in front of the
+  head when out of view/reach for 1 s), arming in `SessionManager` (`RequestArm/ApplyArm/IsArmed/ArmedChanged`,
+  `RequestParticipantStart`) synced with TeamMessage `ReqArm/Arm`. Built by `FYP > Set Up Headset UI`.
+- **Phase C2 evidence board (session 6):** selection is game state in `CaseState` (`BoardSuspectId`,
+  `BoardEvidenceIds`, `SetBoardSuspect/SetBoardEvidence`, only tagged clues, untag removes it, locked after submit),
+  shared in team runs via TeamMessage `ReqBoardSuspect/BoardSuspect/ReqBoardEvidence/BoardEvidence`, logged as
+  `board_suspect` / `board_evidence` (+by=). `EvidenceBoard` (logic) + `EvidenceBoardView` (6 suspect + 8 evidence
+  prebuilt slots, Submit → "Submit? Yes/No", visible only while running) + `EvidenceBoardModel` (pure). Built by
+  `FYP > Set Up Evidence Board` under CaseRoot (default local (-1.3, 1.35, 0.6), facing the centre; rerun keeps a
+  moved board's pose). Experimenter can also open the setup panel with the left menu button (launch hint on the label).
 - **Hand look:** participants see translucent dark "ghost" hands with a white rim (custom shader
   `FYP/GhostHand`: depth prepass + alpha-blended fresnel rim; tune Body Colour/Alpha and Outline Width/Sharpness
   on `HandGhost.mat`). The OVRHand system-gesture material swap is set to None.
@@ -373,6 +393,10 @@ the user's headset test, commit only after the user confirms it works._
   NetworkSetupTool adds TeamSessionSync and networks grabbable clues. **Next:** user runs FYP > Set Up Networking,
   builds both headsets and tests a team run. (Done.) Open: a team run is still logged with the host's condition
   (it was A in the test) - decide whether team mode should force condition B.
+
+- **Week 2 Phase C done (C1 + C2)**, EditMode 191/191, headset-tested solo: tag cube + Quad → board_evidence/board_suspect →
+  Submit/Yes → session_end Submitted (completed=1), grading correct for the placeholder case. Not yet tested: team run with
+  the board (shared selection), ARM/Start across two headsets.
 
 **Decisions made in session 5 (user)**
 - Order: close Phase B → Week 3 networking → Week 2 Phase C (in-headset UI) and D (greybox cases) → E (wrap-up).

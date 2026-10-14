@@ -16,6 +16,7 @@ namespace FYP.Detective.Meta
     ///   hold right stick up   Network: host          (UnityEvents, wired to NetworkSessionLauncher by
     ///   hold right stick down Network: join host      FYP > Set Up Networking, so this assembly needs no Netcode)
     ///   hold left stick down  Network: stop
+    ///   left menu button      Open/close the setup panel (UnityEvent onMenuPressed)
     /// Uses physical buttons (OVRInput.RawButton A/B/X/Y/LThumbstick/RThumbstick with OVRInput.Get/GetDown(RawButton),
     /// Library/PackageCache/com.meta.xr.sdk.core/Scripts/OVRInput.cs) so left/right can't be confused by the
     /// controller-relative virtual mapping. Every shortcut that fires is logged as "[Shortcuts] ...".
@@ -36,6 +37,8 @@ namespace FYP.Detective.Meta
         public UnityEvent onJoinRequested = new UnityEvent();
         [Tooltip("Hold left stick down: stop hosting / leave.")]
         public UnityEvent onNetworkStopRequested = new UnityEvent();
+        [Tooltip("Left controller menu button: open/close the setup panel.")]
+        public UnityEvent onMenuPressed = new UnityEvent();
 
         // Controllers only: with Controller.Active, hand-tracking pinches can also map to buttons.
         private const OVRInput.Controller Touch = OVRInput.Controller.Touch;
@@ -75,6 +78,8 @@ namespace FYP.Detective.Meta
                     onFeedback.Invoke(panel.BuildStatus());
                 }
             }
+            if (OVRInput.GetDown(OVRInput.RawButton.Start, Touch)) Fire("menu", "Setup panel", onMenuPressed.Invoke);
+
             // Stick directions only count while the stick is not clicked, so start/abort can't also fire these.
             bool rClicked = OVRInput.Get(OVRInput.RawButton.RThumbstick, Touch);
             bool lClicked = OVRInput.Get(OVRInput.RawButton.LThumbstick, Touch);
