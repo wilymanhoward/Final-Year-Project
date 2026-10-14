@@ -29,7 +29,8 @@ namespace FYP.Detective
     ///   ReqOwnership                 clue
     ///   Start                        caseCode, conditionCode, startSource
     ///   Contamination                zone, bodyPart, by
-    ///   ReqArm / Arm                 1|0
+    ///   ReqArm                       1|0
+    ///   Arm                          1|0, caseCode (the host's case, so the client shows the right briefing)
     ///   ReqBoardSuspect / BoardSuspect      suspect ("-" = none), by
     ///   ReqBoardEvidence / BoardEvidence    clue, 1|0, by
     /// </summary>
@@ -78,7 +79,7 @@ namespace FYP.Detective
         private static string SuspectField(string suspect) => string.IsNullOrEmpty(suspect) ? NoSuspect : Id(suspect);
 
         public static string ReqArm(bool armed) => Join(TeamMessageKind.ReqArm, armed ? "1" : "0");
-        public static string Arm(bool armed) => Join(TeamMessageKind.Arm, armed ? "1" : "0");
+        public static string Arm(bool armed, string caseCode) => Join(TeamMessageKind.Arm, armed ? "1" : "0", Id(caseCode));
 
         /// <summary>ReqArm / Arm: true = arm.</summary>
         public bool Armed { get; private set; }
@@ -143,9 +144,13 @@ namespace FYP.Detective
                     m.ClueId = f[1]; m.Tagged = f[2] == "1"; m.By = f[3];
                     break;
                 case TeamMessageKind.ReqArm:
-                case TeamMessageKind.Arm:
                     if (f.Length != 2 || (f[1] != "1" && f[1] != "0")) return false;
                     m.Armed = f[1] == "1";
+                    break;
+                case TeamMessageKind.Arm:
+                    if (f.Length != 3 || (f[1] != "1" && f[1] != "0") || !IsSendableId(f[2])) return false;
+                    m.Armed = f[1] == "1";
+                    m.CaseCode = f[2];
                     break;
                 case TeamMessageKind.Contamination:
                     if (f.Length != 4 || !IsSendableId(f[1]) || !Enum.TryParse(f[2], false, out BodyPart part)

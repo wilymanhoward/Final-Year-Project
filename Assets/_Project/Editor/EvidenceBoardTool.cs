@@ -11,16 +11,17 @@ namespace FYP.Detective.EditorTools
     /// Phase C2: builds the fixed, pokeable evidence board (EvidenceBoard + EvidenceBoardView) under CaseRoot.
     /// Idempotent: an existing board is rebuilt in the same place (so it can be moved in the scene and keeps that
     /// pose). Default pose: 1.3 m to the left of the placement mark, facing the centre, centre 1.35 m high.
-    /// Canvas units = mm; 6 suspect slots, 8 evidence slots (2 columns), Submit with a Yes/No confirmation.
+    /// Canvas units = mm; 4 suspect cards (name, role, alibi), 8 evidence slots (2 columns), Submit with Yes/No.
     /// Poke: QuickActionsAPI.AddPokeCanvasInteraction (Interaction SDK 207, Editor/QuickActions/Scripts/QuickActionsAPI.cs).
     /// </summary>
     public static class EvidenceBoardTool
     {
         private const string BoardName = "EvidenceBoard";
-        private const int SuspectSlots = 6;
+        private const int SuspectSlots = 4;   // docs/cases.md: 4 suspect cards (name, role, alibi)
         private const int EvidenceSlots = 8;
-        private static readonly Vector3 DefaultLocalPosition = new Vector3(-1.3f, 1.35f, 0.6f);
-        private static readonly Quaternion DefaultLocalRotation = Quaternion.Euler(0f, -90f, 0f);   // faces +X (centre)
+        // Default = the case specs' board spot: back wall, centre 1.35 m high, readable side facing the start.
+        internal static readonly Vector3 DefaultLocalPosition = new Vector3(CaseSpecs.X.BoardX, 1.35f, CaseSpecs.X.BoardZ);
+        internal static readonly Quaternion DefaultLocalRotation = CaseSceneTool.FacingRotation(CaseSpecs.X.BoardYaw);
         private static readonly Color Background = new Color(0.05f, 0.06f, 0.08f, 0.92f);
         private static readonly Color SlotColor = new Color(0.16f, 0.20f, 0.27f, 1f);
         private static readonly Color SubmitColor = new Color(0.10f, 0.45f, 0.25f, 1f);
@@ -58,7 +59,7 @@ namespace FYP.Detective.EditorTools
             MainSceneBuilder.SetObject(board, "session", session);
             var view = root.AddComponent<EvidenceBoardView>();
 
-            const float width = 900f, height = 640f, pad = 16f, slotH = 56f, gap = 8f;
+            const float width = 1000f, height = 680f, pad = 16f, slotH = 56f, gap = 8f, cardH = 104f;
             GameObject content = HeadsetUiTool.Canvas(root.transform, width, height, Background);
             Text title = HeadsetUiTool.Label(content.transform, "Title", new Rect(pad, pad, width - 2 * pad, 44f), 28, TextAnchor.MiddleCenter);
             title.text = "Evidence board";
@@ -66,13 +67,17 @@ namespace FYP.Detective.EditorTools
 
             // Suspects: one column on the left.
             float top = pad + 52f;
-            const float suspectW = 280f;
+            const float suspectW = 440f;
             HeadsetUiTool.Label(content.transform, "SuspectsHeader", new Rect(pad, top, suspectW, 32f), 18, TextAnchor.MiddleLeft).text = "Suspect (choose one)";
             var suspects = new GameObject[SuspectSlots];
             for (int i = 0; i < SuspectSlots; i++)
             {
-                var r = new Rect(pad, top + 40f + i * (slotH + gap), suspectW, slotH);
+                var r = new Rect(pad, top + 40f + i * (cardH + gap), suspectW, cardH);
                 suspects[i] = HeadsetUiTool.Button(content.transform, "Suspect " + (i + 1), r, null, SlotColor);
+                var cardText = suspects[i].GetComponentInChildren<Text>();
+                cardText.fontSize = 14;
+                cardText.alignment = TextAnchor.MiddleLeft;
+                HeadsetUiTool.Place((RectTransform)cardText.transform, new Rect(10f, 4f, suspectW - 20f, cardH - 8f));
                 UnityEventTools.AddIntPersistentListener(suspects[i].GetComponent<Button>().onClick, view.PressSuspect, i);
             }
 

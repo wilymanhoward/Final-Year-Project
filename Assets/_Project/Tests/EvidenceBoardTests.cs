@@ -33,6 +33,13 @@ namespace FYP.Detective.Tests
         }
 
         [Test]
+        public void SuspectCardsShowRoleAndAlibi()
+        {
+            Assert.AreEqual("Grace Wong - Studio manager\nalibi", EvidenceBoardModel.SuspectCard("Grace Wong", "Studio manager", "alibi"));
+            Assert.AreEqual("Grace Wong", EvidenceBoardModel.SuspectCard("Grace Wong", "", null));
+        }
+
+        [Test]
         public void EvidenceIsTaggedCluesSortedByName()
         {
             var l = Build(new[] { "knife", "cup", "zz" }, "s1", new HashSet<string> { "knife" });

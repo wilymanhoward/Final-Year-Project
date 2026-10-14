@@ -88,7 +88,7 @@ namespace FYP.Detective.Net
         public void RequestArm(bool armed)
         {
             if (!IsHost) { SendToHost(TeamMessage.ReqArm(armed)); return; }
-            if (session.ApplyArm(armed)) Broadcast(TeamMessage.Arm(armed));
+            if (session.ApplyArm(armed)) Broadcast(TeamMessage.Arm(armed, session.Config.CaseCode));
             else SetStatus("Arm refused on the host: " + session.LastStartError);
         }
 
@@ -209,7 +209,7 @@ namespace FYP.Detective.Net
                         SetStatus("Host started the team run, but this headset couldn't: " + session.LastStartError);
                     break;
                 case TeamMessageKind.Arm:
-                    if (m.Armed) session.AdoptCondition(StudyCondition.B);   // the host armed a team run
+                    if (m.Armed) session.AdoptTeamSetup(m.CaseCode);   // the host armed a team run: its case, condition B
                     if (!session.ApplyArm(m.Armed))
                         SetStatus("Host armed the team run, but this headset can't start: " + session.LastStartError);
                     break;

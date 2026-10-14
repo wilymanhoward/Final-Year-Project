@@ -15,6 +15,8 @@ namespace FYP.Detective
         [Tooltip("Child holding the canvas + poke interactable. Shown/hidden as a whole, so it can't be poked while hidden.")]
         [SerializeField] private GameObject content;
         [SerializeField] private Text label;
+        [Tooltip("Optional: shows the clue's name and inspect text above the button once found.")]
+        [SerializeField] private Text inspectLabel;
         [Tooltip("Usually CenterEyeAnchor. Empty = Camera.main.")]
         [SerializeField] private Transform head;
         [SerializeField, Min(0f)] private float heightAboveClue = 0.08f;
@@ -40,6 +42,8 @@ namespace FYP.Detective
             if (content != null && content.activeSelf != show) content.SetActive(show);
             if (!show) return;
 
+            if (inspectLabel != null && inspectLabel.text.Length == 0)
+                inspectLabel.text = clue.DisplayName + "\n" + clue.InspectText;
             bool tagged = clue.IsTagged;
             if (tagged != _lastTagged) SetLabel(tagged);
             FollowClue();

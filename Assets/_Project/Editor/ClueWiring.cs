@@ -138,17 +138,57 @@ namespace FYP.Detective.EditorTools
             root.transform.SetParent(clue.transform.parent, false);
             root.transform.position = clue.transform.position + Vector3.up * 0.2f;
 
-            // 140 x 56 mm button (>= 4 cm), canvas units = mm.
+            // Canvas units = mm. Clues with inspect text get a 240 x 130 mm panel: name + text on top, a 140 x 56 mm
+            // button (>= 4 cm) below; others just the button.
+            bool withText = !string.IsNullOrEmpty(clue.InspectText);
             var content = new GameObject("Content", typeof(RectTransform), typeof(Canvas));
             content.transform.SetParent(root.transform, false);
             content.GetComponent<Canvas>().renderMode = RenderMode.WorldSpace;
             var contentRect = (RectTransform)content.transform;
-            contentRect.sizeDelta = new Vector2(140f, 56f);
+            contentRect.sizeDelta = withText ? new Vector2(240f, 130f) : new Vector2(140f, 56f);
             contentRect.localScale = Vector3.one * 0.001f;
+
+            Text inspect = null;
+            if (withText)
+            {
+                var bg = new GameObject("Inspect", typeof(RectTransform), typeof(Image));
+                bg.transform.SetParent(content.transform, false);
+                var bgRect = (RectTransform)bg.transform;
+                bgRect.anchorMin = new Vector2(0f, 0.46f);
+                bgRect.anchorMax = Vector2.one;
+                bgRect.offsetMin = bgRect.offsetMax = Vector2.zero;
+                var bgImage = bg.GetComponent<Image>();
+                bgImage.color = new Color(0.97f, 0.95f, 0.88f, 0.95f);
+                bgImage.raycastTarget = false;
+                var inspectGo = new GameObject("Text", typeof(RectTransform), typeof(Text));
+                inspectGo.transform.SetParent(bg.transform, false);
+                var inspectRect = (RectTransform)inspectGo.transform;
+                Stretch(inspectRect);
+                inspectRect.offsetMin = new Vector2(6f, 3f);
+                inspectRect.offsetMax = new Vector2(-6f, -3f);
+                inspect = inspectGo.GetComponent<Text>();
+                inspect.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+                inspect.fontSize = 13;
+                inspect.alignment = TextAnchor.MiddleCenter;
+                inspect.color = new Color(0.1f, 0.1f, 0.1f);
+                inspect.horizontalOverflow = HorizontalWrapMode.Wrap;
+                inspect.verticalOverflow = VerticalWrapMode.Truncate;
+                inspect.raycastTarget = false;
+                inspect.text = "";
+            }
 
             var buttonGo = new GameObject("Button", typeof(RectTransform), typeof(Image), typeof(Button));
             buttonGo.transform.SetParent(content.transform, false);
-            Stretch((RectTransform)buttonGo.transform);
+            var buttonRect = (RectTransform)buttonGo.transform;
+            if (withText)
+            {
+                buttonRect.anchorMin = new Vector2(0.5f, 0f);
+                buttonRect.anchorMax = new Vector2(0.5f, 0f);
+                buttonRect.pivot = new Vector2(0.5f, 0f);
+                buttonRect.sizeDelta = new Vector2(140f, 56f);
+                buttonRect.anchoredPosition = Vector2.zero;
+            }
+            else Stretch(buttonRect);
             buttonGo.GetComponent<Image>().color = new Color(0.10f, 0.12f, 0.16f, 0.85f);
 
             var textGo = new GameObject("Text", typeof(RectTransform), typeof(Text));
@@ -175,6 +215,7 @@ namespace FYP.Detective.EditorTools
             MainSceneBuilder.SetObject(tag, "clue", clue);
             MainSceneBuilder.SetObject(tag, "content", content);
             MainSceneBuilder.SetObject(tag, "label", text);
+            if (inspect != null) MainSceneBuilder.SetObject(tag, "inspectLabel", inspect);
             MainSceneBuilder.SetObject(tag, "head", head);
             return tag;
         }

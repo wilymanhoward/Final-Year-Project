@@ -250,8 +250,11 @@ namespace FYP.Detective
 
         private void LogPlacementCheck(string when)
         {
+            // head_m = head height above the scene floor (CaseRoot); ~1.5-1.8 m when standing, else the floor was off.
+            string head = rig != null && rig.Head != null && caseRoot != null
+                ? (rig.Head.position.y - caseRoot.transform.position.y).ToString("F3", CultureInfo.InvariantCulture) : "";
             LogEvent(LogEvents.PlacementCheck, FormattableString.Invariant(
-                $"when={when};height_m={session.PlacementHeightOffset:F3};ok={(session.IsPlacementHeightOk ? 1 : 0)};recenters={session.RecenterCount}"));
+                $"when={when};height_m={session.PlacementHeightOffset:F3};ok={(session.IsPlacementHeightOk ? 1 : 0)};recenters={session.RecenterCount};head_m={head}"));
         }
 
         private void HandleAppResumed()

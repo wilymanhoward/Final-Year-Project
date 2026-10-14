@@ -188,13 +188,15 @@ namespace FYP.Detective
             return null;
         }
 
-        /// <summary>Team client: take the host's condition (B) before arming/starting. Not during a run.</summary>
-        public void AdoptCondition(StudyCondition condition)
+        /// <summary>Team client: take the host's case and condition B before arming. Not during a run.</summary>
+        public void AdoptTeamSetup(string caseCode)
         {
-            if (State.IsRunning || config.condition == condition) return;
+            if (State.IsRunning) return;
             var c = config.Clone();
-            c.condition = condition;
-            Debug.Log("[SessionManager] Condition " + condition + " taken from the host");
+            c.condition = StudyCondition.B;
+            if (Enum.TryParse(caseCode, out CaseId caseId)) c.caseId = caseId;
+            if (c.condition == config.condition && c.caseId == config.caseId) return;
+            Debug.Log($"[SessionManager] Team setup from the host: condition B, case {c.CaseCode}");
             ApplyConfig(c);
         }
 

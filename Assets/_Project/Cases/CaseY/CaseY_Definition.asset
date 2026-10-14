@@ -13,16 +13,55 @@ MonoBehaviour:
   m_Name: CaseY_Definition
   m_EditorClassIdentifier: FYP.Detective::FYP.Detective.CaseDefinition
   caseId: 1
-  title: Case Y (placeholder)
+  title: The Missing Keris
+  briefing: Yesterday evening, an antique keris disappeared from its display case
+    in the Heritage Gallery's Melaka Room, one week before it was due to go on loan
+    overseas. The case was found open this morning. Four people had a reason to be
+    near the room last night. Search the room, tag the evidence, and name the person
+    who took the keris.
   suspects:
-  - id: Y_butler
-    displayName: butler
-  - id: Y_gardener
-    displayName: gardener
-  - id: Y_cook
-    displayName: cook
-  correctSuspectId: Y_butler
+  - id: Y_farid
+    displayName: Farid Rahman
+    role: Tour guide
+    alibi: '"My last tour ended at 7:30 pm and I went home." (No one can confirm.)'
+  - id: Y_tan
+    displayName: Mr Tan
+    role: Security guard
+    alibi: On gate duty 8:00-9:00 pm; the front-desk camera shows him there.
+  - id: Y_sofia
+    displayName: Dr Sofia Idris
+    role: Curator
+    alibi: Hosting a donor dinner across town 7:00-9:30 pm; the guests confirm it.
+  - id: Y_lim
+    displayName: Mr Lim
+    role: Private collector
+    alibi: On a flight that landed at KLIA at 9:00 pm; the airline confirms it.
+  correctSuspectId: Y_farid
   keyEvidenceIds:
-  - Y_knife
-  - Y_letter
-  experimenterNotes: 
+  - Y_K1
+  - Y_K2
+  - Y_K3
+  - Y_K4
+  experimenterNotes: 'Generated from docs/cases.md by FYP > Build Case Scenes.
+
+    Culprit:
+    Farid Rahman
+
+    K1 Y_K1 - Display case alarm panel
+
+    K2 Y_K2 - Key logbook
+
+    K3
+    Y_K3 - Laser pointer
+
+    K4 Y_K4 - Printed chat message
+
+    R1 Y_R1 - Torch
+    (red herring: Mr Tan)
+
+    R2 Y_R2 - Business card (red herring: Mr Lim)
+
+    R3
+    Y_R3 - Noticeboard note (red herring: Dr Sofia Idris)
+
+'

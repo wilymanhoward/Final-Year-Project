@@ -28,18 +28,21 @@ namespace FYP.Detective
         public const string BriefingTitle = "Your case";
         public const string StartLabel = "Start";
 
-        public static ParticipantCardView Compute(bool armed, SessionPhase phase, SessionEndReason? endReason, bool teamRun)
+        public static ParticipantCardView Compute(bool armed, SessionPhase phase, SessionEndReason? endReason, bool teamRun,
+            string caseTitle = null, string caseBriefing = null)
         {
             if (phase == SessionPhase.Running) return ParticipantCardView.Hidden;
 
             if (armed)
             {
-                string body = teamRun
-                    ? "Work together with your partner. Find the clues, tag the important ones and submit your answer " +
-                      "on the evidence board. Don't step into the marked areas around the evidence.\n\nTap Start when you are both ready."
-                    : "Find the clues, tag the important ones and submit your answer on the evidence board. " +
-                      "Don't step into the marked areas around the evidence.\n\nTap Start when you are ready.";
-                return new ParticipantCardView(true, BriefingTitle, body, true);
+                string story = string.IsNullOrEmpty(caseBriefing) ? "" : caseBriefing + "\n\n";
+                string body = story + (teamRun
+                    ? "Work together with your partner. Tag the evidence, choose the suspect and the evidence on the " +
+                      "evidence board, and submit. Don't step into the marked areas.\n\nTap Start when you are both ready."
+                    : "Tag the evidence, choose the suspect and the evidence on the evidence board, and submit. " +
+                      "Don't step into the marked areas.\n\nTap Start when you are ready.");
+                string title = string.IsNullOrEmpty(caseTitle) ? BriefingTitle : caseTitle;
+                return new ParticipantCardView(true, title, body, true);
             }
 
             if (phase == SessionPhase.Ended && endReason.HasValue)

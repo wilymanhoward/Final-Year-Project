@@ -24,6 +24,9 @@ namespace FYP.Detective
         [SerializeField] private string displayName = "Clue";
         [Tooltip("Informational. The answer check uses CaseDefinition.keyEvidenceIds.")]
         [SerializeField] private bool isKeyEvidence;
+        [Tooltip("What the participant reads once the clue is found (shown above its tag button).")]
+        [TextArea(1, 4)]
+        [SerializeField] private string inspectText = "";
 
         [SerializeField] private SessionManager session;
 
@@ -42,6 +45,7 @@ namespace FYP.Detective
         public string ClueId => clueId;
         public string DisplayName => displayName;
         public bool IsKeyEvidence => isKeyEvidence;
+        public string InspectText => inspectText;
 
         public bool IsFound => session != null && session.State.IsClueFound(clueId);
         public bool IsTagged => session != null && session.State.IsClueTagged(clueId);
@@ -71,6 +75,15 @@ namespace FYP.Detective
         public void EndHold()
         {
             if (_holdCount > 0) _holdCount--;
+        }
+
+        /// <summary>True for a grabbable clue whose grab interactables are known (networked in team runs).</summary>
+        public bool IsNetworkedGrabbable => grabInteractables.Length > 0;
+
+        /// <summary>Enables/disables grabbing (used to hide the inactive case's clues).</summary>
+        public void SetInteractable(bool interactable)
+        {
+            foreach (Behaviour b in grabInteractables) if (b != null) b.enabled = interactable;
         }
 
         /// <summary>Makes the Interaction SDK let go of the clue (disables its grab interactables for one frame).</summary>

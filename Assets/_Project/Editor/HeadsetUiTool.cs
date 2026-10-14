@@ -119,12 +119,13 @@ namespace FYP.Detective.EditorTools
 
         private static ParticipantCard BuildParticipantCard(SessionManager session, Transform head)
         {
-            const float width = 420f, height = 280f, pad = 16f;
+            // Big enough for a case briefing (~350 characters) plus the instructions.
+            const float width = 540f, height = 420f, pad = 18f;
             var root = new GameObject(CardName);
             GameObject content = Canvas(root.transform, width, height, PanelColor);
             Text title = Label(content.transform, "Title", new Rect(pad, pad, width - 2 * pad, 40f), 26, TextAnchor.MiddleCenter);
             title.fontStyle = FontStyle.Bold;
-            Text body = Label(content.transform, "Body", new Rect(pad, pad + 48f, width - 2 * pad, 140f), 16, TextAnchor.UpperCenter);
+            Text body = Label(content.transform, "Body", new Rect(pad, pad + 48f, width - 2 * pad, height - 2 * pad - 48f - 76f), 15, TextAnchor.UpperLeft);
 
             var card = root.AddComponent<ParticipantCard>();
             GameObject start = Button(content.transform, ParticipantCardModel.StartLabel,

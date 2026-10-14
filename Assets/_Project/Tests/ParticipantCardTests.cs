@@ -25,6 +25,16 @@ namespace FYP.Detective.Tests
             StringAssert.Contains("partner", team.Body);
         }
 
+        [Test]
+        public void BriefingShowsTheCaseStory()
+        {
+            var v = ParticipantCardModel.Compute(true, SessionPhase.NotStarted, null, false,
+                CaseSpecs.X.Title, CaseSpecs.X.Briefing);
+            Assert.AreEqual("The Missing Design Award", v.Title);
+            StringAssert.StartsWith("Last night, the gold", v.Body);
+            StringAssert.Contains("Tap Start", v.Body);
+        }
+
         [TestCase(SessionEndReason.Submitted, "Case closed")]
         [TestCase(SessionEndReason.TimeCap, "Time is up")]
         [TestCase(SessionEndReason.Aborted, "Session stopped")]
@@ -42,13 +52,15 @@ namespace FYP.Detective.Tests
         [Test]
         public void ArmMessagesRoundTrip()
         {
-            Assert.IsTrue(TeamMessage.TryParse(TeamMessage.Arm(true), out var m));
+            Assert.IsTrue(TeamMessage.TryParse(TeamMessage.Arm(true, "Y"), out var m));
             Assert.AreEqual(TeamMessageKind.Arm, m.Kind);
             Assert.IsTrue(m.Armed);
+            Assert.AreEqual("Y", m.CaseCode);
             Assert.IsTrue(TeamMessage.TryParse(TeamMessage.ReqArm(false), out m));
             Assert.AreEqual(TeamMessageKind.ReqArm, m.Kind);
             Assert.IsFalse(m.Armed);
-            Assert.IsFalse(TeamMessage.TryParse("Arm|2", out _));
+            Assert.IsFalse(TeamMessage.TryParse("Arm|2|X", out _));
+            Assert.IsFalse(TeamMessage.TryParse("Arm|1", out _));
             Assert.IsFalse(TeamMessage.TryParse("Arm", out _));
         }
     }
