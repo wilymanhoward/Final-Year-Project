@@ -1,6 +1,9 @@
 using FYP.Detective.Meta;
 using FYP.Detective.Net;
 using Unity.Netcode;
+using Unity.Netcode.Components;
+using Oculus.Interaction;
+using Oculus.Interaction.HandGrab;
 using Unity.Netcode.Transports.UTP;
 using UnityEditor;
 using UnityEditor.Events;
@@ -89,7 +92,19 @@ namespace FYP.Detective.EditorTools
             EditorUtility.SetDirty(launcher);
             EditorUtility.SetDirty(coordinator);
 
-            // 5. Sockets need INTERNET; Unity doesn't detect UnityTransport's native sockets on its own.
+            // 5. Phase 3: team state sync + networked grabbable clues.
+            var team = GetOrAdd<TeamSessionSync>(go);
+            MainSceneBuilder.SetObject(team, "launcher", launcher);
+            MainSceneBuilder.SetObject(team, "session", session);
+            AddListenerOnce(team.onStatusChanged, label);
+            EditorUtility.SetDirty(team);
+            int networkedClues = 0;
+            foreach (var clue in Object.FindObjectsByType<Clue>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            {
+                if (MakeNetworked(clue)) networkedClues++;
+            }
+
+            // 6. Sockets need INTERNET; Unity doesn't detect UnityTransport's native sockets on its own.
             bool permissionChanged = !PlayerSettings.Android.forceInternetPermission;
             PlayerSettings.Android.forceInternetPermission = true;
 
@@ -102,9 +117,41 @@ namespace FYP.Detective.EditorTools
                 (created ? "Created 'Network' (NetworkManager + UnityTransport).\n" : "NetworkManager already present.\n") +
                 "Launcher + ColocationCoordinator wired: right stick up = host (advertise + share anchor), " +
                 "right stick down = join (discover + load anchor), left stick down = stop.\n" +
+                $"TeamSessionSync added; {networkedClues} grabbable clue(s) networked.\n" +
                 (placement == null ? "WARNING: no ScenePlacement found - run Set Up Case Root and Placement.\n" : "") +
                 (permissionChanged ? "Android INTERNET permission forced on.\n" : "") +
                 "Scene saved. Rebuild to apply.", "OK");
+        }
+
+        /// <summary>
+        /// Grabbable clue → NetworkObject (no parent sync: CaseRoot isn't a NetworkObject) + NetworkTransform (owner
+        /// authority, local space = relative to CaseRoot) + NetworkClue, and fills Clue.grabInteractables.
+        /// Static (poke-only) clues are skipped: they never move. Returns true if the clue is grabbable.
+        /// </summary>
+        private static bool MakeNetworked(Clue clue)
+        {
+            var grabs = new System.Collections.Generic.List<Behaviour>();
+            grabs.AddRange(clue.GetComponentsInChildren<HandGrabInteractable>(true));
+            grabs.AddRange(clue.GetComponentsInChildren<GrabInteractable>(true));
+            if (grabs.Count == 0) return false;
+
+            GameObject go = clue.gameObject;
+            var netObj = GetOrAdd<NetworkObject>(go);
+            netObj.AutoObjectParentSync = false;
+            var netTransform = GetOrAdd<NetworkTransform>(go);
+            netTransform.AuthorityMode = NetworkTransform.AuthorityModes.Owner;
+            netTransform.InLocalSpace = true;
+            GetOrAdd<NetworkClue>(go);
+
+            var so = new SerializedObject(clue);
+            var arr = so.FindProperty("grabInteractables");
+            arr.arraySize = grabs.Count;
+            for (int i = 0; i < grabs.Count; i++) arr.GetArrayElementAtIndex(i).objectReferenceValue = grabs[i];
+            so.ApplyModifiedPropertiesWithoutUndo();
+            EditorUtility.SetDirty(netObj);
+            EditorUtility.SetDirty(netTransform);
+            EditorUtility.SetDirty(clue);
+            return true;
         }
 
         private static T GetOrAdd<T>(GameObject go) where T : Component

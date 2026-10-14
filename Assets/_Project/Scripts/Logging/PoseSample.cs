@@ -75,5 +75,8 @@ namespace FYP.Detective
         public const string NetPeerConnected = "net_peer_connected";
         public const string NetPeerDisconnected = "net_peer_disconnected";
         public const string NetStopped = "net_stopped";
+        // Team runs (Week 3 Phase 3).
+        public const string PartnerContamination = "partner_contamination";
+        public const string ClueGrabTaken = "clue_grab_taken";
     }
 }

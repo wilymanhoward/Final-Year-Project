@@ -86,7 +86,7 @@ namespace FYP.Detective
             if (_tracker.Update(inside, SessionManager.Now))
             {
                 BodyPart part = headIn ? BodyPart.Head : leftIn ? BodyPart.LeftHand : BodyPart.RightHand;
-                session.State.RecordContamination(zoneId, part);
+                session.RequestContamination(zoneId, part);
             }
         }
 

@@ -6,9 +6,10 @@ namespace FYP.Detective
 {
     /// <summary>
     /// Owns the <see cref="CaseState"/> and the session timer. Start/stop/reset,
-    /// time cap, answer submission. Other components only read state and call
-    /// the public methods here or on <see cref="State"/>.
-    /// Put exactly one in the scene (e.g. on a "SessionSystems" GameObject).
+    /// time cap, answer submission. Other components only read state and call the Request* methods here.
+    /// Team condition: while <see cref="Authority"/> is active (partner connected) every request is routed through it
+    /// (host applies + mirrors); otherwise requests are applied locally. The Apply* methods are what the authority
+    /// calls to change state. Put exactly one in the scene (e.g. on a "SessionSystems" GameObject).
     /// </summary>
     [DefaultExecutionOrder(-100)]
     public class SessionManager : MonoBehaviour
@@ -38,6 +39,18 @@ namespace FYP.Detective
         public string LastStartError { get; private set; }
 
         public CaseState State { get; } = new CaseState();
+
+        /// <summary>Team-condition router, set by the networking layer. Null or inactive = solo (apply locally).</summary>
+        public ICaseAuthority Authority { get; set; }
+
+        /// <summary>True while a partner is connected: requests go through <see cref="Authority"/>.</summary>
+        public bool IsTeamMode => Authority != null && Authority.IsActive;
+
+        /// <summary>This headset's participant id as sent over the network and written in by= fields.</summary>
+        public string SelfId => ExperimentConfig.SanitizeCode(config.participantId);
+
+        // Actor for changes made locally: our id in a team run, null (= no by= field) in a solo run.
+        private string LocalActor => State.IsTeamRun ? SelfId : null;
         public ExperimentConfig Config => config;
         public CaseDefinition ActiveCase => config.caseId == CaseId.X ? caseX : caseY;
         public bool IsRunning => State.IsRunning;
@@ -167,8 +180,9 @@ namespace FYP.Detective
             _pauses.Reset();
             _timer.Start(Now);
             StartUtc = DateTime.UtcNow;
-            State.Begin();
-            Debug.Log($"[SessionManager] Session started: {config.pairCode} {config.participantId} {config.ConditionCode} {config.CaseCode}");
+            State.Begin(IsTeamMode, SelfId);
+            Debug.Log($"[SessionManager] Session started: {config.pairCode} {config.participantId} {config.ConditionCode} {config.CaseCode}" +
+                      (State.IsTeamRun ? " (team)" : ""));
             SessionStarted?.Invoke();
             return true;
         }
@@ -188,11 +202,102 @@ namespace FYP.Detective
         }
 
         /// <summary>Records a checked answer and ends the session (timer stops on submit).</summary>
-        public bool SubmitAnswer(string suspectId, IReadOnlyList<string> evidenceIds, AnswerResult result)
+        public bool SubmitAnswer(string suspectId, IReadOnlyList<string> evidenceIds, AnswerResult result, string by = null)
         {
-            if (!State.RecordSubmission(suspectId, evidenceIds, result)) return false;
+            if (!State.RecordSubmission(suspectId, evidenceIds, result, by)) return false;
             EndSession(SessionEndReason.Submitted);
             return true;
+        }
+
+        // ---- Requests (components call these; routed through the authority in team mode) ----
+
+        /// <summary>Experimenter start. Team mode: the host starts both headsets.</summary>
+        public void RequestStart()
+        {
+            if (IsTeamMode) Authority.RequestStart();
+            else StartSession();
+        }
+
+        /// <summary>Experimenter abort. Team mode: ends the run on both headsets.</summary>
+        public void RequestAbort()
+        {
+            if (IsTeamMode && State.IsRunning) Authority.RequestEnd(SessionEndReason.Aborted);
+            else EndSession(SessionEndReason.Aborted);
+        }
+
+        public void RequestClueFound(string clueId)
+        {
+            if (!State.IsRunning || State.IsClueFound(clueId)) return;
+            if (IsTeamMode) Authority.RequestClueFound(clueId, SelfId);
+            else State.MarkClueFound(clueId, LocalActor);
+        }
+
+        public void RequestClueTagged(string clueId, bool tagged)
+        {
+            if (!State.IsRunning || State.IsClueTagged(clueId) == tagged) return;
+            if (IsTeamMode) Authority.RequestClueTagged(clueId, tagged, SelfId);
+            else ApplyClueTagged(clueId, tagged, LocalActor);
+        }
+
+        /// <summary>Contamination of this headset's own body: always counted here, and reported to the partner.</summary>
+        public void RequestContamination(string zoneId, BodyPart part)
+        {
+            if (State.RecordContamination(zoneId, part) && IsTeamMode) Authority.ReportContamination(zoneId, part, SelfId);
+        }
+
+        /// <summary>A clue this headset controls was put back home (logging only, never networked).</summary>
+        public void RequestClueReset(string clueId) => State.RecordClueReset(clueId, LocalActor);
+
+        /// <summary>Answer from the evidence board. Team mode: the first submission (either partner) ends both runs.</summary>
+        public void RequestSubmit(string suspectId, IReadOnlyList<string> evidenceIds)
+        {
+            if (!State.IsRunning || State.HasSubmitted) return;
+            if (IsTeamMode) Authority.RequestSubmit(suspectId, evidenceIds, SelfId);
+            else ApplySubmission(suspectId, evidenceIds, LocalActor);
+        }
+
+        /// <summary>The partner grabbed a clue this headset was holding.</summary>
+        public void ReportClueGrabTaken(string clueId, string by) => State.RecordClueGrabTaken(clueId, by);
+
+        // ---- Apply (called by the authority on the host, and on the client when the host's message arrives) ----
+
+        public bool ApplyClueFound(string clueId, string by) => State.MarkClueFound(clueId, by);
+
+        public bool ApplyClueTagged(string clueId, bool tagged, string by) =>
+            tagged ? State.MarkClueTagged(clueId, by) : State.UntagClue(clueId, by);
+
+        public bool ApplyPartnerContamination(string zoneId, BodyPart part, string by) =>
+            State.RecordPartnerContamination(zoneId, part, by);
+
+        /// <summary>Checks the answer against the active case on this headset, records it and ends the run.</summary>
+        public bool ApplySubmission(string suspectId, IReadOnlyList<string> evidenceIds, string by)
+        {
+            CaseDefinition caseDef = ActiveCase;
+            if (caseDef == null)
+            {
+                Debug.LogError("[SessionManager] No active CaseDefinition; cannot check the answer.");
+                return false;
+            }
+            var evidence = new List<string>(evidenceIds ?? Array.Empty<string>());
+            return SubmitAnswer(suspectId, evidence, caseDef.Check(suspectId, evidence), by);
+        }
+
+        /// <summary>
+        /// Client side of a team start: takes the host's case and condition for this run (saved to the config), then
+        /// starts. Returns false (LastStartError says why) if this headset can't start.
+        /// </summary>
+        public bool ApplyTeamStart(string caseCode, string conditionCode)
+        {
+            if (State.IsRunning) return false;
+            var c = config.Clone();
+            if (Enum.TryParse(caseCode, out CaseId caseId)) c.caseId = caseId;
+            if (Enum.TryParse(conditionCode, out StudyCondition condition)) c.condition = condition;
+            if (c.caseId != config.caseId || c.condition != config.condition)
+            {
+                Debug.Log($"[SessionManager] Team start: using the host's case {caseCode} / condition {conditionCode}");
+                ApplyConfig(c);
+            }
+            return StartSession();
         }
 
         /// <summary>Aborts a running session (logged as Aborted) and clears state for the next run.</summary>

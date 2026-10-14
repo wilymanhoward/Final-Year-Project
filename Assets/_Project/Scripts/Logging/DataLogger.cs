@@ -71,6 +71,8 @@ namespace FYP.Detective
             s.ContaminationRecorded += HandleContamination;
             s.AnswerSubmitted += HandleAnswerSubmitted;
             s.ClueReset += HandleClueReset;
+            s.PartnerContaminationRecorded += HandlePartnerContamination;
+            s.ClueGrabTaken += HandleClueGrabTaken;
         }
 
         private void OnDisable()
@@ -91,6 +93,8 @@ namespace FYP.Detective
                 s.ContaminationRecorded -= HandleContamination;
                 s.AnswerSubmitted -= HandleAnswerSubmitted;
                 s.ClueReset -= HandleClueReset;
+                s.PartnerContaminationRecorded -= HandlePartnerContamination;
+                s.ClueGrabTaken -= HandleClueGrabTaken;
             }
             CloseFile();
         }
@@ -182,7 +186,8 @@ namespace FYP.Detective
             var caseDef = session.ActiveCase;
             var placement = session.Placement;
             LogEvent(LogEvents.SessionStart, FormattableString.Invariant(
-                $"time_cap_s={_config.TimeCapSeconds:F0};case_title={(caseDef != null ? caseDef.Title : "")};frame={PositionFrame};placement={placement.MethodCode}"));
+                $"time_cap_s={_config.TimeCapSeconds:F0};case_title={(caseDef != null ? caseDef.Title : "")};frame={PositionFrame};placement={placement.MethodCode}")
+                + (session.State.IsTeamRun ? ";team=1;self=" + session.State.SelfId : ""));
             // Placement happens before the run (no file is open then), so it is recorded here;
             // at_utc in the detail is when it actually happened.
             if (placement.Method != PlacementMethod.None) LogEvent(placement.EventName, placement.FormatDetail());
@@ -330,10 +335,18 @@ namespace FYP.Detective
 
         // ---- CaseState events ----
 
-        private void HandleClueFound(string clueId) => LogEvent(LogEvents.ClueFound, clueId);
-        private void HandleClueTagged(string clueId) => LogEvent(LogEvents.ClueTagged, clueId);
-        private void HandleClueUntagged(string clueId) => LogEvent(LogEvents.ClueUntagged, clueId);
-        private void HandleClueReset(string clueId) => LogEvent(LogEvents.ClueReset, clueId);
+        // Team runs append ";by=<participantId>" (who caused it); solo rows are unchanged.
+        private void HandleClueFound(string clueId) => LogEvent(LogEvents.ClueFound, clueId + ByField());
+        private void HandleClueTagged(string clueId) => LogEvent(LogEvents.ClueTagged, clueId + ByField());
+        private void HandleClueUntagged(string clueId) => LogEvent(LogEvents.ClueUntagged, clueId + ByField());
+        private void HandleClueReset(string clueId) => LogEvent(LogEvents.ClueReset, clueId + ByField());
+        private void HandleClueGrabTaken(string clueId) => LogEvent(LogEvents.ClueGrabTaken, clueId + ByField());
+
+        private string ByField()
+        {
+            string by = session.State.LastActorId;
+            return by == null ? string.Empty : ";by=" + by;
+        }
 
         // Hand-tracking events are debounced (losses shorter than 0.2 s aren't logged); samples and zones use the raw state.
         private void UpdateTrackingEvents()
@@ -354,14 +367,19 @@ namespace FYP.Detective
 
         private void HandleContamination(ContaminationInfo info)
         {
-            LogEvent(LogEvents.ErrorContamination, $"zone={info.ZoneId};part={info.BodyPart}");
+            LogEvent(LogEvents.ErrorContamination, $"zone={info.ZoneId};part={info.BodyPart}" + ByField());
+        }
+
+        private void HandlePartnerContamination(ContaminationInfo info)
+        {
+            LogEvent(LogEvents.PartnerContamination, $"zone={info.ZoneId};part={info.BodyPart}" + ByField());
         }
 
         private void HandleAnswerSubmitted(AnswerResult result)
         {
             var s = session.State;
             LogEvent(LogEvents.AnswerSubmitted,
-                $"suspect={s.SubmittedSuspectId};evidence={CsvFormatter.JoinIds(s.SubmittedEvidenceIds)};correct={(result.IsCorrect ? 1 : 0)}");
+                $"suspect={s.SubmittedSuspectId};evidence={CsvFormatter.JoinIds(s.SubmittedEvidenceIds)};correct={(result.IsCorrect ? 1 : 0)}" + ByField());
 
             if (!result.SuspectCorrect)
                 LogEvent(LogEvents.ErrorReasoning, "type=wrong_suspect;suspect=" + s.SubmittedSuspectId);

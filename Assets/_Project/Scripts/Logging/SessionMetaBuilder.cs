@@ -74,6 +74,12 @@ namespace FYP.Detective
                 evidenceScore = result != null ? result.CorrectEvidenceIds.Count : 0,
                 evidenceScoreMax = result != null ? result.KeyEvidenceTotal : keyEvidenceCount,
                 wrongEvidenceCount = result != null ? result.WrongEvidenceIds.Count : 0,
+                teamRun = state.IsTeamRun,
+                cluesFoundSelf = state.CluesFoundBySelf,
+                cluesTaggedSelf = state.CluesTaggedBySelf,
+                partnerContaminationErrors = state.PartnerContaminationErrors,
+                teamContaminationErrors = state.TeamContaminationErrors,
+                submittedBy = state.SubmittedBy ?? "",
             };
         }
 

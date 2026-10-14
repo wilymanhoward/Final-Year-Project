@@ -71,28 +71,23 @@ namespace FYP.Detective
 
         public void ClearSelection() => _selection.Clear();
 
-        /// <summary>Checks the answer, records it in CaseState and ends the session.</summary>
+        /// <summary>
+        /// Sends the answer. SessionManager checks it, records it and ends the run (in a team run the first
+        /// submission of either partner ends both). onSubmitted fires when the run has ended as Submitted.
+        /// </summary>
         public void Submit()
         {
             if (!CanSubmit) return;
-            var caseDef = session.ActiveCase;
-            if (caseDef == null)
-            {
-                Debug.LogError("[EvidenceBoard] No active CaseDefinition; cannot check answer.");
-                return;
-            }
-
             // Copy: the selection is cleared on the next session start, the log must keep this list.
             var evidence = new System.Collections.Generic.List<string>(_selection.EvidenceIds);
-            AnswerResult result = caseDef.Check(_selection.SuspectId, evidence);
-            if (session.SubmitAnswer(_selection.SuspectId, evidence, result))
-            {
-                onSubmitted.Invoke();
-                NotifyChanged();
-            }
+            session.RequestSubmit(_selection.SuspectId, evidence);
         }
 
-        private void HandleSessionEnded(SessionEndReason reason) => NotifyChanged();
+        private void HandleSessionEnded(SessionEndReason reason)
+        {
+            if (reason == SessionEndReason.Submitted) onSubmitted.Invoke();
+            NotifyChanged();
+        }
 
         private void NotifyChanged()
         {
