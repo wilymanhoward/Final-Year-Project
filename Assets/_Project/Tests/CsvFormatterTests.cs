@@ -175,7 +175,8 @@ namespace FYP.Detective.Tests
             var cells = Split(line);
             Assert.AreEqual(CsvFormatter.SummaryColumns.Length, cells.Length, line);
             Assert.AreEqual(
-                "G03,P05,B,Y,Case Y,2026-10-01T14:00:00.000Z,Submitted,1,0,100.500,900,2,1,2,1,s1,1,c1;c2,c1,,z1=2,100.500,0.000,0",
+                "G03,P05,B,Y,Case Y,2026-10-01T14:00:00.000Z,Submitted,1,0,100.500,900,2,1,2,1,s1,1,c1;c2,c1,,z1=2,100.500,0.000,0" +
+                ",0,2,1,0,2,",   // solo: team_run 0, *_self = totals, no partner, submitted_by empty
                 line);
         }
 

@@ -116,6 +116,9 @@ namespace FYP.Detective
             "submitted_evidence", "wrong_evidence", "missing_evidence",
             "contamination_by_zone",
             "active_s", "paused_s", "pause_count",
+            // Team condition (appended so earlier columns keep their positions). Solo: team_run 0, *_self = totals.
+            "team_run", "clues_found_self", "clues_tagged_self",
+            "contamination_partner", "contamination_team", "submitted_by",
         };
 
         public static string SummaryHeader => string.Join(Separator, SummaryColumns);
@@ -151,6 +154,12 @@ namespace FYP.Detective
                 state.ActiveSeconds.ToString(TimeFormat, inv),
                 state.PausedSeconds.ToString(TimeFormat, inv),
                 state.PauseCount.ToString(inv),
+                Bool(state.IsTeamRun),
+                state.CluesFoundBySelf.ToString(inv),
+                state.CluesTaggedBySelf.ToString(inv),
+                state.PartnerContaminationErrors.ToString(inv),
+                state.TeamContaminationErrors.ToString(inv),
+                state.SubmittedBy,
             };
             var sb = new StringBuilder(256);
             for (int i = 0; i < cells.Length; i++)

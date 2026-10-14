@@ -250,6 +250,13 @@ Data flow:
   placement method `shared_anchor`. Failure texts from `ColocationProtocol.ExplainAnchorFailure`; fallback = both
   headsets Manual (X) on the tape mark. Permissions USE_COLOCATION_DISCOVERY_API / IMPORT_EXPORT_IOT_MAP_DATA are
   added at build time by Meta's manifest patch (`OVRGradleGeneration.PatchAndroidManifest`).
+- **Team-condition rules (user decisions, session 6, Week 3 Phase 3):** (1) found/tagged are **team-wide**, every row
+  logs `by=<participantId>`, the summary has team totals plus own counts (`clues_found_self`, `clues_tagged_self`);
+  (2) both grab the same clue → **last grabber wins** (ownership moves, `clue_grab_taken` logged); (3) **either partner
+  submits once** - the first submission ends the run on both headsets, both CSVs record the answer and who submitted;
+  (4) contamination **per person + team total** (each headset detects its own body, per-person per-zone cooldown,
+  summary also has the team total). The host's Start/Abort/time cap control both headsets; each headset writes its
+  own CSV. Solo runs (no network) behave exactly as before.
 - **Hand look:** participants see translucent dark "ghost" hands with a white rim (custom shader
   `FYP/GhostHand`: depth prepass + alpha-blended fresnel rim; tune Body Colour/Alpha and Outline Width/Sharpness
   on `HandGhost.mat`). The OVRHand system-gesture material swap is set to None.
@@ -356,6 +363,16 @@ the user's headset test, commit only after the user confirms it works._
   (static poke clue at 0.8/1.2/1.5, rotation 0 – a Quad faces local -Z, do NOT rotate it 180).
 - Testing tip: the cable isn't needed during a test; the CSVs stay on the headset and `adb logcat -d` dumps the recent
   log afterwards (the buffer only holds the last minute or so of Unity output).
+
+- **Week 3 Phase 3 done** (EditMode 177/177; headset-tested by the user: host log shows team=1, partner finds by=P02, own tags by=P01, *_self counts right). **Not yet tested:** grab conflict (clue_grab_taken), submission, a run with condition B. Headset roles now: `…4M00Z6` = P01 (host), `…970B12` = P02 (client). Written:
+  CaseState attribution (by=, IsTeamRun/SelfId, partner contamination, *_self counts, SubmittedBy, one submission
+  only), `ICaseAuthority` + SessionManager Request*/Apply* (panel/board/zone/clue/resetter now call Request*),
+  `TeamMessage` protocol, Clue (HoldBegan, HasLocalAuthority, ForceRelease via grabInteractables), DataLogger by= +
+  partner_contamination / clue_grab_taken rows, summary columns (team_run, clues_found_self, clues_tagged_self,
+  contamination_partner, contamination_team, submitted_by), meta schema 3, Net `TeamSessionSync` + `NetworkClue`,
+  NetworkSetupTool adds TeamSessionSync and networks grabbable clues. **Next:** user runs FYP > Set Up Networking,
+  builds both headsets and tests a team run. (Done.) Open: a team run is still logged with the host's condition
+  (it was A in the test) - decide whether team mode should force condition B.
 
 **Decisions made in session 5 (user)**
 - Order: close Phase B → Week 3 networking → Week 2 Phase C (in-headset UI) and D (greybox cases) → E (wrap-up).

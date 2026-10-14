@@ -52,12 +52,12 @@ namespace FYP.Detective
 
         public void StartSession()
         {
-            if (session != null) session.StartSession();
+            if (session != null) session.RequestStart();
         }
 
         public void AbortSession()
         {
-            if (session != null) session.EndSession(SessionEndReason.Aborted);
+            if (session != null) session.RequestAbort();
         }
 
         public void ResetSession()

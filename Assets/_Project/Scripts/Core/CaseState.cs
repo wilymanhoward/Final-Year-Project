@@ -31,6 +31,9 @@ namespace FYP.Detective
         private readonly Dictionary<string, int> _contaminationByZone = new Dictionary<string, int>(StringComparer.Ordinal);
         private readonly List<string> _submittedEvidence = new List<string>();
         private readonly int[] _contaminationByPart = new int[3];   // indexed by BodyPart
+        // Team runs: who found / currently has tagged each clue (participant id; null = this headset in a solo run).
+        private readonly Dictionary<string, string> _foundBy = new Dictionary<string, string>(StringComparer.Ordinal);
+        private readonly Dictionary<string, string> _taggedBy = new Dictionary<string, string>(StringComparer.Ordinal);
 
         public SessionPhase Phase { get; private set; } = SessionPhase.NotStarted;
         public double ElapsedSeconds { get; private set; }
@@ -51,6 +54,34 @@ namespace FYP.Detective
         public AnswerResult LastResult { get; private set; }
 
         public bool IsRunning => Phase == SessionPhase.Running;
+
+        // ---- Team condition (Week 3 Phase 3) ----
+
+        /// <summary>True if this run is shared with a partner headset (set by <see cref="Begin"/>).</summary>
+        public bool IsTeamRun { get; private set; }
+
+        /// <summary>Participant id of this headset in the current run (for the *_self counts).</summary>
+        public string SelfId { get; private set; }
+
+        /// <summary>Participant who caused the event currently being raised (null in solo runs). Read it in event handlers.</summary>
+        public string LastActorId { get; private set; }
+
+        /// <summary>Contamination entries of the partner's body (each headset detects its own body).</summary>
+        public int PartnerContaminationErrors { get; private set; }
+
+        /// <summary>This headset's entries plus the partner's.</summary>
+        public int TeamContaminationErrors => ContaminationErrors + PartnerContaminationErrors;
+
+        /// <summary>Participant who submitted the answer (null in solo runs).</summary>
+        public string SubmittedBy { get; private set; }
+
+        /// <summary>Clues found by this participant (all found clues in a solo run).</summary>
+        public int CluesFoundBySelf => CountBySelf(_foundBy, _found);
+
+        /// <summary>Currently tagged clues that this participant tagged (all tagged clues in a solo run).</summary>
+        public int CluesTaggedBySelf => CountBySelf(_taggedBy, _tagged);
+
+        public string FoundBy(string clueId) => clueId != null && _foundBy.TryGetValue(clueId, out string by) ? by : null;
 
         /// <summary>Time the app was paused during the run (headset off, app in background).</summary>
         public double PausedSeconds { get; private set; }
@@ -87,6 +118,10 @@ namespace FYP.Detective
         public event Action<ContaminationInfo> ContaminationRecorded;
         public event Action<AnswerResult> AnswerSubmitted;
         public event Action<string> ClueReset;
+        /// <summary>Team runs: the partner's body entered a zone (already counted on their headset).</summary>
+        public event Action<ContaminationInfo> PartnerContaminationRecorded;
+        /// <summary>Team runs: the partner grabbed a clue this headset was holding (last grabber wins).</summary>
+        public event Action<string> ClueGrabTaken;
         public event Action Changed;
 
         /// <summary>Clears everything back to NotStarted.</summary>
@@ -96,7 +131,14 @@ namespace FYP.Detective
             _tagged.Clear();
             _contaminationByZone.Clear();
             _submittedEvidence.Clear();
+            _foundBy.Clear();
+            _taggedBy.Clear();
             Array.Clear(_contaminationByPart, 0, _contaminationByPart.Length);
+            PartnerContaminationErrors = 0;
+            SubmittedBy = null;
+            LastActorId = null;
+            IsTeamRun = false;
+            SelfId = null;
             Phase = SessionPhase.NotStarted;
             ElapsedSeconds = 0;
             PausedSeconds = 0;
@@ -110,10 +152,12 @@ namespace FYP.Detective
             Changed?.Invoke();
         }
 
-        /// <summary>Resets and enters Running.</summary>
-        public void Begin()
+        /// <summary>Resets and enters Running. <paramref name="teamRun"/>: shared with a partner (actors are logged).</summary>
+        public void Begin(bool teamRun = false, string selfId = null)
         {
             Reset();
+            IsTeamRun = teamRun;
+            SelfId = selfId;
             Phase = SessionPhase.Running;
             Changed?.Invoke();
         }
@@ -135,29 +179,35 @@ namespace FYP.Detective
             if (IsRunning) ElapsedSeconds = seconds;
         }
 
-        /// <summary>Returns true only the first time a clue is found in this run.</summary>
-        public bool MarkClueFound(string clueId)
+        /// <summary>Returns true only the first time a clue is found in this run (by anyone in a team run).</summary>
+        public bool MarkClueFound(string clueId, string by = null)
         {
             if (!IsRunning || string.IsNullOrEmpty(clueId) || !_found.Add(clueId)) return false;
+            _foundBy[clueId] = by;
+            LastActorId = by;
             ClueFound?.Invoke(clueId);
             Changed?.Invoke();
             return true;
         }
 
         /// <summary>Tags a clue as relevant. Tagging also counts as finding it.</summary>
-        public bool MarkClueTagged(string clueId)
+        public bool MarkClueTagged(string clueId, string by = null)
         {
             if (!IsRunning || string.IsNullOrEmpty(clueId)) return false;
-            MarkClueFound(clueId);
+            MarkClueFound(clueId, by);
             if (!_tagged.Add(clueId)) return false;
+            _taggedBy[clueId] = by;
+            LastActorId = by;
             ClueTagged?.Invoke(clueId);
             Changed?.Invoke();
             return true;
         }
 
-        public bool UntagClue(string clueId)
+        public bool UntagClue(string clueId, string by = null)
         {
             if (!IsRunning || string.IsNullOrEmpty(clueId) || !_tagged.Remove(clueId)) return false;
+            _taggedBy.Remove(clueId);
+            LastActorId = by;
             ClueUntagged?.Invoke(clueId);
             Changed?.Invoke();
             return true;
@@ -173,8 +223,29 @@ namespace FYP.Detective
             int part = (int)bodyPart;
             if (part >= 0 && part < _contaminationByPart.Length) _contaminationByPart[part]++;
             ContaminationErrors++;
+            LastActorId = IsTeamRun ? SelfId : null;   // own body
             ContaminationRecorded?.Invoke(new ContaminationInfo(zoneId, bodyPart, ElapsedSeconds));
             Changed?.Invoke();
+            return true;
+        }
+
+        /// <summary>Team runs: one contamination entry of the partner (counted separately from this headset's own).</summary>
+        public bool RecordPartnerContamination(string zoneId, BodyPart bodyPart, string by)
+        {
+            if (!IsRunning) return false;
+            PartnerContaminationErrors++;
+            LastActorId = by;
+            PartnerContaminationRecorded?.Invoke(new ContaminationInfo(zoneId ?? string.Empty, bodyPart, ElapsedSeconds));
+            Changed?.Invoke();
+            return true;
+        }
+
+        /// <summary>Team runs: the partner took a clue out of this headset's hand. For logging only.</summary>
+        public bool RecordClueGrabTaken(string clueId, string by)
+        {
+            if (!IsRunning || string.IsNullOrEmpty(clueId)) return false;
+            LastActorId = by;
+            ClueGrabTaken?.Invoke(clueId);
             return true;
         }
 
@@ -182,9 +253,10 @@ namespace FYP.Detective
         /// Reports that a loose clue was put back at its start position (fell through the floor / too far away).
         /// Not game state; raised for logging. Only while running.
         /// </summary>
-        public bool RecordClueReset(string clueId)
+        public bool RecordClueReset(string clueId, string by = null)
         {
             if (!IsRunning || string.IsNullOrEmpty(clueId)) return false;
+            LastActorId = by;
             ClueReset?.Invoke(clueId);
             return true;
         }
@@ -193,10 +265,12 @@ namespace FYP.Detective
         /// Stores the submitted answer and adds its reasoning errors.
         /// Does not end the session - SessionManager does that right after.
         /// </summary>
-        public bool RecordSubmission(string suspectId, IEnumerable<string> evidenceIds, AnswerResult result)
+        public bool RecordSubmission(string suspectId, IEnumerable<string> evidenceIds, AnswerResult result, string by = null)
         {
-            if (!IsRunning || result == null) return false;
+            if (!IsRunning || result == null || HasSubmitted) return false;
             HasSubmitted = true;
+            SubmittedBy = by;
+            LastActorId = by;
             SubmittedSuspectId = suspectId;
             _submittedEvidence.Clear();
             if (evidenceIds != null) _submittedEvidence.AddRange(evidenceIds);
@@ -205,6 +279,17 @@ namespace FYP.Detective
             AnswerSubmitted?.Invoke(result);
             Changed?.Invoke();
             return true;
+        }
+
+        private int CountBySelf(Dictionary<string, string> byClue, HashSet<string> clues)
+        {
+            int n = 0;
+            foreach (string clue in clues)
+            {
+                byClue.TryGetValue(clue, out string by);
+                if (by == null || by == SelfId) n++;
+            }
+            return n;
         }
     }
 }

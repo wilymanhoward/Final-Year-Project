@@ -15,7 +15,7 @@ namespace FYP.Detective
         /// <summary>endReason written while the session has not ended (yet).</summary>
         public const string InterruptedReason = "Interrupted";
 
-        public int schemaVersion = 2;
+        public int schemaVersion = 3;
 
         // Run identity
         public ExperimentConfig config;
@@ -72,6 +72,14 @@ namespace FYP.Detective
         /// <summary>Number of key evidence items in the case.</summary>
         public int evidenceScoreMax;
         public int wrongEvidenceCount;
+
+        // Team condition (schema 3). Solo: teamRun false, *Self = totals, partner 0.
+        public bool teamRun;
+        public int cluesFoundSelf;
+        public int cluesTaggedSelf;
+        public int partnerContaminationErrors;
+        public int teamContaminationErrors;
+        public string submittedBy;
     }
 
     /// <summary>Build and device facts for <see cref="SessionMeta"/>, gathered by the caller from Unity.</summary>

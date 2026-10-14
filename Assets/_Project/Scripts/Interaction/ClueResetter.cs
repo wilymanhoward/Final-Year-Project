@@ -58,20 +58,20 @@ namespace FYP.Detective
 
         private void HandleSessionStarted()
         {
-            if (resetOnSessionStart && !_clue.IsHeld) ResetToHome();
+            if (resetOnSessionStart && !_clue.IsHeld && _clue.HasLocalAuthority) ResetToHome();
         }
 
         private void Update()
         {
             if (!_hasHome || Time.unscaledTime < _nextCheck) return;
             _nextCheck = Time.unscaledTime + checkIntervalSeconds;
-            if (_clue.IsHeld) return;
+            if (_clue.IsHeld || !_clue.HasLocalAuthority) return;   // team runs: only the controlling headset resets
 
             Vector3 local = caseRoot.transform.InverseTransformPoint(transform.position);
             if (!ClueBounds.IsOutOfBounds(local, maxDistanceFromRoot, belowFloorMargin)) return;
 
             ResetToHome();
-            if (session != null) session.State.RecordClueReset(_clue.ClueId);
+            if (session != null) session.RequestClueReset(_clue.ClueId);
         }
 
         private void ResetToHome()
