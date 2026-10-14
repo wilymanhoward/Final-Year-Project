@@ -10,6 +10,9 @@
         "Oculus.Interaction.Editor",
         "Oculus.Interaction.OVR.Editor",
         "FYP.Detective.Meta",
+        "FYP.Detective.Net",
+        "Unity.Netcode.Runtime",
+        "Unity.Networking.Transport",
         "UnityEngine.UI"
     ],
     "includePlatforms": [

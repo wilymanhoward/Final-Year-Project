@@ -145,6 +145,9 @@ Scripts/ (FYP.Detective.asmdef, references Unity.InputSystem, UnityEngine.UI)
   UI/          EvidenceSelection, EvidenceBoard, ExperimenterPanel, StatusLabel, ClueTagButton
   Meta/        (FYP.Detective.Meta.asmdef) ScenePlacement, ExperimenterControllerShortcuts, HandTrackingMonitor,
                HeadsetPresenceMonitor
+  Net/         (FYP.Detective.Net.asmdef, refs FYP.Detective + Unity.Netcode.Runtime + Unity.Networking.Transport)
+               NetworkSessionLauncher (host / join / stop, status texts, net_* log rows)
+  Experiment/LanAddress (core: IPv4 parse, private-range check, LAN address pick)
 Editor/ (FYP.Detective.Editor.asmdef, Editor-only)
   MainSceneBuilder    menus: FYP > Create Main Scene / Add Controllers and Hands to Rig / Use Ghost Hands
   GrabSetupTool       menus: FYP > Make Selected Clues Grabbable / Make Selected Static Clues Pokeable
@@ -152,6 +155,7 @@ Editor/ (FYP.Detective.Editor.asmdef, Editor-only)
   PlacementSetupTool  menu:  FYP > Set Up Case Root and Placement
   BoundarySetupTool   menu:  FYP > Suppress Boundary (Passthrough)
   LocomotionDisableTool menu: FYP > Disable Locomotion
+  NetworkSetupTool    menu:  FYP > Set Up Networking
 Tests/ (FYP.Detective.Tests.asmdef, Editor-only, EditMode NUnit)
 Art/Shaders/GhostHand.shader (URP, "FYP/GhostHand")   Art/Materials/HandGhost.mat
 Scenes/Main.unity   Cases/{CaseX,CaseY}/CaseX|Y_Definition.asset (placeholder data)   Prefabs/ (empty)
@@ -228,6 +232,13 @@ Data flow:
   can't create an entry; a point already inside at session start isn't an entry either.
 - **Debug messages:** `StatusLabel.showDebugMessages` (Inspector, default ON) shows "Resumed - paused X.X s" for 3 s
   when a pause (app and/or headset off) ends during a session. **Turn it OFF on `ExperimenterStatusLabel` before study builds.**
+- **Networking, Week 3 Phase 1 (session 6):** direct LAN, no relay. `Network` object = NetworkManager + UnityTransport
+  (port 7777) + `NetworkSessionLauncher`. Host listens on 0.0.0.0 and shows its LAN IP on the label; the client joins
+  `ExperimentConfig.hostAddress`:`netPort`, re-read from `experiment_config.json` on every join (set it with adb).
+  Client gives up after 10 x 1 s attempts. Shortcuts (hold 1.5 s, ignored while the stick is clicked): right stick
+  up = host, right stick down = join, left stick down = stop. Rows `net_peer_connected` / `net_peer_disconnected` /
+  `net_stopped` (only while a run is open). NGO's `DefaultNetworkPrefabs.asset` (Meta Building Block prefabs) is NOT
+  attached to our NetworkManager. `PlayerSettings.Android.forceInternetPermission` = true (set by the tool).
 - **Hand look:** participants see translucent dark "ghost" hands with a white rim (custom shader
   `FYP/GhostHand`: depth prepass + alpha-blended fresnel rim; tune Body Colour/Alpha and Outline Width/Sharpness
   on `HandGhost.mat`). The OVRHand system-gesture material swap is set to None.
@@ -293,6 +304,10 @@ the user's headset test, commit only after the user confirms it works._
 - **Phase B is closed** (session 6). Next: Week 3 Phase 1 (NGO install, see "Next").
 - EditMode tests: **111/111 pass** in batch mode (session 6, before and after the NGO install).
 - **NGO 2.13.3 + Unity Transport 2.6.0 installed** (session 6); everything compiles incl. Meta's NGO blocks.
+- **Week 3 Phase 1 done and headset-verified** (session 6): host `2G0YC5ZG970B12` (10.72.55.149) + client
+  `2G0YC5ZG4M00Z6` (10.72.55.197) on **campus Wi-Fi connected in 0.4 s** (no client isolation); host showed
+  Partner connected / Partner left. Tests 134/134. The client config has hostAddress 10.72.55.149 but still
+  participantId P01 (give it its own id before team runs). Campus IPs can change (DHCP) - re-check before each test.
 - Untracked in the repo root (the user's, not Claude's): `.agents/`, `.codex/`, `AGENTS.md`. Ask before touching.
 - Headsets: `2G0YC5ZG970B12` (used for all session 6 tests) and `2G0YC5ZG4M00Z6` (not used since session 5; it has
   no build with the locomotion fix).
@@ -341,8 +356,7 @@ the user's headset test, commit only after the user confirms it works._
 
 **Next (in this order)**
 1. ~~Batch tests~~ done. 
-2. **Week 3 Phase 1:** ~~install NGO 2.13.3~~ done → `NetworkManager` +
-   `UnityTransport` host/client over the LAN with a manual IP first; test headset-to-headset on campus Wi-Fi.
+2. ~~**Week 3 Phase 1**~~ done (NGO install, LAN host/client with manual IP, campus Wi-Fi works).
 3. **Week 3 Phase 2:** colocation discovery (advertise ip:port), shared CaseRoot anchor, label messages for sharing
    failures; manual alignment fallback.
 4. **Week 3 Phase 3:** network the shared state (`CaseState` authoritative on the host; clients send found / tag /

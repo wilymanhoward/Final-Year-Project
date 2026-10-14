@@ -32,6 +32,15 @@ namespace FYP.Detective
         [Min(0.1f)]
         public float timeCapMinutes = DefaultTimeCapMinutes;
 
+        [Tooltip("Team condition: IPv4 address of the host headset the client joins (Week 3 manual connection).")]
+        public string hostAddress = "";
+
+        [Tooltip("UDP port of the host.")]
+        [Range(1024, 65535)]
+        public int netPort = DefaultNetPort;
+
+        public const int DefaultNetPort = 7777;
+
         public double TimeCapSeconds => timeCapMinutes * 60.0;
 
         public string ConditionCode => condition.ToString();
