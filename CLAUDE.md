@@ -53,7 +53,9 @@ Read this first in every session. Update **Current status** at the end of each s
 | `com.unity.xr.openxr` | 1.16.1 | Android loader = `OpenXRLoader`; enabled features: Meta XR Feature, Foveation, Subsampled Layout, SpaceWarp, Oculus Touch profile |
 | `com.unity.xr.management` / `core-utils` / `hands` | 4.6.1 / 2.6.0 / 1.7.3 | dependencies only (Unity XR Hands OpenXR feature is OFF) |
 
-Not installed: AR Foundation, `com.unity.xr.meta-openxr`, **Netcode for GameObjects**.
+| `com.unity.netcode.gameobjects` / `com.unity.transport` | 2.13.3 / 2.6.0 | installed session 6; Meta's `Meta.XR.MultiplayerBlocks.NGO(.Editor)` compile |
+
+Not installed: AR Foundation, `com.unity.xr.meta-openxr`.
 
 **Week 3 networking findings (session 5, read from the 207 source + packages.unity.com):**
 - Meta's NGO multiplayer blocks need NGO >= 1.7.1 (`versionDefines` in
@@ -289,8 +291,8 @@ the user's headset test, commit only after the user confirms it works._
 
 **Where we are (start here)**
 - **Phase B is closed** (session 6). Next: Week 3 Phase 1 (NGO install, see "Next").
-- EditMode tests: last batch run 111/111 (session 5). Session 6 changes compiled in the headset build but the batch
-  tests were NOT re-run (Unity was open) – run them at the start of the next session.
+- EditMode tests: **111/111 pass** in batch mode (session 6, before and after the NGO install).
+- **NGO 2.13.3 + Unity Transport 2.6.0 installed** (session 6); everything compiles incl. Meta's NGO blocks.
 - Untracked in the repo root (the user's, not Claude's): `.agents/`, `.codex/`, `AGENTS.md`. Ask before touching.
 - Headsets: `2G0YC5ZG970B12` (used for all session 6 tests) and `2G0YC5ZG4M00Z6` (not used since session 5; it has
   no build with the locomotion fix).
@@ -338,8 +340,8 @@ the user's headset test, commit only after the user confirms it works._
   (risk: client isolation / blocked ports → test first; backup = phone hotspot with internet).
 
 **Next (in this order)**
-1. Run the EditMode tests in batch mode (Unity closed) to confirm session 6 changes.
-2. **Week 3 Phase 1:** install NGO 2.13.3 (manifest change already approved) → batch compile → `NetworkManager` +
+1. ~~Batch tests~~ done. 
+2. **Week 3 Phase 1:** ~~install NGO 2.13.3~~ done → `NetworkManager` +
    `UnityTransport` host/client over the LAN with a manual IP first; test headset-to-headset on campus Wi-Fi.
 3. **Week 3 Phase 2:** colocation discovery (advertise ip:port), shared CaseRoot anchor, label messages for sharing
    failures; manual alignment fallback.
