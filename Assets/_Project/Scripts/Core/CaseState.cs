@@ -59,7 +59,10 @@ namespace FYP.Detective
         /// <summary>Elapsed time minus paused time. Use this for analysis.</summary>
         public double ActiveSeconds => Math.Max(0, ElapsedSeconds - PausedSeconds);
 
-        /// <summary>Updated by the session manager on pause/resume and at the end. Ignored when not running.</summary>
+        /// <summary>
+        /// Updated by the session manager on pause/resume, every frame while a pause is open, and at the end.
+        /// Ignored when not running.
+        /// </summary>
         public void SetPauseStats(double pausedSeconds, int pauseCount)
         {
             if (!IsRunning) return;

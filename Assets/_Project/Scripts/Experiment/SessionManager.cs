@@ -119,6 +119,8 @@ namespace FYP.Detective
             if (!State.IsRunning) return;
             double now = Now;
             State.SetElapsed(_timer.Elapsed(now));
+            // Headset off keeps Unity updating: keep the open pause current so Interrupted snapshots count it.
+            if (_pauses.IsPaused) State.SetPauseStats(_pauses.PausedSeconds(now), _pauses.PauseCount);
             if (_timer.IsCapReached(now)) EndSession(SessionEndReason.TimeCap);
         }
 
