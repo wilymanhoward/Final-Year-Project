@@ -161,6 +161,10 @@ Editor/ (FYP.Detective.Editor.asmdef, Editor-only)
   HeadsetUiTool       menu:  FYP > Set Up Headset UI
   EvidenceBoardTool   menu:  FYP > Set Up Evidence Board
   CaseSceneTool       menu:  FYP > Build Case Scenes (X + Y)
+  StudyBuildTool      menus: FYP > Prepare Study Build (debug off + readiness report) / Restore Debug Settings
+tools/pull_data.sh   pulls *.csv/*.json (+ Unity log) from every connected headset to StudyData/<date>/<serial>/,
+                     flags runs whose summary still says Interrupted (Git Bash; uses Windows paths for adb.exe)
+docs/cases.md        case content (source of truth for CaseSpecs)   docs/device_test_checklist.md  session procedure
 Tests/ (FYP.Detective.Tests.asmdef, Editor-only, EditMode NUnit)
 Art/Shaders/GhostHand.shader (URP, "FYP/GhostHand")   Art/Materials/HandGhost.mat
 Scenes/Main.unity   Cases/{CaseX,CaseY}/CaseX|Y_Definition.asset (placeholder data)   Prefabs/ (empty)
@@ -426,6 +430,13 @@ the user's headset test, commit only after the user confirms it works._
 - **Week 2 Phase C done (C1 + C2)**, EditMode 191/191, headset-tested solo: tag cube + Quad → board_evidence/board_suspect →
   Submit/Yes → session_end Submitted (completed=1), grading correct for the placeholder case. Not yet tested: team run with
   the board (shared selection), ARM/Start across two headsets.
+
+- **Phase E (session 6, in progress):** `FYP > Prepare Study Build` (switches StatusLabel debug messages and zone debug
+  visuals off; checks specs, both case scenes vs. spec and definitions, networked grabbables, test content off, UI and
+  networking present, locomotion off, boundary, INTERNET, Main.unity first build scene, not a development build),
+  `tools/pull_data.sh` (tested: 51 files from …4M00Z6), `docs/device_test_checklist.md`. Prepare Study Build report
+  all OK in the editor (user). **Still open:** a full team run on the new cases (Case Y, shared board, correct submission K1-K4 + culprit,
+  grab conflict), the floor guard on the headset, and the user questions below.
 
 **Decisions made in session 5 (user)**
 - Order: close Phase B → Week 3 networking → Week 2 Phase C (in-headset UI) and D (greybox cases) → E (wrap-up).

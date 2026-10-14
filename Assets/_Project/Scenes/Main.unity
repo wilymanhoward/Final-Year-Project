@@ -24584,7 +24584,7 @@ MonoBehaviour:
   visibleSeconds: 6
   distance: 0.8
   heightOffset: -0.15
-  showDebugMessages: 1
+  showDebugMessages: 0
   debugMessageSeconds: 3
   session: {fileID: 0}
 --- !u!114 &1410172809
