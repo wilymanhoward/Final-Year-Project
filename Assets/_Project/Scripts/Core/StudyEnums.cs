@@ -39,6 +39,15 @@ namespace FYP.Detective
     }
 
     /// <summary>Which tracked point entered an exclusion zone.</summary>
+    /// <summary>How a run was started (logged as start_source).</summary>
+    public enum StartSource
+    {
+        /// <summary>Experimenter started it directly (setup panel "Start now", right stick, desktop panel).</summary>
+        StartNow = 0,
+        /// <summary>The participant poked Start on the briefing card after the experimenter armed the run.</summary>
+        ParticipantStart = 1,
+    }
+
     public enum BodyPart
     {
         Head = 0,

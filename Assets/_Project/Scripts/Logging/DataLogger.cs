@@ -191,7 +191,11 @@ namespace FYP.Detective
             var placement = session.Placement;
             LogEvent(LogEvents.SessionStart, FormattableString.Invariant(
                 $"time_cap_s={_config.TimeCapSeconds:F0};case_title={(caseDef != null ? caseDef.Title : "")};frame={PositionFrame};placement={placement.MethodCode}")
+                + ";start_source=" + SessionManager.StartSourceCode(session.LastStartSource)
                 + (session.State.IsTeamRun ? ";team=1;self=" + session.State.SelfId : ""));
+            // Arming happens before the file is open (like placement), so it is recorded here with its own time.
+            if (session.RunArmedUtc != DateTime.MinValue)
+                LogEvent(LogEvents.RunArmed, "at_utc=" + PlacementRecord.FormatUtc(session.RunArmedUtc));
             // Placement happens before the run (no file is open then), so it is recorded here;
             // at_utc in the detail is when it actually happened.
             if (placement.Method != PlacementMethod.None) LogEvent(placement.EventName, placement.FormatDetail());
@@ -280,6 +284,8 @@ namespace FYP.Detective
                     caseDef != null ? caseDef.Title : "", caseDef != null ? caseDef.KeyEvidenceIds.Count : 0,
                     session.Placement, build, caseRoot != null, session.StartUtc, endUtc,
                     _writer != null ? Path.GetFileName(_writer.FilePath) : "");
+                meta.startSource = SessionManager.StartSourceCode(session.LastStartSource);
+                meta.armedUtc = PlacementRecord.FormatUtc(session.RunArmedUtc);
                 File.WriteAllText(_metaPath, JsonUtility.ToJson(meta, true));
             }
             catch (Exception e)

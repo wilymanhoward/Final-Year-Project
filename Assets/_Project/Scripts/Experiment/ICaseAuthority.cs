@@ -13,7 +13,7 @@ namespace FYP.Detective
         /// <summary>True while a partner is connected, so requests go through the host.</summary>
         bool IsActive { get; }
 
-        void RequestStart();
+        void RequestStart(StartSource source);
         void RequestArm(bool armed);
         void RequestEnd(SessionEndReason reason);
         void RequestClueFound(string clueId, string by);

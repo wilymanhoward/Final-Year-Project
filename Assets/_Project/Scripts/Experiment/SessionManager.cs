@@ -214,19 +214,33 @@ namespace FYP.Detective
         public void RequestParticipantStart()
         {
             if (!IsArmed || State.IsRunning) return;
-            RequestStart();
+            RequestStart(StartSource.ParticipantStart);
         }
+
+        /// <summary>When the current arming happened (UTC); DateTime.MinValue when not armed.</summary>
+        public DateTime ArmedUtc { get; private set; } = DateTime.MinValue;
+
+        /// <summary>How the current/last run was started (logged in session_start and the meta file).</summary>
+        public StartSource LastStartSource { get; private set; }
+
+        /// <summary>Arming time of the current/last run (MinValue if it was started without being armed).</summary>
+        public DateTime RunArmedUtc { get; private set; } = DateTime.MinValue;
+
+        /// <summary>start_source code as written to logs.</summary>
+        public static string StartSourceCode(StartSource source) =>
+            source == StartSource.ParticipantStart ? "participant_start" : "start_now";
 
         private void SetArmed(bool armed)
         {
             if (IsArmed == armed) return;
             IsArmed = armed;
+            ArmedUtc = armed ? DateTime.UtcNow : DateTime.MinValue;
             Debug.Log("[SessionManager] " + (armed ? "Armed - waiting for the participant's Start" : "Disarmed"));
             ArmedChanged?.Invoke(armed);
         }
 
         /// <summary>Experimenter trigger (or the participant's Start when armed). Returns false (and logs why) if it cannot start.</summary>
-        public bool StartSession()
+        public bool StartSession(StartSource source = StartSource.StartNow)
         {
             if (State.IsRunning)
             {
@@ -236,6 +250,8 @@ namespace FYP.Detective
             string refusal = CheckCanStart();
             if (refusal != null) return RefuseStart(refusal);
 
+            RunArmedUtc = ArmedUtc;   // kept for the run_armed row; cleared by SetArmed(false)
+            LastStartSource = source;
             SetArmed(false);
             LastStartError = null;
             ExperimentConfigStore.Save(config);
@@ -274,11 +290,11 @@ namespace FYP.Detective
 
         // ---- Requests (components call these; routed through the authority in team mode) ----
 
-        /// <summary>Experimenter start. Team mode: the host starts both headsets.</summary>
-        public void RequestStart()
+        /// <summary>Experimenter start (or participant start). Team mode: the host starts both headsets.</summary>
+        public void RequestStart(StartSource source = StartSource.StartNow)
         {
-            if (IsTeamMode) Authority.RequestStart();
-            else StartSession();
+            if (IsTeamMode) Authority.RequestStart(source);
+            else StartSession(source);
         }
 
         /// <summary>Experimenter abort. Team mode: ends the run on both headsets.</summary>
@@ -368,7 +384,7 @@ namespace FYP.Detective
         /// Client side of a team start: takes the host's case and condition for this run (saved to the config), then
         /// starts. Returns false (LastStartError says why) if this headset can't start.
         /// </summary>
-        public bool ApplyTeamStart(string caseCode, string conditionCode)
+        public bool ApplyTeamStart(string caseCode, string conditionCode, StartSource source)
         {
             if (State.IsRunning) return false;
             var c = config.Clone();
@@ -379,7 +395,7 @@ namespace FYP.Detective
                 Debug.Log($"[SessionManager] Team start: using the host's case {caseCode} / condition {conditionCode}");
                 ApplyConfig(c);
             }
-            return StartSession();
+            return StartSession(source);
         }
 
         /// <summary>Aborts a running session (logged as Aborted) and clears state for the next run.</summary>
