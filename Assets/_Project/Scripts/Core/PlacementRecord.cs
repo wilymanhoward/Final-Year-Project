@@ -13,6 +13,8 @@ namespace FYP.Detective
         Anchor = 1,
         /// <summary>Placed from the head pose without an anchor (fallback; shifts if the user recenters).</summary>
         Manual = 2,
+        /// <summary>Team condition: the host's anchor, shared through the colocation session and loaded here.</summary>
+        SharedAnchor = 3,
     }
 
     /// <summary>
@@ -36,8 +38,8 @@ namespace FYP.Detective
         public float YawDegrees { get; }
         public DateTime Utc { get; }
 
-        /// <summary>"anchor", "manual" or "none" (as written to logs).</summary>
-        public string MethodCode => Method.ToString().ToLowerInvariant();
+        /// <summary>"anchor", "manual", "shared_anchor" or "none" (as written to logs).</summary>
+        public string MethodCode => Method == PlacementMethod.SharedAnchor ? "shared_anchor" : Method.ToString().ToLowerInvariant();
 
         public string EventName => LoadedFromSave ? LogEvents.PlacementLoaded : LogEvents.PlacementSet;
 

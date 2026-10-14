@@ -147,6 +147,8 @@ Scripts/ (FYP.Detective.asmdef, references Unity.InputSystem, UnityEngine.UI)
                HeadsetPresenceMonitor
   Net/         (FYP.Detective.Net.asmdef, refs FYP.Detective + Unity.Netcode.Runtime + Unity.Networking.Transport)
                NetworkSessionLauncher (host / join / stop, status texts, net_* log rows)
+               ColocationCoordinator (Phase 2: advertise/discover + share/load the CaseRoot anchor; refs FYP.Detective.Meta)
+  Meta/MetaColocation (static wrapper over OVRColocationSession)   Core/ColocationProtocol (advert + anchor message, failure texts)
   Experiment/LanAddress (core: IPv4 parse, private-range check, LAN address pick)
 Editor/ (FYP.Detective.Editor.asmdef, Editor-only)
   MainSceneBuilder    menus: FYP > Create Main Scene / Add Controllers and Hands to Rig / Use Ghost Hands
@@ -239,6 +241,15 @@ Data flow:
   up = host, right stick down = join, left stick down = stop. Rows `net_peer_connected` / `net_peer_disconnected` /
   `net_stopped` (only while a run is open). NGO's `DefaultNetworkPrefabs.asset` (Meta Building Block prefabs) is NOT
   attached to our NetworkManager. `PlayerSettings.Android.forceInternetPermission` = true (set by the tool).
+- **Colocation, Week 3 Phase 2 (session 6):** shortcuts now drive `ColocationCoordinator` (Host / Join / Stop).
+  Host: Netcode host → `OVRColocationSession.StartAdvertisementAsync("FYPDET1|ip|port")` → group UUID →
+  `ScenePlacement.ShareCurrentAnchorAsync(group)` (`OVRSpatialAnchor.ShareAsync(Guid)`), re-shared when the host
+  re-places. Client: `StartDiscoveryAsync` + `ColocationSessionDiscovered` → join ip:port (20 s, then falls back to
+  `hostAddress`) → named message `fyp.case_anchor_request` → host replies `fyp.case_anchor` ("group|anchor") →
+  `ScenePlacement.LoadSharedPlacement` (`LoadUnboundSharedAnchorsAsync(group, [anchor], list)`, 30 s timeout) →
+  placement method `shared_anchor`. Failure texts from `ColocationProtocol.ExplainAnchorFailure`; fallback = both
+  headsets Manual (X) on the tape mark. Permissions USE_COLOCATION_DISCOVERY_API / IMPORT_EXPORT_IOT_MAP_DATA are
+  added at build time by Meta's manifest patch (`OVRGradleGeneration.PatchAndroidManifest`).
 - **Hand look:** participants see translucent dark "ghost" hands with a white rim (custom shader
   `FYP/GhostHand`: depth prepass + alpha-blended fresnel rim; tune Body Colour/Alpha and Outline Width/Sharpness
   on `HandGhost.mat`). The OVRHand system-gesture material swap is set to None.
@@ -308,6 +319,12 @@ the user's headset test, commit only after the user confirms it works._
   `2G0YC5ZG4M00Z6` (10.72.55.197) on **campus Wi-Fi connected in 0.4 s** (no client isolation); host showed
   Partner connected / Partner left. Tests 134/134. The client config has hostAddress 10.72.55.149 but still
   participantId P01 (give it its own id before team runs). Campus IPs can change (DHCP) - re-check before each test.
+- **Week 3 Phase 2 done and headset-verified** (session 6): discovery over Bluetooth + campus Wi-Fi, anchor shared
+  through Meta's cloud in ~1.3 s, client loaded it ("Host's placement loaded (shared anchor)") and the user confirmed
+  **the cube and Quad line up in both headsets**. Tests 158/158. After the test: a guard so an older in-flight share
+  can't overwrite a newer one (compiled in the Editor, not batch-tested). The host showed "Placement height wrong
+  (+0.08 m)" after a recenter burst (headset taken off) - likely the known floor-estimate false alarm, but it blocks
+  Start on the host until B reloads.
 - Untracked in the repo root (the user's, not Claude's): `.agents/`, `.codex/`, `AGENTS.md`. Ask before touching.
 - Headsets: `2G0YC5ZG970B12` (used for all session 6 tests) and `2G0YC5ZG4M00Z6` (not used since session 5; it has
   no build with the locomotion fix).
@@ -357,8 +374,7 @@ the user's headset test, commit only after the user confirms it works._
 **Next (in this order)**
 1. ~~Batch tests~~ done. 
 2. ~~**Week 3 Phase 1**~~ done (NGO install, LAN host/client with manual IP, campus Wi-Fi works).
-3. **Week 3 Phase 2:** colocation discovery (advertise ip:port), shared CaseRoot anchor, label messages for sharing
-   failures; manual alignment fallback.
+3. ~~**Week 3 Phase 2**~~ done (discovery, shared CaseRoot anchor, failure texts, Manual fallback documented).
 4. **Week 3 Phase 3:** network the shared state (`CaseState` authoritative on the host; clients send found / tag /
    submit requests; clue positions synced). Each headset still writes its own CSV (pairCode + participantId link them).
 5. Then Week 2 Phase C (setup panel, participant Start, evidence board, end screen), D (greybox Case X/Y generator,
