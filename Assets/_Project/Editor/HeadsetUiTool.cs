@@ -96,7 +96,7 @@ namespace FYP.Detective.EditorTools
                     ("Load saved (B)", placement.LoadSavedPlacement), ("Manual (X)", placement.ManualPlacement) },
                 new (string, UnityAction)[] { ("Host", coordinator != null ? coordinator.Host : (UnityAction)null),
                     ("Join", coordinator != null ? coordinator.Join : (UnityAction)null),
-                    ("Stop network", coordinator != null ? coordinator.Stop : (UnityAction)null), ("Close", setup.Close) },
+                    ("Stop network", coordinator != null ? coordinator.Stop : (UnityAction)null), ("Condition A / B", panel.ToggleCondition) },
                 new (string, UnityAction)[] { ("ARM", setup.Arm), ("Disarm", setup.Disarm),
                     ("Start now", setup.StartNow), ("Abort", setup.Abort) },
             };

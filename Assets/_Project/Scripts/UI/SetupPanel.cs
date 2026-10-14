@@ -119,8 +119,10 @@ namespace FYP.Detective
             _sb.Append(panel != null ? panel.BuildStatus() : "No ExperimenterPanel").Append('\n');
             if (session != null)
             {
+                string mismatch = SessionManager.ConditionMismatch(session.Config.condition, session.IsTeamMode);
                 _sb.Append(session.IsArmed ? "ARMED - waiting for the participant's Start" : "Not armed")
-                   .Append(session.IsTeamMode ? "  |  partner connected (team, condition B)" : "  |  solo (condition A)")
+                   .Append(session.IsTeamMode ? "  |  partner connected" : "  |  no partner")
+                   .Append(mismatch != null ? "  |  CAN'T ARM: " + mismatch : "")
                    .Append('\n');
             }
             _sb.Append("Placement: ").Append(_placementStatus).Append('\n');

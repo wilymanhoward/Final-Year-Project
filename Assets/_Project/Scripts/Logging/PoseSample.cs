@@ -83,5 +83,7 @@ namespace FYP.Detective
         public const string BoardEvidence = "board_evidence";
         /// <summary>The experimenter armed this run (before the file was open; at_utc = when).</summary>
         public const string RunArmed = "run_armed";
+        /// <summary>Something went wrong during a run, e.g. type=partner_disconnected (the run keeps its condition).</summary>
+        public const string Incident = "incident";
     }
 }

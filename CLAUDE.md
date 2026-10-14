@@ -259,8 +259,10 @@ Data flow:
   (4) contamination **per person + team total** (each headset detects its own body, per-person per-zone cooldown,
   summary also has the team total). The host's Start/Abort/time cap control both headsets; each headset writes its
   own CSV. Solo runs (no network) behave exactly as before.
-- **Condition follows the connection (user, session 6):** at start/arm `SessionManager.CheckCanStart` sets condition
-  B when a partner is connected, else A (logged, saved to the config).
+- **Condition is chosen explicitly (user, session 6; replaces the earlier auto-switch):** "Condition A / B" button on the
+  setup panel. `CheckCanStart` (ARM and start) refuses B without a connected partner and A with one
+  (`SessionManager.ConditionMismatch`). A team client takes condition B when the host arms. A partner disconnect during
+  a run writes `incident` (`type=partner_disconnected;side=host|client`); the run keeps its condition.
 - **Phase C UI decisions (user, session 6):** experimenter **arms**, the participant taps **Start** on a briefing card
   (team: either partner's Start starts both; experimenter "Start now"/right stick still works as fallback); evidence
   board **fixed in the scene** (under CaseRoot); board lists **tagged clues only**; end screen is **neutral** (no
