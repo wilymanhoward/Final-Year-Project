@@ -13,6 +13,9 @@ namespace FYP.Detective.Meta
     ///   hold Y                Clear Placement
     ///   hold right stick      Start session
     ///   hold left stick       Abort session
+    ///   hold right stick up   Network: host          (UnityEvents, wired to NetworkSessionLauncher by
+    ///   hold right stick down Network: join host      FYP > Set Up Networking, so this assembly needs no Netcode)
+    ///   hold left stick down  Network: stop
     /// Uses physical buttons (OVRInput.RawButton A/B/X/Y/LThumbstick/RThumbstick with OVRInput.Get/GetDown(RawButton),
     /// Library/PackageCache/com.meta.xr.sdk.core/Scripts/OVRInput.cs) so left/right can't be confused by the
     /// controller-relative virtual mapping. Every shortcut that fires is logged as "[Shortcuts] ...".
@@ -27,12 +30,22 @@ namespace FYP.Detective.Meta
         [Tooltip("Session status after a start/abort shortcut, e.g. wire to StatusLabel.Show.")]
         public UnityEvent<string> onFeedback = new UnityEvent<string>();
 
+        [Tooltip("Hold right stick up: start this headset as network host.")]
+        public UnityEvent onHostRequested = new UnityEvent();
+        [Tooltip("Hold right stick down: join the host in experiment_config.json.")]
+        public UnityEvent onJoinRequested = new UnityEvent();
+        [Tooltip("Hold left stick down: stop hosting / leave.")]
+        public UnityEvent onNetworkStopRequested = new UnityEvent();
+
         // Controllers only: with Controller.Active, hand-tracking pinches can also map to buttons.
         private const OVRInput.Controller Touch = OVRInput.Controller.Touch;
 
         private float _clearHeld;
         private float _startHeld;
         private float _abortHeld;
+        private float _hostHeld;
+        private float _joinHeld;
+        private float _netStopHeld;
 
         private void Awake()
         {
@@ -62,12 +75,24 @@ namespace FYP.Detective.Meta
                     onFeedback.Invoke(panel.BuildStatus());
                 }
             }
+            // Stick directions only count while the stick is not clicked, so start/abort can't also fire these.
+            bool rClicked = OVRInput.Get(OVRInput.RawButton.RThumbstick, Touch);
+            bool lClicked = OVRInput.Get(OVRInput.RawButton.LThumbstick, Touch);
+            if (HeldUnless(rClicked, OVRInput.RawButton.RThumbstickUp, ref _hostHeld)) Fire("hold right stick up", "Network host", onHostRequested.Invoke);
+            if (HeldUnless(rClicked, OVRInput.RawButton.RThumbstickDown, ref _joinHeld)) Fire("hold right stick down", "Network join", onJoinRequested.Invoke);
+            if (HeldUnless(lClicked, OVRInput.RawButton.LThumbstickDown, ref _netStopHeld)) Fire("hold left stick down", "Network stop", onNetworkStopRequested.Invoke);
         }
 
         private static void Fire(string input, string action, System.Action call)
         {
             Debug.Log($"[Shortcuts] {input} -> {action}");
             call();
+        }
+
+        private bool HeldUnless(bool blocked, OVRInput.RawButton button, ref float heldFor)
+        {
+            if (blocked) { heldFor = -1f; return false; }   // re-arms only after the direction is released
+            return Held(button, ref heldFor);
         }
 
         /// <summary>True once when the button has been held for holdSeconds; re-arms on release.</summary>
