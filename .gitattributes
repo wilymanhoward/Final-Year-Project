@@ -176,3 +176,6 @@ Packages/packages-lock.json linguist-generated
 
 # Exceptions for .asset files such as lightning pre-baking
 LightingData.asset     binary
+
+# Shell scripts must keep LF line endings (bash fails on CRLF), even with core.autocrlf=true.
+*.sh text eol=lf
