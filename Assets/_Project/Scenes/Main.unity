@@ -988,9 +988,9 @@ MonoBehaviour:
   onHostRequested:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 511874951}
-        m_TargetAssemblyTypeName: FYP.Detective.Net.NetworkSessionLauncher, FYP.Detective.Net
-        m_MethodName: StartHost
+      - m_Target: {fileID: 511874955}
+        m_TargetAssemblyTypeName: FYP.Detective.Net.ColocationCoordinator, FYP.Detective.Net
+        m_MethodName: Host
         m_Mode: 0
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
@@ -1003,9 +1003,9 @@ MonoBehaviour:
   onJoinRequested:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 511874951}
-        m_TargetAssemblyTypeName: FYP.Detective.Net.NetworkSessionLauncher, FYP.Detective.Net
-        m_MethodName: StartClient
+      - m_Target: {fileID: 511874955}
+        m_TargetAssemblyTypeName: FYP.Detective.Net.ColocationCoordinator, FYP.Detective.Net
+        m_MethodName: Join
         m_Mode: 0
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
@@ -1018,9 +1018,9 @@ MonoBehaviour:
   onNetworkStopRequested:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 511874951}
-        m_TargetAssemblyTypeName: FYP.Detective.Net.NetworkSessionLauncher, FYP.Detective.Net
-        m_MethodName: StopNetwork
+      - m_Target: {fileID: 511874955}
+        m_TargetAssemblyTypeName: FYP.Detective.Net.ColocationCoordinator, FYP.Detective.Net
+        m_MethodName: Stop
         m_Mode: 0
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
@@ -1047,6 +1047,7 @@ MonoBehaviour:
   caseRoot: {fileID: 1603139231}
   trackingSpace: {fileID: 254471546}
   anchorTimeoutSeconds: 15
+  sharedAnchorTimeoutSeconds: 30
   onStatusChanged:
     m_PersistentCalls:
       m_Calls:
@@ -1281,6 +1282,7 @@ GameObject:
   - component: {fileID: 511874953}
   - component: {fileID: 511874952}
   - component: {fileID: 511874951}
+  - component: {fileID: 511874955}
   m_Layer: 0
   m_Name: Network
   m_TagString: Untagged
@@ -1407,6 +1409,37 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &511874955
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 511874950}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2e30e11629525c44aa7d7f9973e2e904, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: FYP.Detective.Net::FYP.Detective.Net.ColocationCoordinator
+  launcher: {fileID: 511874951}
+  placement: {fileID: 366736360}
+  session: {fileID: 366736357}
+  discoveryTimeoutSeconds: 20
+  onStatusChanged:
+    m_PersistentCalls:
+      m_Calls:
+      - m_Target: {fileID: 1410172808}
+        m_TargetAssemblyTypeName: FYP.Detective.StatusLabel, FYP.Detective
+        m_MethodName: Show
+        m_Mode: 0
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: 
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
 --- !u!1 &564519964
 GameObject:
   m_ObjectHideFlags: 0

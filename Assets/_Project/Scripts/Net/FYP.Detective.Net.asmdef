@@ -3,6 +3,8 @@
     "rootNamespace": "FYP.Detective.Net",
     "references": [
         "FYP.Detective",
+        "FYP.Detective.Meta",
+        "Unity.Collections",
         "Unity.Netcode.Runtime",
         "Unity.Networking.Transport"
     ],

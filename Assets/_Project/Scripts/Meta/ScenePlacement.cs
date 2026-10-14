@@ -16,6 +16,9 @@ namespace FYP.Detective.Meta
     ///   place: AddComponent&lt;OVRSpatialAnchor&gt; → WhenLocalizedAsync() → SaveAnchorAsync() → UUID in PlayerPrefs
     ///   load:  LoadUnboundAnchorsAsync(uuids, list) → UnboundAnchor.LocalizeAsync() → TryGetPose → BindTo(new component)
     ///   clear: EraseAnchorsAsync(anchors, uuids)
+    ///   team:  host ShareAsync(groupUuid) (OVRSpatialAnchor.cs:353, result OVRAnchor.ShareResult);
+    ///          client LoadUnboundSharedAnchorsAsync(groupUuid, allowedUuids, list) (OVRSpatialAnchor.cs:1344) → same
+    ///          localize/bind as load. Shared anchors go through Meta's cloud (needs internet).
     /// CaseRoot becomes a child of the anchor object so it follows the anchor's pose.
     ///
     /// Saving/loading anchors needs the runtime "Spatial data" permission (com.oculus.permission.USE_SCENE,
@@ -39,6 +42,7 @@ namespace FYP.Detective.Meta
         public const string StatusManual = "Manual placement set (no anchor)";
         public const string StatusCleared = "Placement cleared";
         public const string StatusNoSaved = "No saved placement - use Place Scene Here";
+        public const string StatusSharedLoaded = "Host's placement loaded (shared anchor)";
         public const string StatusPermissionNeeded = "Spatial data permission needed - accept the dialog";
         public const string StatusPermissionGranted = "Spatial data permission granted - press again";
         public const string StatusPermissionDenied =
@@ -58,6 +62,8 @@ namespace FYP.Detective.Meta
         [SerializeField] private Transform trackingSpace;
         [Tooltip("Give up on creating/loading an anchor after this many seconds.")]
         [SerializeField, Min(1f)] private float anchorTimeoutSeconds = 15f;
+        [Tooltip("Loading the host's shared anchor downloads it from Meta's cloud, so it gets longer.")]
+        [SerializeField, Min(1f)] private float sharedAnchorTimeoutSeconds = 30f;
 
         [Tooltip("Status text for the experimenter, e.g. wire to StatusLabel.Show or a UI Text.")]
         public UnityEvent<string> onStatusChanged = new UnityEvent<string>();
@@ -82,6 +88,9 @@ namespace FYP.Detective.Meta
         public string Status { get; private set; } = "Not placed";
         public bool IsBusy => _deadline > 0f;
         public bool HasSavedPlacement => PlayerPrefs.HasKey(SavedAnchorKey);
+
+        /// <summary>UUID of the anchor CaseRoot follows now (Guid.Empty for none / manual).</summary>
+        public Guid CurrentAnchorUuid => _anchor != null ? _anchor.Uuid : Guid.Empty;
 
         private void Awake()
         {
@@ -265,6 +274,74 @@ namespace FYP.Detective.Meta
             }
         }
 
+        /// <summary>
+        /// Host: shares the anchor CaseRoot follows with a colocation group. Returns null on success, otherwise a
+        /// short reason for the label. Doesn't change the placement.
+        /// </summary>
+        public async Task<string> ShareCurrentAnchorAsync(Guid groupUuid)
+        {
+            OVRSpatialAnchor anchor = _anchor;
+            if (anchor == null) return "host has no anchor placement (place with A or load with B on the host)";
+            try
+            {
+                var result = await anchor.ShareAsync(groupUuid);
+                if (result.Success) return null;
+                Debug.LogWarning("[ScenePlacement] ShareAsync failed: " + result.Status);
+                return ColocationProtocol.ExplainAnchorFailure(result.Status.ToString());
+            }
+            catch (Exception e)
+            {
+                Debug.LogException(e);
+                return "exception while sharing the anchor";
+            }
+        }
+
+        /// <summary>Client: loads the host's shared anchor and moves CaseRoot onto it.</summary>
+        public async void LoadSharedPlacement(Guid groupUuid, Guid anchorUuid)
+        {
+            if (!CanChange() || !EnsureSpatialDataPermission()) return;
+            if (_anchor != null && _anchor.Uuid == anchorUuid)
+            {
+                ReportPlaced(StatusSharedLoaded);   // already following it
+                return;
+            }
+            if (!await WaitForTrackingToSettle()) return;
+
+            int op = BeginOperation("Loading host's shared anchor...", sharedAnchorTimeoutSeconds);
+            try
+            {
+                var result = await OVRSpatialAnchor.LoadUnboundSharedAnchorsAsync(groupUuid, new[] { anchorUuid }, _unbound);
+                if (!IsCurrent(op)) return;
+                if (!result.Success || _unbound.Count == 0)
+                {
+                    FailShared(result.Success ? "the host's anchor was not in the session" : ColocationProtocol.ExplainAnchorFailure(result.Status.ToString()));
+                    return;
+                }
+
+                var unbound = _unbound[0];
+                if (!unbound.Localized && !await unbound.LocalizeAsync())
+                {
+                    if (IsCurrent(op)) FailShared(ColocationProtocol.ExplainAnchorFailure("Failure_SpaceLocalizationFailed"));
+                    return;
+                }
+                if (!IsCurrent(op)) return;
+
+                var go = new GameObject(AnchorObjectName);
+                if (unbound.TryGetPose(out Pose pose)) go.transform.SetPositionAndRotation(pose.position, pose.rotation);
+                var anchor = go.AddComponent<OVRSpatialAnchor>();
+                unbound.BindTo(anchor);
+
+                UseAnchor(anchor);
+                Commit(PlacementMethod.SharedAnchor, true, anchorUuid.ToString("D"));
+                ReportPlaced(StatusSharedLoaded);
+            }
+            catch (Exception e)
+            {
+                Debug.LogException(e);
+                if (IsCurrent(op)) FailShared("exception while loading the shared anchor");
+            }
+        }
+
         /// <summary>Fallback: same head-based pose, no anchor. Shifts if the headset is recentered.</summary>
         public void ManualPlacement()
         {
@@ -388,12 +465,12 @@ namespace FYP.Detective.Meta
                 Debug.LogWarning("[ScenePlacement] SessionManager refused the placement (session running?).");
         }
 
-        private int BeginOperation(string status)
+        private int BeginOperation(string status, float timeoutSeconds = -1f)
         {
             _operation++;
             _waitToken++;
             DestroyPending();
-            _deadline = Time.unscaledTime + anchorTimeoutSeconds;
+            _deadline = Time.unscaledTime + (timeoutSeconds > 0f ? timeoutSeconds : anchorTimeoutSeconds);
             SetStatus(status);
             return _operation;
         }
@@ -415,6 +492,13 @@ namespace FYP.Detective.Meta
             EndOperation();
             Debug.LogWarning("[ScenePlacement] " + reason);
             SetStatus(StatusAnchorFailed);
+        }
+
+        private void FailShared(string reason)
+        {
+            EndOperation();
+            Debug.LogWarning("[ScenePlacement] Shared anchor: " + reason);
+            SetStatus("Shared anchor failed: " + reason + ". Fallback: both use Manual (X) on the tape mark");
         }
 
         private void DestroyPending()

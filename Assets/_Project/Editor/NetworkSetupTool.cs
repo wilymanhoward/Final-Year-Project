@@ -11,8 +11,8 @@ using UnityEngine.Events;
 namespace FYP.Detective.EditorTools
 {
     /// <summary>
-    /// Week 3 Phase 1: adds a "Network" object (NetworkManager + UnityTransport + NetworkSessionLauncher) to the open
-    /// scene, wires the controller shortcuts and the status label, and forces the Android INTERNET permission.
+    /// Week 3: adds a "Network" object (NetworkManager + UnityTransport + NetworkSessionLauncher +
+    /// ColocationCoordinator) to the open scene, wires the controller shortcuts and the status label, and forces the Android INTERNET permission.
     /// Idempotent: running it again only fills in what is missing.
     /// </summary>
     /// <remarks>
@@ -33,6 +33,7 @@ namespace FYP.Detective.EditorTools
             var shortcuts = Object.FindFirstObjectByType<ExperimenterControllerShortcuts>();
             var label = Object.FindFirstObjectByType<StatusLabel>(FindObjectsInactive.Include);
             var logger = Object.FindFirstObjectByType<DataLogger>();
+            var placement = Object.FindFirstObjectByType<ScenePlacement>();
             if (session == null || shortcuts == null || label == null)
             {
                 EditorUtility.DisplayDialog("Networking",
@@ -70,14 +71,25 @@ namespace FYP.Detective.EditorTools
             if (logger != null) MainSceneBuilder.SetObject(launcher, "logger", logger);
             AddListenerOnce(launcher.onStatusChanged, label);
 
-            // 3. Controller shortcuts -> launcher.
-            AddVoidListenerOnce(shortcuts.onHostRequested, launcher, nameof(NetworkSessionLauncher.StartHost), launcher.StartHost);
-            AddVoidListenerOnce(shortcuts.onJoinRequested, launcher, nameof(NetworkSessionLauncher.StartClient), launcher.StartClient);
-            AddVoidListenerOnce(shortcuts.onNetworkStopRequested, launcher, nameof(NetworkSessionLauncher.StopNetwork), launcher.StopNetwork);
+            // 3. Colocation coordinator (Phase 2): discovery + shared anchor on top of the launcher.
+            var coordinator = GetOrAdd<ColocationCoordinator>(go);
+            MainSceneBuilder.SetObject(coordinator, "launcher", launcher);
+            MainSceneBuilder.SetObject(coordinator, "session", session);
+            if (placement != null) MainSceneBuilder.SetObject(coordinator, "placement", placement);
+            AddListenerOnce(coordinator.onStatusChanged, label);
+
+            // 4. Controller shortcuts -> coordinator (Phase 1 wired them straight to the launcher; remove those).
+            RemoveListeners(shortcuts.onHostRequested, launcher);
+            RemoveListeners(shortcuts.onJoinRequested, launcher);
+            RemoveListeners(shortcuts.onNetworkStopRequested, launcher);
+            AddVoidListenerOnce(shortcuts.onHostRequested, coordinator, nameof(ColocationCoordinator.Host), coordinator.Host);
+            AddVoidListenerOnce(shortcuts.onJoinRequested, coordinator, nameof(ColocationCoordinator.Join), coordinator.Join);
+            AddVoidListenerOnce(shortcuts.onNetworkStopRequested, coordinator, nameof(ColocationCoordinator.Stop), coordinator.Stop);
             EditorUtility.SetDirty(shortcuts);
             EditorUtility.SetDirty(launcher);
+            EditorUtility.SetDirty(coordinator);
 
-            // 4. Sockets need INTERNET; Unity doesn't detect UnityTransport's native sockets on its own.
+            // 5. Sockets need INTERNET; Unity doesn't detect UnityTransport's native sockets on its own.
             bool permissionChanged = !PlayerSettings.Android.forceInternetPermission;
             PlayerSettings.Android.forceInternetPermission = true;
 
@@ -88,7 +100,9 @@ namespace FYP.Detective.EditorTools
 
             EditorUtility.DisplayDialog("Networking",
                 (created ? "Created 'Network' (NetworkManager + UnityTransport).\n" : "NetworkManager already present.\n") +
-                "NetworkSessionLauncher wired: right stick up = host, right stick down = join, left stick down = stop.\n" +
+                "Launcher + ColocationCoordinator wired: right stick up = host (advertise + share anchor), " +
+                "right stick down = join (discover + load anchor), left stick down = stop.\n" +
+                (placement == null ? "WARNING: no ScenePlacement found - run Set Up Case Root and Placement.\n" : "") +
                 (permissionChanged ? "Android INTERNET permission forced on.\n" : "") +
                 "Scene saved. Rebuild to apply.", "OK");
         }
@@ -106,6 +120,14 @@ namespace FYP.Detective.EditorTools
                 if (evt.GetPersistentTarget(i) == label && evt.GetPersistentMethodName(i) == nameof(StatusLabel.Show)) return;
             }
             UnityEventTools.AddPersistentListener(evt, label.Show);
+        }
+
+        private static void RemoveListeners(UnityEvent evt, Object target)
+        {
+            for (int i = evt.GetPersistentEventCount() - 1; i >= 0; i--)
+            {
+                if (evt.GetPersistentTarget(i) == target) UnityEventTools.RemovePersistentListener(evt, i);
+            }
         }
 
         private static void AddVoidListenerOnce(UnityEvent evt, Object target, string method, UnityAction call)

@@ -38,6 +38,17 @@ namespace FYP.Detective.Net
         private bool _clientWasConnected;
         private string _joinAddress;
 
+        /// <summary>Host: a remote client connected (its client id).</summary>
+        public event System.Action<ulong> PeerConnected;
+        /// <summary>Client: connected to the host.</summary>
+        public event System.Action ConnectedToHost;
+        /// <summary>Hosting/joining ended (stopped, lost, or failed to connect).</summary>
+        public event System.Action NetworkStopped;
+
+        public NetworkManager Manager => networkManager;
+        public bool IsHosting => networkManager != null && networkManager.IsListening && networkManager.IsHost;
+        public int Port => CurrentConfig().netPort;
+
         /// <summary>Last status text shown.</summary>
         public string Status { get; private set; } = "Network off";
 
@@ -72,42 +83,60 @@ namespace FYP.Detective.Net
         // ---- Public actions (controller shortcuts / UI) ----
 
         /// <summary>Starts this headset as host, listening on every interface at the configured port.</summary>
-        public void StartHost()
+        public void StartHost() => TryStartHost(out _);
+
+        /// <summary>Like <see cref="StartHost"/>; returns false if hosting didn't start. <paramref name="lanIp"/> may be null.</summary>
+        public bool TryStartHost(out string lanIp)
         {
-            if (!CanStart()) return;
+            lanIp = null;
+            if (!CanStart()) return false;
             int port = CurrentConfig().netPort;
             transport.SetConnectionData("127.0.0.1", (ushort)port, ListenOnAllInterfaces);
             if (!networkManager.StartHost())
             {
                 SetStatus("Host failed to start (port " + port + " in use?)");
-                return;
+                return false;
             }
-            string ip = LanAddress.FindLocalIpv4();
-            SetStatus(ip != null
-                ? $"Hosting on {ip}:{port} - waiting for partner"
+            lanIp = LanAddress.FindLocalIpv4();
+            SetStatus(lanIp != null
+                ? $"Hosting on {lanIp}:{port} - waiting for partner"
                 : $"Hosting on port {port} - no Wi-Fi address found");
+            return true;
         }
 
         /// <summary>Joins the host at hostAddress:netPort from experiment_config.json.</summary>
         public void StartClient()
         {
-            if (!CanStart()) return;
             ExperimentConfig config = CurrentConfig();
             if (!LanAddress.TryParseIpv4(config.hostAddress, out string address))
             {
                 SetStatus("No valid hostAddress in experiment_config.json");
                 return;
             }
+            TryStartClient(address, config.netPort);
+        }
+
+        /// <summary>Joins <paramref name="address"/>:<paramref name="port"/>. False if the client didn't start.</summary>
+        public bool TryStartClient(string address, int port)
+        {
+            if (!CanStart()) return false;
+            if (!LanAddress.TryParseIpv4(address, out string parsed) || port < 1 || port > 65535)
+            {
+                SetStatus("Invalid host address " + address + ":" + port);
+                return false;
+            }
+            address = parsed;
             _clientWasConnected = false;
             _joinAddress = address;
             transport.MaxConnectAttempts = clientConnectAttempts;
-            transport.SetConnectionData(address, (ushort)config.netPort);
+            transport.SetConnectionData(address, (ushort)port);
             if (!networkManager.StartClient())
             {
                 SetStatus("Client failed to start");
-                return;
+                return false;
             }
-            SetStatus($"Connecting to {address}:{config.netPort}...");
+            SetStatus($"Connecting to {address}:{port}...");
+            return true;
         }
 
         /// <summary>Stops hosting / leaves the host.</summary>
@@ -117,6 +146,7 @@ namespace FYP.Detective.Net
             networkManager.Shutdown();
             Log(LogEvents.NetStopped, null);
             SetStatus("Network stopped");
+            NetworkStopped?.Invoke();
         }
 
         // ---- NGO callbacks ----
@@ -128,12 +158,14 @@ namespace FYP.Detective.Net
                 if (clientId == networkManager.LocalClientId) return;   // the host's own client
                 Log(LogEvents.NetPeerConnected, "client_id=" + clientId.ToString(CultureInfo.InvariantCulture));
                 SetStatus("Partner connected (client " + clientId + ")");
+                PeerConnected?.Invoke(clientId);
             }
             else if (clientId == networkManager.LocalClientId)
             {
                 _clientWasConnected = true;
                 Log(LogEvents.NetPeerConnected, "host=" + _joinAddress);
                 SetStatus("Connected to host " + _joinAddress);
+                ConnectedToHost?.Invoke();
             }
         }
 
@@ -158,12 +190,14 @@ namespace FYP.Detective.Net
                 SetStatus($"Could not reach {_joinAddress} - same Wi-Fi? host started? (client isolation blocks it)");
             }
             _clientWasConnected = false;
+            NetworkStopped?.Invoke();
         }
 
         private void HandleTransportFailure()
         {
             Log(LogEvents.NetStopped, "reason=transport_failure");
             SetStatus("Network failed (transport) - restart host/client");
+            NetworkStopped?.Invoke();
         }
 
         // ---- Helpers ----
