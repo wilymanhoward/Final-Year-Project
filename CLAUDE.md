@@ -148,6 +148,8 @@ Editor/ (FYP.Detective.Editor.asmdef, Editor-only)
   GrabSetupTool       menus: FYP > Make Selected Clues Grabbable / Make Selected Static Clues Pokeable
   ClueWiring          shared idempotent clue wiring (Clue, InteractableUnityEventWrapper, resetter, tag button)
   PlacementSetupTool  menu:  FYP > Set Up Case Root and Placement
+  BoundarySetupTool   menu:  FYP > Suppress Boundary (Passthrough)
+  LocomotionDisableTool menu: FYP > Disable Locomotion
 Tests/ (FYP.Detective.Tests.asmdef, Editor-only, EditMode NUnit)
 Art/Shaders/GhostHand.shader (URP, "FYP/GhostHand")   Art/Materials/HandGhost.mat
 Scenes/Main.unity   Cases/{CaseX,CaseY}/CaseX|Y_Definition.asset (placeholder data)   Prefabs/ (empty)
@@ -263,6 +265,14 @@ Data flow:
   (`Scripts/OVRInput.cs`). `OVRManager.TrackingOrigin.FloorLevel` (`Scripts/OVRManager.cs`).
 - Project config: `anchorSupport = Enabled` (`Assets/Oculus/OculusProjectConfig.asset`), manifest has
   `com.oculus.permission.USE_ANCHOR_API`. `sharedAnchorSupport` and `colocationSessionSupport` = Supported (user, session 4).
+- Boundary (session 6): `OVRProjectConfig.boundaryVisibilitySupport` (`Editor/OVRProjectConfig.cs:171`, adds
+  `com.oculus.permission.BOUNDARY_VISIBILITY`) + `OVRManager.shouldBoundaryVisibilityBeSuppressed` (`Scripts/OVRManager.cs:1229`,
+  honoured only while passthrough is on; refusal logs "Cannot suppress boundary visibility"). Set by BoundarySetupTool.
+- Locomotion (session 6): the comprehensive ISDK rig brings `Oculus.Interaction.Locomotion.FirstPersonLocomotor` (moves the
+  player origin; `_crouchHeightOffset = -0.5`) and `ControllerLocomotionSlideActions.prefab` toggles crouch on
+  `ControllerButtonUsage.Primary2DAxisClick` (thumbstick click = our start/abort shortcuts). It moved TrackingSpace to
+  y = -0.5 in a headset test. **Locomotion must stay off in MR** (LocomotionDisableTool deactivates the locomotor and the
+  LocomotionController/HandInteractorGroup objects).
 - Hand anchors when untracked: handled by HandTrackingMonitor (untracked = empty cells), so a frozen anchor pose is never logged.
 
 ## How to test
@@ -274,15 +284,16 @@ Data flow:
 
 ## Current status
 
-_Last updated: session 5 (2026-10-13), handover to a new Claude account. Week 2 work runs in phases A–E, Week 3 in
-phases; stop after each phase for the user's headset test, commit only after the user confirms it works._
+_Last updated: session 6 (2026-10-14). Week 2 work runs in phases A–E, Week 3 in phases; stop after each phase for
+the user's headset test, commit only after the user confirms it works._
 
 **Where we are (start here)**
-- Week 3 has started, but **Phase B is not closed yet**: its last headset retest is still pending (see "Next").
-- Latest commits on `main`: `cb78eb7` placement height check + tracking filters (user-committed, not yet
-  headset-verified), `bf58f32` Phase B clue wiring/reset/hand+headset tracking, `51f2d5b` Phase A.
-- EditMode tests: **111/111 pass** in batch mode (last run session 5). No compile errors/warnings in `Assets/_Project`.
+- **Phase B is closed** (session 6). Next: Week 3 Phase 1 (NGO install, see "Next").
+- EditMode tests: last batch run 111/111 (session 5). Session 6 changes compiled in the headset build but the batch
+  tests were NOT re-run (Unity was open) – run them at the start of the next session.
 - Untracked in the repo root (the user's, not Claude's): `.agents/`, `.codex/`, `AGENTS.md`. Ask before touching.
+- Headsets: `2G0YC5ZG970B12` (used for all session 6 tests) and `2G0YC5ZG4M00Z6` (not used since session 5; it has
+  no build with the locomotion fix).
 
 **Done**
 - Sessions 1–3: foundation (asmdefs, pure logic + tests, logging), Meta XR SDK 207 on Unity OpenXR, passthrough,
@@ -290,17 +301,27 @@ phases; stop after each phase for the user's headset test, commit only after the
 - **Week 2 Phase A** (`51f2d5b`, headset-verified): CaseRoot, anchor placement (save/load/manual/clear, Spatial data
   permission), CaseRoot-local logging, `_meta.json`, controller shortcuts (RawButton, logged), start requires a
   placement, pause/active time, Interrupted snapshots.
-- **Week 2 Phase B** (`bf58f32`): clue wiring via menu tools (Clue + InteractableUnityEventWrapper), "Tag as
-  Evidence" poke button, static poke clues, clue reset (> 3 m / below floor), HandTrackingMonitor + TrackedPointGate
-  in zones, headset-off pauses (HMDUnmounted/HMDMounted, union with app pauses), debug "Resumed - paused X.X s".
-  Headset-verified: grab → clue_found, tag/untag, hmd + app pause overlap counted once, hand-tracking events.
-  **Not yet verified:** Quad poke, clue reset, left-stick abort.
-- **Phase B close-out** (`cb78eb7`): 0.2 s hand-tracking log filter; placement height check (refuse start if CaseRoot
-  > 5 cm off the floor, wait 3 s for tracking to settle before place/load, `placement_check` / `tracking_recentered`
-  rows). Cause of the 0.62 m incident: tracking space changed (recenter burst after putting the headset on) between
-  saving and loading the anchor; whether the scene physically floated is unknown (user doesn't remember).
+- **Week 2 Phase B** (`bf58f32`, `cb78eb7`, session 6 close-out): clue wiring, tag button, static poke clues, clue
+  reset, hand-tracking monitor, headset-off pauses, placement height check + settle wait.
+  Headset-verified in session 6: Quad poke → clue_found + tag button, tag/untag, settle wait on load, start refused
+  without placement, left-stick abort (end reason Aborted, final summary/meta), hmd + app pause union.
+  **Clue reset not seen on the headset** (cube only carried ~2.6 m; user accepted it – logic is unit-tested).
+- **Session 6 fixes:**
+  - **Locomotion off** (`FYP > Disable Locomotion`): the ISDK rig's locomotion toggled crouch (-0.5 m rig move) on
+    thumbstick click = our start/abort shortcuts → scene too high / floating. After the fix the head stays ~1.6–1.7 m
+    above CaseRoot and placements are at y = 0.
+  - **Boundary suppression** (`FYP > Suppress Boundary (Passthrough)`): the stationary boundary hid the scene ~2 m from
+    the centre. At launch OVRManager logged "Cannot suppress boundary visibility" once; whether it then succeeded is
+    unconfirmed (user didn't report). If the boundary still shows, set up a large roomscale boundary.
+  - **Open pause counted in snapshots:** `SessionManager.Update` refreshes pause stats while a pause is open, so
+    Interrupted summaries written with the headset off include the ongoing pause.
+- **Known: `placement_check when=after_recenter` can be a false alarm.** In two runs after the headset was put back on
+  it reported 0.27 / 0.447 m (ok=0) while the head stayed at the same height above CaseRoot – the Quest's floor estimate
+  moved, not the anchor. During a run it is only logged. Treat CaseRoot-relative head height as the truth.
 - Test-scene content: `CaseRoot/TestCube (delete me)` (grabbable clue `TestCube_delete_me`) and `CaseRoot/Quad`
   (static poke clue at 0.8/1.2/1.5, rotation 0 – a Quad faces local -Z, do NOT rotate it 180).
+- Testing tip: the cable isn't needed during a test; the CSVs stay on the headset and `adb logcat -d` dumps the recent
+  log afterwards (the buffer only holds the last minute or so of Unity output).
 
 **Decisions made in session 5 (user)**
 - Order: close Phase B → Week 3 networking → Week 2 Phase C (in-headset UI) and D (greybox cases) → E (wrap-up).
@@ -317,12 +338,7 @@ phases; stop after each phase for the user's headset test, commit only after the
   (risk: client isolation / blocked ports → test first; backup = phone hotspot with internet).
 
 **Next (in this order)**
-1. **Phase B retest** (build with `cb78eb7`; user runs FYP > Set Up Case Root and Placement once, saves, Build And
-   Run; start a logcat capture first): B right after launch → "Waiting for tracking to settle..." then loaded (or the
-   height warning); hold right stick → Running; poke the Quad → its tag button; carry the cube > 3 m and release →
-   clue_reset; wave a hand at the edge of view → few/no hand_tracking rows; hold left stick → Ended (Aborted);
-   quit, headset off ~30 s, relaunch, B at once → settle wait, and if the height is wrong the start must be refused.
-   Then check the pulled CSV/summary/meta and commit Phase B as closed.
+1. Run the EditMode tests in batch mode (Unity closed) to confirm session 6 changes.
 2. **Week 3 Phase 1:** install NGO 2.13.3 (manifest change already approved) → batch compile → `NetworkManager` +
    `UnityTransport` host/client over the LAN with a manual IP first; test headset-to-headset on campus Wi-Fi.
 3. **Week 3 Phase 2:** colocation discovery (advertise ip:port), shared CaseRoot anchor, label messages for sharing

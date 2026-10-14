@@ -616,6 +616,10 @@ PrefabInstance:
       propertyPath: requestScenePermissionOnStartup
       value: 1
       objectReference: {fileID: 0}
+    - target: {fileID: 11400000, guid: 126d619cf4daa52469682f85c1378b4a, type: 3}
+      propertyPath: shouldBoundaryVisibilityBeSuppressed
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 20000010189485334, guid: 126d619cf4daa52469682f85c1378b4a, type: 3}
       propertyPath: m_ClearFlags
       value: 2
@@ -931,6 +935,9 @@ MonoBehaviour:
   caseY: {fileID: 11400000, guid: 0a1bf3b27262bb04fac91e5c67f4f6d1, type: 2}
   loadSavedConfig: 1
   requirePlacement: 1
+  caseRoot: {fileID: 1603139231}
+  floorReference: {fileID: 254471546}
+  placementHeightTolerance: 0.05
 --- !u!4 &366736358
 Transform:
   m_ObjectHideFlags: 0
@@ -4455,6 +4462,10 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 5568758620505594004, guid: 46fdef3df9a5a354caf7692f85e5eff2, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 6561596850968630206, guid: 46fdef3df9a5a354caf7692f85e5eff2, type: 3}
       propertyPath: _centerEyeCamera
       value: 
@@ -5266,6 +5277,10 @@ PrefabInstance:
       propertyPath: _hmd
       value: 
       objectReference: {fileID: 1402547224095027545}
+    - target: {fileID: 8709603993713099074, guid: 06731df0517bcf1419d312caac0224c1, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 8866149310734300429, guid: 06731df0517bcf1419d312caac0224c1, type: 3}
       propertyPath: m_IsActive
       value: 0
@@ -6047,6 +6062,10 @@ PrefabInstance:
       propertyPath: _hmd
       value: 
       objectReference: {fileID: 1402547224095027545}
+    - target: {fileID: 8709603993713099074, guid: 06731df0517bcf1419d312caac0224c1, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects:
