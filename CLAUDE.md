@@ -9,7 +9,7 @@ Read this first in every session. Update **Current status** at the end of each s
 - **Platform:** Meta Quest 3, Android build, passthrough MR (players see the real room).
 - **Engine:** Unity **6000.3.25f1** (Unity 6.3 LTS), URP 17.3.0, Input System 1.20.0 (new Input System only,
   `activeInputHandler: 1`). XR stack: see **XR stack** below.
-- **Final system (NOT built yet):** 2 players see the same virtual crime scene in the same physical spot
+- **Final system (built, session 6):** 2 players see the same virtual crime scene in the same physical spot
   using Shared Spatial Anchors + Meta Multiplayer Building Blocks (Colocation block with
   "Use Colocation Session") + Unity Netcode for GameObjects. Design everything so it can become networked
   later: **all game state lives in one place, `CaseState`**, never scattered across objects.
@@ -60,7 +60,7 @@ Not installed: AR Foundation, `com.unity.xr.meta-openxr`.
 **Week 3 networking findings (session 5, read from the 207 source + packages.unity.com):**
 - Meta's NGO multiplayer blocks need NGO >= 1.7.1 (`versionDefines` in
   `Scripts/BuildingBlocks/MultiplayerBlocks/NGO/Meta.XR.MultiplayerBlocks.NGO.asmdef`). NGO 3.x needs Unity 6000.7, so
-  for 6000.3 the newest compatible is **NGO 2.13.3** (deps: `com.unity.transport` 2.6.0). Not installed yet (needs user OK).
+  for 6000.3 the newest compatible is **NGO 2.13.3** (deps: `com.unity.transport` 2.6.0). Installed session 6.
 - Colocation block with "Use Colocation Session" → `LocalMatchmaking` (`Shared/LocalMatchmaking/LocalMatchmaking.cs`:
   `OVRColocationSession` advertise/discover, Bluetooth + same Wi-Fi) **plus** `CustomMatchmaking`, whose NGO version
   (`NGO/CustomMatchmaking/CustomMatchmakingNGO.cs`) uses **UGS Authentication + Relay + Lobby** (internet + UGS project).
@@ -167,7 +167,7 @@ tools/pull_data.sh   pulls *.csv/*.json (+ Unity log) from every connected heads
 docs/cases.md        case content (source of truth for CaseSpecs)   docs/device_test_checklist.md  session procedure
 Tests/ (FYP.Detective.Tests.asmdef, Editor-only, EditMode NUnit)
 Art/Shaders/GhostHand.shader (URP, "FYP/GhostHand")   Art/Materials/HandGhost.mat
-Scenes/Main.unity   Cases/{CaseX,CaseY}/CaseX|Y_Definition.asset (placeholder data)   Prefabs/ (empty)
+Scenes/Main.unity   Cases/{CaseX,CaseY}/CaseX|Y_Definition.asset (generated from docs/cases.md)   Prefabs/ (empty)
 ```
 
 Data flow:
@@ -239,8 +239,9 @@ Data flow:
   `hand_tracking_lost` / `hand_tracking_regained` (part=LeftHand/RightHand). `TrackedPointGate` per point per zone:
   a point that (re)gains tracking already inside a zone is ignored until it has been outside, so tracking loss
   can't create an entry; a point already inside at session start isn't an entry either.
-- **Debug messages:** `StatusLabel.showDebugMessages` (Inspector, default ON) shows "Resumed - paused X.X s" for 3 s
-  when a pause (app and/or headset off) ends during a session. **Turn it OFF on `ExperimenterStatusLabel` before study builds.**
+- **Debug messages:** `StatusLabel.showDebugMessages` shows "Resumed - paused X.X s" for 3 s when a pause (app and/or
+  headset off) ends during a session. `FYP > Prepare Study Build` turns it off (committed state), `FYP > Restore Debug
+  Settings` turns it on.
 - **Networking, Week 3 Phase 1 (session 6):** direct LAN, no relay. `Network` object = NetworkManager + UnityTransport
   (port 7777) + `NetworkSessionLauncher`. Host listens on 0.0.0.0 and shows its LAN IP on the label; the client joins
   `ExperimentConfig.hostAddress`:`netPort`, re-read from `experiment_config.json` on every join (set it with adb).
@@ -280,10 +281,10 @@ Data flow:
 - **Phase C2 evidence board (session 6):** selection is game state in `CaseState` (`BoardSuspectId`,
   `BoardEvidenceIds`, `SetBoardSuspect/SetBoardEvidence`, only tagged clues, untag removes it, locked after submit),
   shared in team runs via TeamMessage `ReqBoardSuspect/BoardSuspect/ReqBoardEvidence/BoardEvidence`, logged as
-  `board_suspect` / `board_evidence` (+by=). `EvidenceBoard` (logic) + `EvidenceBoardView` (6 suspect + 8 evidence
+  `board_suspect` / `board_evidence` (+by=). `EvidenceBoard` (logic) + `EvidenceBoardView` (4 suspect cards + 8 evidence
   prebuilt slots, Submit → "Submit? Yes/No", visible only while running) + `EvidenceBoardModel` (pure). Built by
-  `FYP > Set Up Evidence Board` under CaseRoot (default local (-1.3, 1.35, 0.6), facing the centre; rerun keeps a
-  moved board's pose). Experimenter can also open the setup panel with the left menu button (launch hint on the label).
+  `FYP > Set Up Evidence Board` under CaseRoot (default = the case specs' spot: back wall (0, 1.35, -1.45), facing the
+  start; rerun keeps a moved board's pose). Experimenter can also open the setup panel with the left menu button (launch hint on the label).
 - **Start source + arming in the log (session 6):** `session_start` detail has `start_source=participant_start|start_now`
   (participant card Start vs. setup panel Start now / right stick / desktop); `run_armed` row (`at_utc` = when the
   experimenter armed) right after `session_start` when the run was armed; meta `startSource`, `armedUtc`. Team runs
@@ -293,7 +294,8 @@ Data flow:
   `PlayArea` constants (HalfSize 1.5 m, heights floor/table 0.75/eye 1.5), `CaseSpecs.X/Y` (Y = X mirrored x -> -x),
   `CaseSpecValidator` (counts, height bands, inside area, no clue within 10 cm of a zone, red herrings -> distinct
   innocents, mean distance diff <= 0.15 m, mirror rule incl. display/desk/door moved). Layout: start mark = CaseRoot at
-  the centre of the 3 x 3 m area facing the front wall; mean clue distance 1.37 m; board at (0, -1.45) facing the start.
+  the centre of the 3 x 3 m area facing the front wall; board at (0, -1.45) facing the start (mean clue distance: see the
+  headset-test note below, now 1.22 m).
   `FYP > Build Case Scenes (X + Y)` builds Case_X/Case_Y (`CaseContent`: only the active case is shown; grabbable clues
   are soft-hidden because Netcode needs in-scene network objects active), updates the CaseDefinition assets (title,
   briefing, suspects with role/alibi, culprit, K1-K4), places the board, deactivates TestCube + Quad. Clue inspect text
@@ -368,109 +370,54 @@ Data flow:
 
 ## Current status
 
-_Last updated: session 6 (2026-10-14). Week 2 work runs in phases A–E, Week 3 in phases; stop after each phase for
-the user's headset test, commit only after the user confirms it works._
+_Last updated: session 6 (2026-10-15). All planned phases are done (Week 2 A–E, Week 3 Phases 1–3). Work in phases,
+stop after each for the user's headset test, commit only after the user confirms it works._
 
 **Where we are (start here)**
-- **Phase B is closed** (session 6). Next: Week 3 Phase 1 (NGO install, see "Next").
-- EditMode tests: **111/111 pass** in batch mode (session 6, before and after the NGO install).
-- **NGO 2.13.3 + Unity Transport 2.6.0 installed** (session 6); everything compiles incl. Meta's NGO blocks.
-- **Week 3 Phase 1 done and headset-verified** (session 6): host `2G0YC5ZG970B12` (10.72.55.149) + client
-  `2G0YC5ZG4M00Z6` (10.72.55.197) on **campus Wi-Fi connected in 0.4 s** (no client isolation); host showed
-  Partner connected / Partner left. Tests 134/134. The client config has hostAddress 10.72.55.149 but still
-  participantId P01 (give it its own id before team runs). Campus IPs can change (DHCP) - re-check before each test.
-- **Week 3 Phase 2 done and headset-verified** (session 6): discovery over Bluetooth + campus Wi-Fi, anchor shared
-  through Meta's cloud in ~1.3 s, client loaded it ("Host's placement loaded (shared anchor)") and the user confirmed
-  **the cube and Quad line up in both headsets**. Tests 158/158. After the test: a guard so an older in-flight share
-  can't overwrite a newer one (compiled in the Editor, not batch-tested). The host showed "Placement height wrong
-  (+0.08 m)" after a recenter burst (headset taken off) - likely the known floor-estimate false alarm, but it blocks
-  Start on the host until B reloads.
-- Untracked in the repo root (the user's, not Claude's): `.agents/`, `.codex/`, `AGENTS.md`. Ask before touching.
-- Headsets: `2G0YC5ZG970B12` (used for all session 6 tests) and `2G0YC5ZG4M00Z6` (not used since session 5; it has
-  no build with the locomotion fix).
-
-**Done**
-- Sessions 1–3: foundation (asmdefs, pure logic + tests, logging), Meta XR SDK 207 on Unity OpenXR, passthrough,
-  rig with controllers + hands, ghost-hand shader, Interaction SDK rig, status audit.
-- **Week 2 Phase A** (`51f2d5b`, headset-verified): CaseRoot, anchor placement (save/load/manual/clear, Spatial data
-  permission), CaseRoot-local logging, `_meta.json`, controller shortcuts (RawButton, logged), start requires a
-  placement, pause/active time, Interrupted snapshots.
-- **Week 2 Phase B** (`bf58f32`, `cb78eb7`, session 6 close-out): clue wiring, tag button, static poke clues, clue
-  reset, hand-tracking monitor, headset-off pauses, placement height check + settle wait.
-  Headset-verified in session 6: Quad poke → clue_found + tag button, tag/untag, settle wait on load, start refused
-  without placement, left-stick abort (end reason Aborted, final summary/meta), hmd + app pause union.
-  **Clue reset not seen on the headset** (cube only carried ~2.6 m; user accepted it – logic is unit-tested).
-- **Session 6 fixes:**
-  - **Locomotion off** (`FYP > Disable Locomotion`): the ISDK rig's locomotion toggled crouch (-0.5 m rig move) on
-    thumbstick click = our start/abort shortcuts → scene too high / floating. After the fix the head stays ~1.6–1.7 m
-    above CaseRoot and placements are at y = 0.
-  - **Boundary suppression** (`FYP > Suppress Boundary (Passthrough)`): the stationary boundary hid the scene ~2 m from
-    the centre. At launch OVRManager logged "Cannot suppress boundary visibility" once; whether it then succeeded is
-    unconfirmed (user didn't report). If the boundary still shows, set up a large roomscale boundary.
-  - **Open pause counted in snapshots:** `SessionManager.Update` refreshes pause stats while a pause is open, so
-    Interrupted summaries written with the headset off include the ongoing pause.
-- **Known: `placement_check when=after_recenter` can be a false alarm.** In two runs after the headset was put back on
-  it reported 0.27 / 0.447 m (ok=0) while the head stayed at the same height above CaseRoot – the Quest's floor estimate
-  moved, not the anchor. During a run it is only logged. Treat CaseRoot-relative head height as the truth.
-- Test-scene content: `CaseRoot/TestCube (delete me)` (grabbable clue `TestCube_delete_me`) and `CaseRoot/Quad`
-  (static poke clue at 0.8/1.2/1.5, rotation 0 – a Quad faces local -Z, do NOT rotate it 180).
-- Testing tip: the cable isn't needed during a test; the CSVs stay on the headset and `adb logcat -d` dumps the recent
-  log afterwards (the buffer only holds the last minute or so of Unity output).
-
-- **Week 3 Phase 3 done** (EditMode 177/177; headset-tested by the user: host log shows team=1, partner finds by=P02, own tags by=P01, *_self counts right). **Not yet tested:** grab conflict (clue_grab_taken), submission, a run with condition B. Headset roles now: `…4M00Z6` = P01 (host), `…970B12` = P02 (client). Written:
-  CaseState attribution (by=, IsTeamRun/SelfId, partner contamination, *_self counts, SubmittedBy, one submission
-  only), `ICaseAuthority` + SessionManager Request*/Apply* (panel/board/zone/clue/resetter now call Request*),
-  `TeamMessage` protocol, Clue (HoldBegan, HasLocalAuthority, ForceRelease via grabInteractables), DataLogger by= +
-  partner_contamination / clue_grab_taken rows, summary columns (team_run, clues_found_self, clues_tagged_self,
-  contamination_partner, contamination_team, submitted_by), meta schema 3, Net `TeamSessionSync` + `NetworkClue`,
-  NetworkSetupTool adds TeamSessionSync and networks grabbable clues. **Next:** user runs FYP > Set Up Networking,
-  builds both headsets and tests a team run. (Done.) Open: a team run is still logged with the host's condition
-  (it was A in the test) - decide whether team mode should force condition B.
-
-- **Week 2 Phase C done (C1 + C2)**, EditMode 191/191, headset-tested solo: tag cube + Quad → board_evidence/board_suspect →
-  Submit/Yes → session_end Submitted (completed=1), grading correct for the placeholder case. Not yet tested: team run with
-  the board (shared selection), ARM/Start across two headsets.
-
-- **Phase E (session 6, in progress):** `FYP > Prepare Study Build` (switches StatusLabel debug messages and zone debug
-  visuals off; checks specs, both case scenes vs. spec and definitions, networked grabbables, test content off, UI and
-  networking present, locomotion off, boundary, INTERNET, Main.unity first build scene, not a development build),
-  `tools/pull_data.sh` (tested: 51 files from …4M00Z6), `docs/device_test_checklist.md`. Prepare Study Build report
-  all OK in the editor (user). **Still open:** a full team run on the new cases (Case Y, shared board, correct submission K1-K4 + culprit,
-  grab conflict), the floor guard on the headset, and the user questions below.
-
-**Decisions made in session 5 (user)**
-- Order: close Phase B → Week 3 networking → Week 2 Phase C (in-headset UI) and D (greybox cases) → E (wrap-up).
-- **NGO 2.13.3 + Unity Transport 2.6.0 approved** (not installed yet). After installing: batch compile at once; if
-  Meta's NGO assemblies fail to compile, revert the manifest immediately and tell the user.
-- **Direct local connection approved** instead of Meta's UGS-based Colocation/CustomMatchmaking block: host
-  UnityTransport on its LAN IP, IP:port in the `OVRColocationSession` advertisement, CaseRoot anchor shared with
-  `OVRSpatialAnchor.ShareAsync(anchor, groupUuid)`, guest loads it with `LoadUnboundSharedAnchorsAsync(groupUuid)`.
-  Shared anchors use Meta's cloud → network needs internet; show clear label messages for `FailureNetworkTimeout`,
-  `FailureNetworkRequestFailed`, `FailureCloudStorageDisabled` ("Share Point Cloud Data"/Enhanced Spatial Services off).
-- **Manual alignment fallback** for 2 headsets (both Manual-place on the same tape mark facing the same wall). If
-  colocation isn't working by the end of Week 3, switch to the fallback and continue to Week 4.
-- Hardware: 2 Quest 3, developer mode, Enhanced Spatial Services on, Bluetooth not yet checked, **campus Wi-Fi**
-  (risk: client isolation / blocked ports → test first; backup = phone hotspot with internet).
+- `main` = `4ef03e1`. EditMode tests **212/212** (batch, session 6). `FYP > Prepare Study Build` report all OK (user).
+- Headsets: `2G0YC5ZG4M00Z6` = **P01, host**; `2G0YC5ZG970B12` = **P02, client** (its experiment_config.json was set to
+  P02). Campus Wi-Fi works headset-to-headset; IPs come from DHCP (discovery makes them irrelevant; `hostAddress` is
+  only the fallback).
+- Untracked in the repo root (the user's, not Claude's): `.agents/`, `.codex/`, `AGENTS.md`. `Assets/Resources/
+  DevAgentSettings.asset` changes by itself (a dev tool's `serverAddress`); never commit it unless asked.
+- Main.unity has the study setting (status-label debug messages off). For development: `FYP > Restore Debug Settings`.
 
 **Next (in this order)**
-1. ~~Batch tests~~ done. 
-2. ~~**Week 3 Phase 1**~~ done (NGO install, LAN host/client with manual IP, campus Wi-Fi works).
-3. ~~**Week 3 Phase 2**~~ done (discovery, shared CaseRoot anchor, failure texts, Manual fallback documented).
-4. **Week 3 Phase 3:** network the shared state (`CaseState` authoritative on the host; clients send found / tag /
-   submit requests; clue positions synced). Each headset still writes its own CSV (pairCode + participantId link them).
-5. Then Week 2 Phase C (setup panel, participant Start, evidence board, end screen), D (greybox Case X/Y generator,
-   room size in one constant), E (device test checklist, adb pull, wrap-up).
+1. **One full team session on both headsets** following `docs/device_test_checklist.md` (rebuild both first). It
+   covers everything not yet headset-tested: Case Y (mirrored room); shared evidence board in a team run; a fully
+   correct submission (culprit + K1–K4 → `answer_correct 1`, evidence score 4); taking a clue from the partner's hand
+   (`clue_grab_taken`); ARM/Start across two headsets; the floor guard ("Floor looks wrong…"); `head_m` in
+   `placement_check`. Pull with `bash tools/pull_data.sh` and check the rows listed in the checklist.
+2. Answer the open questions below, then a pilot with real participants.
+3. Later (not built, don't start without the user): interpersonal distance and shared head-gaze attention analysis.
+
+**Headset-verified so far (session 6)**
+- Placement + logging, pauses, abort, Interrupted snapshots; locomotion off; floor fixed after re-setting the Quest floor.
+- Networking: LAN connect (0.4 s), colocation discovery + shared anchor (scene lines up), shared state (`by=P02` finds
+  arrive on the host).
+- UI: setup panel, ARM + participant Start (`start_source=participant_start`, `run_armed`), board submit graded right.
+- Case X layout: clues reachable without zone entries after two layout fixes (see Phase D headset tests above).
+- Not seen on the headset: clue reset (> 3 m), boundary suppression success, the items in Next 1.
+
+**Known issues / notes**
+- `placement_check when=after_recenter` can be a false alarm after the headset is put back on (the Quest's floor
+  estimate moves, not the anchor; only logged during a run). Head height above CaseRoot (`head_m`) is the truth.
+- A wrong Quest floor estimate puts the whole scene under/over the real floor; the floor guard refuses placement when
+  the head is outside 1.20–1.95 m above the floor. Fix = re-set the floor in Quest settings.
+- `answer_correct` is strict (culprit + K1–K4 and no red herrings) - pending the user's answer below.
 
 **Useful commands / tips**
 - adb: `"/c/Program Files/Unity/Hub/Editor/6000.3.25f1/Editor/Data/PlaybackEngines/AndroidPlayer/SDK/platform-tools/adb.exe"`.
-  In Git Bash set `MSYS_NO_PATHCONV=1` before adb commands with `/sdcard/...` paths.
-- Capture: `adb logcat -c` then `adb logcat -v time -s Unity:V > <file>` (run in background). The capture dies with
-  exit 255 when the headset sleeps/disconnects; restart it.
-- Pull data: `adb pull /sdcard/Android/data/com.xmum.fyp.detective/files/ ./StudyData/` (gitignored).
-- Batch tests: see "How to test" (Unity must be closed; a batch run can take > 10 min after big changes).
+  In Git Bash set `MSYS_NO_PATHCONV=1` before adb commands with `/sdcard/...` paths; local paths for adb.exe must then
+  be Windows-style (`D:/...`, `pwd -W`).
+- Data: `bash tools/pull_data.sh` (all connected headsets → `StudyData/<date>/<serial>/`, gitignored).
+- Logs: `adb logcat -d -v time -s Unity:V` after a test (the buffer only holds the last minute or so); a live capture
+  dies with exit 255 when the headset sleeps/disconnects.
+- Batch tests: see "How to test" (Unity must be closed; check `tasklist | grep -ci unity.exe` = 0 first).
+- Python edit scripts: write them to the scratchpad and run with `python -I`; inline heredocs with `\n` in C# strings
+  turn into real line breaks.
 
 **Open questions for the user**
-1. Measure the lab to confirm 4 x 4 m (0.5 m margin → 3 x 3 m playable).
+1. Measure the lab to confirm 4 x 4 m (0.5 m margin → 3 x 3 m playable; `PlayArea.HalfSize`).
 2. Delete template content (`TutorialInfo/`, `Readme.asset`, `Scenes/SampleScene`) and `HandNeutral.mat`?
-3. Confirm the reasoning-error rule and the evidence-score definition.
-4. Check Bluetooth on both headsets (needed for colocation discovery).
+3. Should `answer_correct` allow red herrings? (Now: culprit + K1–K4 and none of R1–R3.)
