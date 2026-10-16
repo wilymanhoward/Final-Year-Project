@@ -94,7 +94,8 @@ keris.
 
 ## Layout rules
 
-- Everything sits inside the central **3 x 3 m** play area (room size is one constant in code).
+- The play area is **4 x 4 m** (one constant in code, `PlayArea.HalfSize`); the layouts keep everything inside the
+  central **3 x 3 m**.
 - **Case Y = Case X mirrored/rotated**, so the display, desk and door are in different places.
 - The validator checks:
   - matching counts;

@@ -4,7 +4,8 @@ namespace FYP.Detective
 {
     /// <summary>
     /// The two study cases, transcribed from docs/cases.md (keep them in sync). Case X has the reference layout
-    /// (start mark = CaseRoot at the centre of the 3 x 3 m area, facing the front wall); Case Y uses the same layout
+    /// (start mark = CaseRoot at the centre of the play area, facing the front wall; everything within the central
+    /// 3 x 3 m of the 4 x 4 m area); Case Y uses the same layout
     /// mirrored left-right (x -> -x), so the display, desk and door are on the other side.
     /// </summary>
     public static class CaseSpecs

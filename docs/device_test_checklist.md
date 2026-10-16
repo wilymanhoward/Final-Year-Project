@@ -16,7 +16,7 @@ are for the experimenter only; participants use their hands.
 
 ## Before the session (both headsets)
 
-- [ ] Batteries charged; the room is clear (4 x 4 m, nothing in the central 3 x 3 m); tape mark on the floor at the
+- [ ] Batteries charged; the 4 x 4 m play area is clear; tape mark on the floor at the
       centre, with a strip showing which way the front wall is.
 - [ ] Wi-Fi: both on the same network **with internet** (shared anchors go through Meta's cloud). If campus Wi-Fi
       fails, use a phone hotspot.

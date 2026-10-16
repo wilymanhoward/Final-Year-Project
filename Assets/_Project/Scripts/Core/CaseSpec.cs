@@ -20,8 +20,11 @@ namespace FYP.Detective
     /// <summary>Room constants shared by the case specs, the validator and the greybox generator.</summary>
     public static class PlayArea
     {
-        /// <summary>Half of the playable square (3 x 3 m inside a 4 x 4 m room with a 0.5 m margin).</summary>
-        public const float HalfSize = 1.5f;
+        /// <summary>
+        /// Half of the playable square: 4 x 4 m (user decision, session 6, "for now"). The current case layouts
+        /// still keep everything inside the central 3 x 3 m.
+        /// </summary>
+        public const float HalfSize = 2.0f;
 
         public const float FloorHeight = 0.03f;
         public const float TableHeight = 0.75f;
