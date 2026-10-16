@@ -18,8 +18,8 @@ Read this first in every session. Update **Current status** at the end of each s
 - **Interaction (decided, session 3):** **hand tracking for participants.** Controllers stay in code only as an
   experimenter/fallback option. Meta Interaction SDK for grabbing. **Never write a custom grab system.** Hook into
   its events instead.
-- **Physical room (decided, session 3; confirm by measuring the lab):** **4 x 4 m** clear area with a
-  **0.5 m safety margin** on every side, so the playable scene must fit inside the central **3 x 3 m**.
+- **Physical room (user, session 6):** **4 x 4 m playable "for now"** (`PlayArea.HalfSize` = 2.0). The current case
+  layouts still fit inside the central 3 x 3 m (the earlier plan: 4 x 4 m room with a 0.5 m margin).
 - **Time cap (decided, session 3):** **15 min**. Cases are designed to take about **10 min**.
 - **Performance target:** stable 72+ fps on Quest 3.
 
@@ -418,6 +418,5 @@ stop after each for the user's headset test, commit only after the user confirms
   turn into real line breaks.
 
 **Open questions for the user**
-1. Measure the lab to confirm 4 x 4 m (0.5 m margin → 3 x 3 m playable; `PlayArea.HalfSize`).
-2. Delete template content (`TutorialInfo/`, `Readme.asset`, `Scenes/SampleScene`) and `HandNeutral.mat`?
-3. Should `answer_correct` allow red herrings? (Now: culprit + K1–K4 and none of R1–R3.)
+1. Delete template content (`TutorialInfo/`, `Readme.asset`, `Scenes/SampleScene`) and `HandNeutral.mat`?
+2. Should `answer_correct` allow red herrings? (Now: culprit + K1–K4 and none of R1–R3.)
