@@ -20,8 +20,11 @@ namespace FYP.Detective
         /// <summary>Number of key evidence items in the case (correct + missing).</summary>
         public int KeyEvidenceTotal => CorrectEvidenceIds.Count + MissingEvidenceIds.Count;
 
-        /// <summary>Right suspect, all key evidence, no wrong evidence.</summary>
-        public bool IsCorrect => SuspectCorrect && WrongEvidenceIds.Count == 0 && MissingEvidenceIds.Count == 0;
+        /// <summary>answer_correct (user decision, session 6): the right culprit, whatever evidence was submitted.</summary>
+        public bool IsCorrect => SuspectCorrect;
+
+        /// <summary>perfect_submission: right culprit + all key evidence (K1-K4) + no wrong evidence (red herrings).</summary>
+        public bool IsPerfect => SuspectCorrect && WrongEvidenceIds.Count == 0 && MissingEvidenceIds.Count == 0;
 
         /// <summary>
         /// Reasoning errors = 1 for a wrong suspect + 1 per wrong evidence item submitted.

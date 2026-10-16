@@ -119,6 +119,8 @@ namespace FYP.Detective
             // Team condition (appended so earlier columns keep their positions). Solo: team_run 0, *_self = totals.
             "team_run", "clues_found_self", "clues_tagged_self",
             "contamination_partner", "contamination_team", "submitted_by",
+            // Grading (session 6): answer_correct = culprit only; perfect = culprit + all key evidence + no red herrings.
+            "perfect_submission",
         };
 
         public static string SummaryHeader => string.Join(Separator, SummaryColumns);
@@ -160,6 +162,7 @@ namespace FYP.Detective
                 state.PartnerContaminationErrors.ToString(inv),
                 state.TeamContaminationErrors.ToString(inv),
                 state.SubmittedBy,
+                Bool(r != null && r.IsPerfect),
             };
             var sb = new StringBuilder(256);
             for (int i = 0; i < cells.Length; i++)

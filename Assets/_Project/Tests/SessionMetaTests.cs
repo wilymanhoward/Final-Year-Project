@@ -81,7 +81,8 @@ namespace FYP.Detective.Tests
             Assert.AreEqual(1, meta.reasoningErrors);
             Assert.IsTrue(meta.submitted);
             Assert.IsTrue(meta.suspectCorrect);
-            Assert.IsFalse(meta.answerCorrect);
+            Assert.IsTrue(meta.answerCorrect, "right suspect = answer correct");
+            Assert.IsFalse(meta.perfectSubmission, "wrong + missing evidence");
             Assert.AreEqual(1, meta.evidenceScore);
             Assert.AreEqual(2, meta.evidenceScoreMax);
             Assert.AreEqual(1, meta.wrongEvidenceCount);

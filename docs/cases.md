@@ -15,7 +15,8 @@ if you change the content here, update `CaseSpecs` to match.
 
 ### Grading
 
-- **Correct** = culprit + K1-K4.
+- **answer_correct** = the correct culprit (whatever evidence was submitted).
+- **perfect_submission** = correct culprit + K1-K4 + no red herrings.
 - **Reasoning errors** = 1 for a wrong suspect + 1 per red herring submitted.
 - **Evidence score** = number of K1-K4 submitted (0-4).
 

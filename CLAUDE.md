@@ -224,7 +224,7 @@ Data flow:
   recenters) and `tracking_recentered` (count) during a run; the after-recenter check runs 1 s later.
 - **Logged positions** (10 Hz samples and event rows) are CaseRoot-local; head rotation/yaw/pitch too.
   CSV columns are unchanged; `session_start` detail has `frame=CaseRoot|world` and the meta JSON `positionFrame`.
-- **Evidence score** (meta JSON, to confirm with the user) = number of key evidence items submitted
+- **Evidence score** (meta JSON, confirmed by the user, session 6) = number of key evidence items submitted
   (`evidenceScore` of `evidenceScoreMax`); wrong items are `wrongEvidenceCount` (and reasoning errors).
 - **Clue wiring (Phase B):** grabbable clue = Meta `AddGrabInteraction` + `Clue` + one `InteractableUnityEventWrapper`
   per HandGrab/Grab interactable (WhenSelect → `MarkFound` + `BeginHold`, WhenUnselect → `EndHold`) + `ClueResetter`
@@ -300,8 +300,10 @@ Data flow:
   are soft-hidden because Netcode needs in-scene network objects active), updates the CaseDefinition assets (title,
   briefing, suspects with role/alibi, culprit, K1-K4), places the board, deactivates TestCube + Quad. Clue inspect text
   shows above its tag button; the briefing card shows the case story; the board has 4 suspect cards (name, role, alibi).
-  TeamMessage `Arm` carries the host's case (client adopts case + condition B). `answer_correct` stays strict
-  (culprit + K1-K4 and no red herrings).
+  TeamMessage `Arm` carries the host's case (client adopts case + condition B).
+- **Grading (user, session 6):** `answer_correct` = correct culprit only; `perfect_submission` (summary column, meta
+  `perfectSubmission`, `perfect=` in `answer_submitted`) = culprit + all key evidence + no red herrings. Reasoning errors
+  and evidence score unchanged.
 - **Phase D headset tests (session 6):** test 1: glass zone in front of the whole display made K1 unreachable without
   contamination (8 of 9 entries) -> validator reach rule; test 2: coffee in front of the desk blocked K2, crouching for K3
   swept a hand into the glass -> rule tightened (standing spot 0.45 m from the clue within +/-60 deg of its natural side,
@@ -404,7 +406,6 @@ stop after each for the user's headset test, commit only after the user confirms
   estimate moves, not the anchor; only logged during a run). Head height above CaseRoot (`head_m`) is the truth.
 - A wrong Quest floor estimate puts the whole scene under/over the real floor; the floor guard refuses placement when
   the head is outside 1.20–1.95 m above the floor. Fix = re-set the floor in Quest settings.
-- `answer_correct` is strict (culprit + K1–K4 and no red herrings) - pending the user's answer below.
 
 **Useful commands / tips**
 - adb: `"/c/Program Files/Unity/Hub/Editor/6000.3.25f1/Editor/Data/PlaybackEngines/AndroidPlayer/SDK/platform-tools/adb.exe"`.
@@ -418,5 +419,5 @@ stop after each for the user's headset test, commit only after the user confirms
   turn into real line breaks.
 
 **Open questions for the user**
-1. Delete template content (`TutorialInfo/`, `Readme.asset`, `Scenes/SampleScene`) and `HandNeutral.mat`?
-2. Should `answer_correct` allow red herrings? (Now: culprit + K1–K4 and none of R1–R3.)
+- None open (session 6: lab 4 x 4 m playable, template content deleted, grading split into answer_correct /
+  perfect_submission).

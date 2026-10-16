@@ -71,6 +71,7 @@ namespace FYP.Detective
                 submittedEvidenceIds = Sorted(state.SubmittedEvidenceIds),
                 suspectCorrect = result != null && result.SuspectCorrect,
                 answerCorrect = result != null && result.IsCorrect,
+                perfectSubmission = result != null && result.IsPerfect,
                 evidenceScore = result != null ? result.CorrectEvidenceIds.Count : 0,
                 evidenceScoreMax = result != null ? result.KeyEvidenceTotal : keyEvidenceCount,
                 wrongEvidenceCount = result != null ? result.WrongEvidenceIds.Count : 0,

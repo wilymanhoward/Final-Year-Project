@@ -398,7 +398,7 @@ namespace FYP.Detective
         {
             var s = session.State;
             LogEvent(LogEvents.AnswerSubmitted,
-                $"suspect={s.SubmittedSuspectId};evidence={CsvFormatter.JoinIds(s.SubmittedEvidenceIds)};correct={(result.IsCorrect ? 1 : 0)}" + ByField());
+                $"suspect={s.SubmittedSuspectId};evidence={CsvFormatter.JoinIds(s.SubmittedEvidenceIds)};correct={(result.IsCorrect ? 1 : 0)};perfect={(result.IsPerfect ? 1 : 0)}" + ByField());
 
             if (!result.SuspectCorrect)
                 LogEvent(LogEvents.ErrorReasoning, "type=wrong_suspect;suspect=" + s.SubmittedSuspectId);

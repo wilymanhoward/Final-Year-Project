@@ -39,10 +39,18 @@ namespace FYP.Detective.Tests
             string[] keys = { "X_K1", "X_K2", "X_K3", "X_K4" };
             var perfect = AnswerChecker.Check(x.Culprit.Id, keys, "X_grace", keys);
             Assert.IsTrue(perfect.IsCorrect);
+            Assert.IsTrue(perfect.IsPerfect);
+
+            var culpritWithHerring = AnswerChecker.Check(x.Culprit.Id, keys, "X_grace", new[] { "X_K1", "X_K2", "X_K3", "X_K4", "X_R3" });
+            Assert.IsTrue(culpritWithHerring.IsCorrect, "answer_correct = culprit only");
+            Assert.IsFalse(culpritWithHerring.IsPerfect);
+            Assert.AreEqual(1, culpritWithHerring.ReasoningErrorCount);
+            Assert.AreEqual(4, culpritWithHerring.CorrectEvidenceIds.Count);
             Assert.AreEqual(4, perfect.CorrectEvidenceIds.Count);
 
             var withHerrings = AnswerChecker.Check(x.Culprit.Id, keys, "X_lena", new[] { "X_K1", "X_K2", "X_R1", "X_R2" });
             Assert.IsFalse(withHerrings.IsCorrect);
+            Assert.IsFalse(withHerrings.IsPerfect);
             Assert.AreEqual(3, withHerrings.ReasoningErrorCount);   // wrong suspect + 2 red herrings
             Assert.AreEqual(2, withHerrings.CorrectEvidenceIds.Count);   // evidence score 2 of 4
         }
