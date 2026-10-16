@@ -66,7 +66,10 @@ namespace FYP.Detective
         public string submittedSuspectId;
         public string[] submittedEvidenceIds;
         public bool suspectCorrect;
+        /// <summary>Right culprit (user decision, session 6).</summary>
         public bool answerCorrect;
+        /// <summary>Right culprit + all key evidence + no red herrings.</summary>
+        public bool perfectSubmission;
         /// <summary>Key evidence items submitted (0..evidenceScoreMax).</summary>
         public int evidenceScore;
         /// <summary>Number of key evidence items in the case.</summary>

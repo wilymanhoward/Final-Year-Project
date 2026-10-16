@@ -11,6 +11,7 @@ namespace FYP.Detective.Tests
         {
             var r = AnswerChecker.Check("butler", Key, "butler", new[] { "letter", "knife" });
             Assert.IsTrue(r.IsCorrect);
+            Assert.IsTrue(r.IsPerfect);
             Assert.IsTrue(r.SuspectCorrect);
             Assert.AreEqual(0, r.ReasoningErrorCount);
             Assert.IsEmpty(r.WrongEvidenceIds);
@@ -22,6 +23,7 @@ namespace FYP.Detective.Tests
         {
             var r = AnswerChecker.Check("butler", Key, "gardener", Key);
             Assert.IsFalse(r.IsCorrect);
+            Assert.IsFalse(r.IsPerfect);
             Assert.IsFalse(r.SuspectCorrect);
             Assert.AreEqual(1, r.ReasoningErrorCount);
         }
@@ -30,16 +32,18 @@ namespace FYP.Detective.Tests
         public void EachWrongEvidence_IsOneReasoningError()
         {
             var r = AnswerChecker.Check("butler", Key, "butler", new[] { "knife", "letter", "cup", "hat" });
-            Assert.IsFalse(r.IsCorrect);
+            Assert.IsTrue(r.IsCorrect, "answer_correct = culprit only");
+            Assert.IsFalse(r.IsPerfect, "red herrings break a perfect submission");
             Assert.AreEqual(2, r.ReasoningErrorCount);
             CollectionAssert.AreEqual(new[] { "cup", "hat" }, r.WrongEvidenceIds);
         }
 
         [Test]
-        public void MissingEvidence_IsIncorrect_ButNotAReasoningError()
+        public void MissingEvidence_IsNotPerfect_AndNotAReasoningError()
         {
             var r = AnswerChecker.Check("butler", Key, "butler", new[] { "knife" });
-            Assert.IsFalse(r.IsCorrect);
+            Assert.IsTrue(r.IsCorrect);
+            Assert.IsFalse(r.IsPerfect);
             Assert.AreEqual(0, r.ReasoningErrorCount);
             CollectionAssert.AreEqual(new[] { "letter" }, r.MissingEvidenceIds);
         }
@@ -63,7 +67,7 @@ namespace FYP.Detective.Tests
         public void IdsAreTrimmed_DuplicatesIgnored_CaseSensitive()
         {
             var r = AnswerChecker.Check("butler", Key, " butler ", new[] { "knife", " knife", "letter" });
-            Assert.IsTrue(r.IsCorrect);
+            Assert.IsTrue(r.IsPerfect);
             Assert.IsFalse(AnswerChecker.Check("butler", Key, "Butler", Key).SuspectCorrect);
         }
 
@@ -72,6 +76,7 @@ namespace FYP.Detective.Tests
         {
             var r = AnswerChecker.Check("s", null, "s", null);
             Assert.IsTrue(r.IsCorrect);
+            Assert.IsTrue(r.IsPerfect);
         }
 
         [Test]
