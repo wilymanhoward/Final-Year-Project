@@ -27,34 +27,41 @@ namespace FYP.Detective
             public Spot(float x, float z, HeightBand band, float yaw, bool grab) { X = x; Z = z; Band = band; Yaw = yaw; Grab = grab; }
         }
 
+        // Room layout (session 6, for the 5 x 5 m room): furniture stands near the edges like a real room -
+        // the display case is the centrepiece at the front, the reception desk on the right, the entrance in the back
+        // wall (back-right corner), the office
+        // desk and the monitor/noticeboard on the left, the evidence board at the back; the middle stays open.
         // Yaw = side people stand on to read/take it (readable side): 180 = towards the start from the front, 90 = towards +x.
         private static readonly Dictionary<ClueSlot, Spot> Layout = new Dictionary<ClueSlot, Spot>
         {
-            { ClueSlot.K1, new Spot(-0.75f, 0.78f, HeightBand.Eye, 180f, false) },   // lock panel, right end of the display front
-            { ClueSlot.K2, new Spot(1.00f, 0.62f, HeightBand.Table, 180f, true) },   // on the front desk
-            { ClueSlot.K3, new Spot(-0.70f, 0.74f, HeightBand.Floor, 180f, true) },  // at the display's front foot (visible)
-            { ClueSlot.K4, new Spot(-0.95f, -0.82f, HeightBand.Table, 0f, true) },   // on the office desk
-            { ClueSlot.R1, new Spot(-0.50f, 1.15f, HeightBand.Floor, 90f, true) },   // beside the display (right side)
-            { ClueSlot.R2, new Spot(0.55f, -1.30f, HeightBand.Floor, 0f, true) },    // near the door
-            { ClueSlot.R3, new Spot(-1.35f, -0.12f, HeightBand.Eye, 90f, false) },   // on the monitor/noticeboard
+            { ClueSlot.K1, new Spot(-0.65f, 1.81f, HeightBand.Eye, 90f, false) },    // keypad on the display case's side glass, front corner (lock side, away from the hinge)
+            { ClueSlot.K2, new Spot(1.81f, 0.56f, HeightBand.Table, -90f, true) },   // on the reception desk (faces the room)
+            { ClueSlot.K3, new Spot(-0.69f, 1.61f, HeightBand.Floor, 180f, true) },  // at the display's front foot
+            { ClueSlot.K4, new Spot(-1.81f, -0.94f, HeightBand.Table, 90f, true) },  // on the office desk (faces the room)
+            { ClueSlot.R1, new Spot(-0.51f, 1.99f, HeightBand.Floor, 90f, true) },   // beside the display (right side)
+            { ClueSlot.R2, new Spot(2.04f, -1.91f, HeightBand.Floor, 0f, true) },    // just inside the entrance
+            { ClueSlot.R3, new Spot(-2.20f, 0.31f, HeightBand.Eye, 90f, false) },    // on the monitor / noticeboard
         };
 
+        // Footprints are axis-aligned after turning (desks and the door are turned 90 degrees, so width/depth swap).
         private static List<PropSpec> Props(string display, string desk, string office, string stand, string door) => new List<PropSpec>
         {
-            new PropSpec { Role = "display", Name = display, X = -0.95f, Z = 1.05f, Width = 0.6f, Depth = 0.5f, Height = 1.6f },
-            new PropSpec { Role = "desk", Name = desk, X = 1.00f, Z = 0.65f, Width = 0.9f, Depth = 0.5f, Height = PlayArea.TableHeight },
-            new PropSpec { Role = "office", Name = office, X = -0.95f, Z = -0.85f, Width = 0.9f, Depth = 0.5f, Height = PlayArea.TableHeight },
-            new PropSpec { Role = "stand", Name = stand, X = -1.40f, Z = -0.12f, Width = 0.1f, Depth = 0.4f, Height = 1.7f },
-            new PropSpec { Role = "door", Name = door, X = 1.15f, Z = -1.48f, Width = 0.8f, Depth = 0.04f, Height = 2.0f },
+            new PropSpec { Role = "display", Name = display, X = -0.94f, Z = 1.94f, Width = 0.6f, Depth = 0.5f, Height = 1.63f, Yaw = 180f },
+            new PropSpec { Role = "desk", Name = desk, X = 1.81f, Z = 0.56f, Width = 0.5f, Depth = 0.9f, Height = PlayArea.TableHeight, Yaw = -90f },
+            new PropSpec { Role = "office", Name = office, X = -1.81f, Z = -0.94f, Width = 0.5f, Depth = 0.9f, Height = PlayArea.TableHeight, Yaw = 90f },
+            new PropSpec { Role = "stand", Name = stand, X = -2.25f, Z = 0.31f, Width = 0.1f, Depth = 0.4f, Height = 1.6f, Yaw = 90f },
+            // Entrance in the back wall (back-right corner), away from both desks and the evidence board.
+            new PropSpec { Role = "door", Name = door, X = 1.69f, Z = -2.31f, Width = 0.8f, Depth = 0.1f, Height = 2.0f, Yaw = 0f },
         };
 
         private static List<ZoneSpec> Zones(string prefix, string glass, string spill, string path) => new List<ZoneSpec>
         {
             // In front of the display's left end only, so the lock panel (K1) can be read without reaching over it.
-            new ZoneSpec { Id = prefix + "Z1", Name = glass, X = -1.28f, Z = 0.42f, Width = 0.36f, Depth = 0.4f, Yaw = 0f },
-            // Beside the desk's inner end, not in front of it, so the desk clue (K2) is reached from the front.
-            new ZoneSpec { Id = prefix + "Z2", Name = spill, X = 0.30f, Z = 0.65f, Width = 0.40f, Depth = 0.5f, Yaw = 0f },
-            new ZoneSpec { Id = prefix + "Z3", Name = path, X = 0.95f, Z = -0.85f, Width = 0.35f, Depth = 0.9f, Yaw = -40f },
+            new ZoneSpec { Id = prefix + "Z1", Name = glass, X = -1.24f, Z = 1.47f, Width = 0.36f, Depth = 0.4f, Yaw = 0f },
+            // Beside the desk's front end, not in front of it, so the desk clue (K2) is reached from the room side.
+            new ZoneSpec { Id = prefix + "Z2", Name = spill, X = 1.81f, Z = 1.33f, Width = 0.40f, Depth = 0.5f, Yaw = 0f },
+            // From the entrance towards the display.
+            new ZoneSpec { Id = prefix + "Z3", Name = path, X = 1.36f, Z = -1.78f, Width = 0.35f, Depth = 0.9f, Yaw = -32f },
         };
 
         private static ClueSpec Clue(string prefix, ClueSlot slot, string obj, string text, string pointsAt = null)
@@ -77,7 +84,7 @@ namespace FYP.Detective
                            "just hours before the company's big exhibition. The case was found open this morning. Four people had " +
                            "a reason to be near the studio last night. Search the room, tag the evidence, and name the person who " +
                            "took the award.",
-                BoardX = 0f, BoardZ = -1.45f, BoardYaw = 0f,
+                BoardX = 0f, BoardZ = -2.19f, BoardYaw = 0f,
             };
             c.Suspects.Add(new SuspectSpec { Id = "X_grace", Name = "Grace Wong", Role = "Studio manager", IsCulprit = true,
                 Alibi = "\"I locked up at 7:00 pm and went straight home.\" (No one can confirm.)" });
@@ -111,7 +118,7 @@ namespace FYP.Detective
                            "Melaka Room, one week before it was due to go on loan overseas. The case was found open this morning. " +
                            "Four people had a reason to be near the room last night. Search the room, tag the evidence, and name " +
                            "the person who took the keris.",
-                BoardX = 0f, BoardZ = -1.45f, BoardYaw = 0f,
+                BoardX = 0f, BoardZ = -2.19f, BoardYaw = 0f,
             };
             c.Suspects.Add(new SuspectSpec { Id = "Y_farid", Name = "Farid Rahman", Role = "Tour guide", IsCulprit = true,
                 Alibi = "\"My last tour ended at 7:30 pm and I went home.\" (No one can confirm.)" });
@@ -141,7 +148,7 @@ namespace FYP.Detective
         {
             foreach (var cl in c.Clues) { cl.X = -cl.X; cl.FacingYaw = -cl.FacingYaw; }
             foreach (var z in c.Zones) { z.X = -z.X; z.Yaw = -z.Yaw; }
-            foreach (var p in c.Props) p.X = -p.X;
+            foreach (var p in c.Props) { p.X = -p.X; p.Yaw = -p.Yaw; }
             c.BoardX = -c.BoardX;
             c.BoardYaw = -c.BoardYaw;
         }

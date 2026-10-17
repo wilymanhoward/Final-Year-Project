@@ -8,7 +8,7 @@ namespace FYP.Detective
     /// adopted by a team client. Children without network state (furniture, zones, static clues, tag buttons) are
     /// simply deactivated. Grabbable clues stay active, because Netcode spawns in-scene network objects only when
     /// they start active (and re-enables them during client sync); they are hidden instead: renderers, colliders and
-    /// grab interactables off, and their resetter stopped.
+    /// grab interactables off, and their resetter and gravity stopped.
     /// </summary>
     public class CaseContent : MonoBehaviour
     {
@@ -65,6 +65,8 @@ namespace FYP.Detective
             clue.SetInteractable(shown);
             var resetter = go.GetComponent<ClueResetter>();
             if (resetter != null) resetter.enabled = shown;
+            var gravity = go.GetComponent<ClueGravity>();   // colliders are off, so it must not fall
+            if (gravity != null) gravity.enabled = shown;
         }
     }
 }

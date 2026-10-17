@@ -74,7 +74,8 @@ namespace FYP.Detective.Tests
         [Test]
         public void TooFarFromRoot_IsOut()
         {
-            Assert.IsTrue(ClueBounds.IsOutOfBounds(new Vector3(2.5f, 1f, 2f)));    // 3.35 m
+            Assert.IsTrue(ClueBounds.IsOutOfBounds(new Vector3(3f, 1f, 2f)));      // 3.74 m (limit 3.6 m)
+            Assert.IsFalse(ClueBounds.IsOutOfBounds(new Vector3(2.5f, 1f, 2f)));   // 3.35 m: a 5 x 5 m corner is still inside
             Assert.IsFalse(ClueBounds.IsOutOfBounds(new Vector3(2.5f, 1f, 1f)));   // 2.87 m
         }
     }

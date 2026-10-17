@@ -9,32 +9,56 @@ using UnityEngine;
 namespace FYP.Detective.EditorTools
 {
     /// <summary>
-    /// Phase D: builds the greybox scenes of both cases under CaseRoot from <see cref="CaseSpecs"/> (docs/cases.md),
-    /// after running <see cref="CaseSpecValidator"/> (refuses to build if it fails). Per case a "Case_X" / "Case_Y"
-    /// root with <see cref="CaseContent"/> (only the active case is shown): grey furniture boxes with name labels,
-    /// 7 clues (grabbable boxes, or flat pokeable panels for wall/screen clues) with id, name and inspect text, tag
-    /// buttons, resetters, 3 exclusion zones with coloured floor markers. Also updates the two CaseDefinition assets
+    /// Phase D: builds the scenes of both cases under CaseRoot from <see cref="CaseSpecs"/> (docs/cases.md), after
+    /// running <see cref="CaseSpecValidator"/> (refuses to build if it fails). Per case a "Case_X" / "Case_Y" root with
+    /// <see cref="CaseContent"/> (only the active case is shown): furniture, 7 clues (grabbable, or flat pokeable panels
+    /// for wall/screen clues; K1 is a keypad on the display case's side glass) with id, name and inspect text, tag buttons, resetters, hover highlight,
+    /// 3 exclusion zones with floor decals. Visual pass (session 6): every prop, clue and zone has a "Visual" child with
+    /// the low-poly mesh from tools/maya/build_props.py (Art/Props/*.fbx, see <see cref="PropAssets"/>); furniture also
+    /// gets a blob shadow and a solid collider surface (session 6, ClueGravity), and each case an invisible floor collider. The functional objects (clue ids, colliders, grab/poke components, tag buttons, zone
+    /// triggers) are built exactly as before; the grey primitive's renderer is removed and the Visual added. Also updates the two CaseDefinition assets
     /// (title, briefing, suspects with role and alibi, culprit, key evidence), puts the evidence board at the spec's
     /// spot and deactivates the old test cube and Quad. Idempotent: existing Case_X/Case_Y roots are rebuilt.
     /// Grab/poke wiring reuses the clue tools (QuickActionsAPI.AddGrabInteraction, ClueWiring).
     /// </summary>
     public static class CaseSceneTool
     {
-        private const string MaterialFolder = "Assets/_Project/Art/Materials/Greybox";
         private static readonly string[] TestContent =
             { "TestCube (delete me)", "Quad", "TagButton - TestCube (delete me)", "TagButton - Quad" };
 
-        // Greybox sizes (x = width, y = height, z = depth) per case and slot; flat papers lie flat.
-        private static readonly Dictionary<string, Vector3> ClueSize = new Dictionary<string, Vector3>
+        // Clue collider boxes (x = width, y = height, z = depth) per case and slot; the Maya meshes fill them exactly
+        // (keep in sync with tools/maya/build_props.py). Visual pass: per slot the same size range in both cases, so
+        // clue visibility doesn't differ between X and Y (e.g. R2 torn sketch 17 x 13 cm vs. business card 13 x 8 cm).
+        internal static readonly Dictionary<string, Vector3> ClueSize = new Dictionary<string, Vector3>
         {
-            { "X_K1", new Vector3(0.20f, 0.12f, 1f) }, { "Y_K1", new Vector3(0.20f, 0.12f, 1f) },   // panels (quads)
-            { "X_R3", new Vector3(0.10f, 0.10f, 1f) }, { "Y_R3", new Vector3(0.15f, 0.15f, 1f) },
-            { "X_K2", new Vector3(0.21f, 0.008f, 0.297f) }, { "Y_K2", new Vector3(0.20f, 0.03f, 0.28f) },
-            { "X_K3", new Vector3(0.06f, 0.02f, 0.04f) }, { "Y_K3", new Vector3(0.13f, 0.02f, 0.02f) },
+            { "X_K1", new Vector3(0.12f, 0.18f, 1f) }, { "Y_K1", new Vector3(0.12f, 0.18f, 1f) },   // keypad panels (quads)
+            { "X_R3", new Vector3(0.10f, 0.10f, 1f) }, { "Y_R3", new Vector3(0.12f, 0.12f, 1f) },
+            { "X_K2", new Vector3(0.23f, 0.015f, 0.32f) }, { "Y_K2", new Vector3(0.21f, 0.03f, 0.29f) },
+            { "X_K3", new Vector3(0.10f, 0.02f, 0.07f) }, { "Y_K3", new Vector3(0.12f, 0.022f, 0.022f) },
             { "X_K4", new Vector3(0.21f, 0.008f, 0.297f) }, { "Y_K4", new Vector3(0.21f, 0.008f, 0.297f) },
-            { "X_R1", new Vector3(0.18f, 0.05f, 0.09f) }, { "Y_R1", new Vector3(0.20f, 0.04f, 0.04f) },
-            { "X_R2", new Vector3(0.21f, 0.008f, 0.297f) }, { "Y_R2", new Vector3(0.09f, 0.008f, 0.055f) },
+            { "X_R1", new Vector3(0.18f, 0.04f, 0.10f) }, { "Y_R1", new Vector3(0.20f, 0.045f, 0.045f) },
+            { "X_R2", new Vector3(0.17f, 0.008f, 0.13f) }, { "Y_R2", new Vector3(0.13f, 0.008f, 0.08f) },
         };
+
+        // Mesh per prop role and case (Art/Props/<name>.fbx). Which way it faces comes from PropSpec.Yaw.
+        private static readonly Dictionary<string, string> PropMeshX = new Dictionary<string, string>
+            { { "display", "X_Display" }, { "desk", "X_FrontDesk" }, { "office", "X_ManagerDesk" }, { "stand", "X_Monitor" }, { "door", "X_Door" } };
+        private static readonly Dictionary<string, string> PropMeshY = new Dictionary<string, string>
+            { { "display", "Y_Display" }, { "desk", "Y_ReceptionTable" }, { "office", "Y_TourDesk" }, { "stand", "Y_Noticeboard" }, { "door", "Y_Entrance" } };
+
+        /// <summary>Every FBX the case scenes need (props, clues, zone decals).</summary>
+        internal static IEnumerable<string> RequiredMeshes()
+        {
+            foreach (var n in PropMeshX.Values) yield return n;
+            foreach (var n in PropMeshY.Values) yield return n;
+            yield return "X_Floor";
+            yield return "Y_Floor";
+            foreach (var spec in new[] { CaseSpecs.X, CaseSpecs.Y })
+            {
+                foreach (var c in spec.Clues) yield return c.Id;
+                foreach (var z in spec.Zones) yield return z.Id;
+            }
+        }
 
         [MenuItem("FYP/Build Case Scenes (X + Y)")]
         public static void Build()
@@ -43,6 +67,14 @@ namespace FYP.Detective.EditorTools
             if (errors.Count > 0)
             {
                 EditorUtility.DisplayDialog("Case scenes", "The case specs fail validation - nothing built:\n" + string.Join("\n", errors), "OK");
+                return;
+            }
+            AssetDatabase.Refresh();
+            var missing = PropAssets.Missing(RequiredMeshes());
+            if (missing.Count > 0)
+            {
+                EditorUtility.DisplayDialog("Case scenes", "Prop meshes missing in " + PropImportSettings.Folder + " - run\n" +
+                    "mayapy tools/maya/build_props.py\nfirst. Missing: " + string.Join(", ", missing), "OK");
                 return;
             }
             var session = Object.FindFirstObjectByType<SessionManager>();
@@ -57,8 +89,9 @@ namespace FYP.Detective.EditorTools
             var report = new StringBuilder();
             foreach (var spec in new[] { CaseSpecs.X, CaseSpecs.Y })
             {
-                BuildCase(spec, session, caseRoot, rig.Head);
+                Transform built = BuildCase(spec, session, caseRoot, rig.Head);
                 report.Append(UpdateDefinition(spec)).Append('\n');
+                report.Append($"Case {spec.Case}: {PropAssets.Triangles(built)} triangles; prop heights: {PropHeights(built)}\n");
             }
             int hidden = HideTestContent(caseRoot.transform);
             PlaceBoard();
@@ -83,7 +116,7 @@ namespace FYP.Detective.EditorTools
             return Quaternion.LookRotation(-face, Vector3.up);
         }
 
-        private static void BuildCase(CaseSpec spec, SessionManager session, CaseRoot caseRoot, Transform head)
+        private static Transform BuildCase(CaseSpec spec, SessionManager session, CaseRoot caseRoot, Transform head)
         {
             string rootName = "Case_" + spec.Case;
             var old = caseRoot.transform.Find(rootName);
@@ -98,32 +131,77 @@ namespace FYP.Detective.EditorTools
             so.FindProperty("session").objectReferenceValue = session;
             so.ApplyModifiedPropertiesWithoutUndo();
 
-            foreach (var p in spec.Props) BuildProp(root.transform, p);
+            BuildFloor(root.transform, spec);
+            foreach (var p in spec.Props) BuildProp(root.transform, spec, p);
             foreach (var z in spec.Zones) BuildZone(root.transform, z, session);
             foreach (var c in spec.Clues) BuildClue(root.transform, spec, c, session, caseRoot, head);
+            return root.transform;
         }
 
-        private static void BuildProp(Transform parent, PropSpec p)
+        /// <summary>Furniture: an empty root on the floor (front turned to its role's facing) with Visual + blob shadow.</summary>
+        private static void BuildProp(Transform parent, CaseSpec spec, PropSpec p)
         {
-            var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            go.name = p.Name;
+            string mesh = (spec.Case == CaseId.X ? PropMeshX : PropMeshY)[p.Role];
+            float yaw = p.Yaw;
+            var go = new GameObject(p.Name);
             go.transform.SetParent(parent, false);
-            go.transform.localPosition = new Vector3(p.X, p.Height / 2f, p.Z);
-            go.transform.localScale = new Vector3(p.Width, p.Height, p.Depth);
-            Object.DestroyImmediate(go.GetComponent<Collider>());
-            go.GetComponent<Renderer>().sharedMaterial = Mat(p.Role == "door" ? "Door" : "Furniture",
-                p.Role == "door" ? new Color(0.45f, 0.30f, 0.18f) : new Color(0.62f, 0.62f, 0.64f));
+            go.transform.localPosition = new Vector3(p.X, 0f, p.Z);
+            go.transform.localRotation = Quaternion.Euler(0f, yaw, 0f);
+            var visual = PropAssets.AddVisual(go.transform, mesh, Vector3.zero, Quaternion.identity, Vector3.one);
+            Bounds bounds = PropAssets.Mesh(mesh, "_Body").bounds;
+            bool hanging = bounds.min.y > HangingAbove;   // wall-hung monitor / noticeboard: no floor shadow
+            if (!hanging) PropAssets.AddBlobShadow(go.transform, bounds);
+            visual.name = "Visual";
+            if (p.Role != "door") AddSurface(go.transform, p, Mathf.Max(0f, bounds.min.y));   // a dropped clue can walk through the doorway
+        }
 
-            // Name label above the prop, facing the start mark.
-            var label = new GameObject(p.Name + " label");
-            label.transform.SetParent(parent, false);
-            Vector3 top = new Vector3(p.X, p.Height + 0.12f, p.Z);
-            label.transform.localPosition = top;
-            Vector3 away = top - new Vector3(0f, top.y, 0f);
-            label.transform.localRotation = Quaternion.LookRotation(away.sqrMagnitude > 1e-4f ? away.normalized : Vector3.forward);
-            GameObject canvas = HeadsetUiTool.Canvas(label.transform, 260f, 46f, new Color(0f, 0f, 0f, 0.6f));
-            var text = HeadsetUiTool.Label(canvas.transform, "Text", new Rect(4f, 2f, 252f, 42f), 22, TextAnchor.MiddleCenter);
-            text.text = p.Name;
+        /// <summary>A prop whose mesh starts this high above the floor hangs (no legs): no blob shadow, no collider below it.</summary>
+        private const float HangingAbove = 0.3f;
+
+        /// <summary>
+        /// The room floor (user, session 6): a semi-transparent 5 x 5 m floor (Case X concrete tiles, Case Y floorboards;
+        /// the Case Y varnish zone decal is cut from the same boards) just under y = 0, plus the physics floor for dropped
+        /// clues (ClueGravity): a box whose top is the CaseRoot floor (y = 0), 0.5 m thick so nothing tunnels through, a
+        /// bit larger than the play area.
+        /// </summary>
+        private static void BuildFloor(Transform parent, CaseSpec spec)
+        {
+            var go = new GameObject("Floor");
+            go.transform.SetParent(parent, false);
+            PropAssets.AddVisual(go.transform, spec.Case == CaseId.X ? "X_Floor" : "Y_Floor", Vector3.zero, Quaternion.identity,
+                Vector3.one, PropAssets.Floor);
+            float size = PlayArea.HalfSize * 2f + 1f;
+            var box = go.AddComponent<BoxCollider>();
+            box.center = new Vector3(0f, -0.25f, 0f);
+            box.size = new Vector3(size, 0.5f, size);
+        }
+
+        /// <summary>
+        /// Solid box over the furniture's footprint up to its spec height (desk tops at 0.75 m), so a dropped clue
+        /// lands on top and can't end up underneath; for a hanging prop it starts at the mesh's lowest point. Axis-aligned like the spec footprint (counter-rotated).
+        /// </summary>
+        private static void AddSurface(Transform prop, PropSpec p, float bottom)
+        {
+            var go = new GameObject("Surface (clue physics)");
+            go.transform.SetParent(prop, false);
+            go.transform.localRotation = Quaternion.Inverse(prop.localRotation);
+            var box = go.AddComponent<BoxCollider>();
+            float top = Mathf.Max(p.Height, bottom + 0.05f);
+            box.center = new Vector3(0f, (bottom + top) / 2f, 0f);   // from the mesh's lowest point (hanging props)
+            box.size = new Vector3(p.Width, top - bottom, p.Depth);
+        }
+
+        private static string PropHeights(Transform caseRoot)
+        {
+            var parts = new List<string>();
+            foreach (Transform t in caseRoot)
+            {
+                var v = t.Find("Visual");
+                if (v == null || t.GetComponent<Clue>() != null || t.GetComponent<ExclusionZone>() != null || t.name == "Floor") continue;
+                var f = v.GetComponent<MeshFilter>();
+                if (f != null && f.sharedMesh != null) parts.Add($"{t.name} {f.sharedMesh.bounds.max.y:F2} m");
+            }
+            return string.Join(", ", parts);
         }
 
         private static void BuildZone(Transform parent, ZoneSpec z, SessionManager session)
@@ -139,15 +217,8 @@ namespace FYP.Detective.EditorTools
             so.FindProperty("session").objectReferenceValue = session;
             so.ApplyModifiedPropertiesWithoutUndo();
 
-            // Visible floor marker (the zone itself is invisible; the marker is the "broken glass" etc.).
-            var marker = GameObject.CreatePrimitive(PrimitiveType.Quad);
-            marker.name = "Marker";
-            marker.transform.SetParent(go.transform, false);
-            marker.transform.localPosition = new Vector3(0f, 0.004f, 0f);
-            marker.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
-            marker.transform.localScale = new Vector3(z.Width, z.Depth, 1f);
-            Object.DestroyImmediate(marker.GetComponent<Collider>());
-            marker.GetComponent<Renderer>().sharedMaterial = Mat("Zone_" + z.Id, ZoneColor(z.Id));
+            // Visible floor decal (the zone itself is invisible): glass shards, spill, footprints... with a subtle outline.
+            PropAssets.AddVisual(go.transform, z.Id, Vector3.zero, Quaternion.identity, Vector3.one);
         }
 
         private static void BuildClue(Transform parent, CaseSpec spec, ClueSpec c, SessionManager session, CaseRoot caseRoot, Transform head)
@@ -171,8 +242,6 @@ namespace FYP.Detective.EditorTools
                 go.transform.localRotation = FacingRotation(c.FacingYaw);
             }
             go.name = c.Id + " " + c.ObjectName;
-            // Same colour for key evidence and red herrings, so the look doesn't give the answer away.
-            go.GetComponent<Renderer>().sharedMaterial = Mat("Clue", new Color(0.95f, 0.85f, 0.35f));
 
             var clue = ClueWiring.EnsureClue(go, session);
             var so = new SerializedObject(clue);
@@ -201,6 +270,19 @@ namespace FYP.Detective.EditorTools
             {
                 ClueWiring.EnsurePokeSurface(clue);
             }
+
+            // Visual: the clue mesh replaces the grey primitive's look. The root keeps its collider, scale and
+            // components; the Visual is counter-scaled so the mesh shows at its real size (it fills the collider box).
+            Object.DestroyImmediate(go.GetComponent<MeshRenderer>());
+            if (c.Grabbable) Object.DestroyImmediate(go.GetComponent<MeshFilter>());   // static: MeshFilter feeds the MeshCollider
+            var inverse = new Vector3(1f / size.x, 1f / size.y, c.Grabbable ? 1f / size.z : 1f);
+            var visual = PropAssets.AddVisual(go.transform, c.Id,
+                c.Grabbable ? new Vector3(0f, -0.5f, 0f) : Vector3.zero, Quaternion.identity, inverse);
+            var shell = PropAssets.AddHighlightShell(visual, c.Id);
+            var highlight = go.AddComponent<ClueHighlight>();
+            MainSceneBuilder.SetObject(highlight, "shell", shell);
+            ClueWiring.WireHover(clue, highlight);
+
             ClueWiring.EnsureTagButton(clue, head);
         }
 
@@ -263,31 +345,6 @@ namespace FYP.Detective.EditorTools
             Undo.RecordObject(board.transform, "Place board");
             board.transform.localPosition = EvidenceBoardTool.DefaultLocalPosition;
             board.transform.localRotation = EvidenceBoardTool.DefaultLocalRotation;
-        }
-
-        private static Color ZoneColor(string id)
-        {
-            if (id.EndsWith("Z1")) return new Color(0.70f, 0.90f, 0.95f);   // glass
-            if (id.EndsWith("Z2")) return id.StartsWith("X") ? new Color(0.35f, 0.22f, 0.12f) : new Color(0.30f, 0.55f, 0.85f);   // coffee / water
-            return id.StartsWith("X") ? new Color(0.30f, 0.22f, 0.15f) : new Color(0.85f, 0.60f, 0.20f);   // mud / varnish
-        }
-
-        /// <summary>Gets or creates a URP Lit material asset in Art/Materials/Greybox.</summary>
-        private static Material Mat(string name, Color color)
-        {
-            if (!AssetDatabase.IsValidFolder(MaterialFolder)) AssetDatabase.CreateFolder("Assets/_Project/Art/Materials", "Greybox");
-            string path = MaterialFolder + "/" + name + ".mat";
-            var mat = AssetDatabase.LoadAssetAtPath<Material>(path);
-            if (mat == null)
-            {
-                var shader = Shader.Find("Universal Render Pipeline/Lit");
-                mat = new Material(shader != null ? shader : Shader.Find("Standard"));
-                AssetDatabase.CreateAsset(mat, path);
-            }
-            mat.SetColor("_BaseColor", color);
-            mat.color = color;
-            EditorUtility.SetDirty(mat);
-            return mat;
         }
     }
 }

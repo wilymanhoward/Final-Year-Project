@@ -13,7 +13,8 @@
         "FYP.Detective.Net",
         "Unity.Netcode.Runtime",
         "Unity.Networking.Transport",
-        "UnityEngine.UI"
+        "UnityEngine.UI",
+        "Meta.XR.EnvironmentDepth"
     ],
     "includePlatforms": [
         "Editor"

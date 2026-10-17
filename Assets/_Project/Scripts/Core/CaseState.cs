@@ -68,6 +68,9 @@ namespace FYP.Detective
         /// <summary>Participant who caused the event currently being raised (null in solo runs). Read it in event handlers.</summary>
         public string LastActorId { get; private set; }
 
+        /// <summary>Why the last reported clue reset happened ("out_of_bounds" / "in_zone"; null if not given).</summary>
+        public string LastResetReason { get; private set; }
+
         /// <summary>Contamination entries of the partner's body (each headset detects its own body).</summary>
         public int PartnerContaminationErrors { get; private set; }
 
@@ -307,13 +310,15 @@ namespace FYP.Detective
         }
 
         /// <summary>
-        /// Reports that a loose clue was put back at its start position (fell through the floor / too far away).
+        /// Reports that a loose clue was put back at its start position (fell through the floor / too far away /
+        /// came to rest in an exclusion zone; <paramref name="reason"/>, see <see cref="LastResetReason"/>).
         /// Not game state; raised for logging. Only while running.
         /// </summary>
-        public bool RecordClueReset(string clueId, string by = null)
+        public bool RecordClueReset(string clueId, string by = null, string reason = null)
         {
             if (!IsRunning || string.IsNullOrEmpty(clueId)) return false;
             LastActorId = by;
+            LastResetReason = reason;
             ClueReset?.Invoke(clueId);
             return true;
         }

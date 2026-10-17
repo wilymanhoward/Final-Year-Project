@@ -42,6 +42,9 @@ namespace FYP.Detective
         /// <summary>Raised when a hand on this headset starts holding the clue.</summary>
         public event Action<Clue> HoldBegan;
 
+        /// <summary>Raised when the last hand on this headset lets go (not when the partner takes it: see ForceRelease).</summary>
+        public event Action<Clue> HoldEnded;
+
         public string ClueId => clueId;
         public string DisplayName => displayName;
         public bool IsKeyEvidence => isKeyEvidence;
@@ -74,7 +77,9 @@ namespace FYP.Detective
         /// <summary>Hook to WhenUnselect of a grab interactable.</summary>
         public void EndHold()
         {
-            if (_holdCount > 0) _holdCount--;
+            if (_holdCount == 0) return;
+            _holdCount--;
+            if (_holdCount == 0) HoldEnded?.Invoke(this);
         }
 
         /// <summary>True for a grabbable clue whose grab interactables are known (networked in team runs).</summary>

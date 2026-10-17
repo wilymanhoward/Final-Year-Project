@@ -18,8 +18,9 @@ Read this first in every session. Update **Current status** at the end of each s
 - **Interaction (decided, session 3):** **hand tracking for participants.** Controllers stay in code only as an
   experimenter/fallback option. Meta Interaction SDK for grabbing. **Never write a custom grab system.** Hook into
   its events instead.
-- **Physical room (user, session 6):** **4 x 4 m playable "for now"** (`PlayArea.HalfSize` = 2.0). The current case
-  layouts still fit inside the central 3 x 3 m (the earlier plan: 4 x 4 m room with a 0.5 m margin).
+- **Physical room (user, session 6):** **5 x 5 m playable** (`PlayArea.HalfSize` = 2.5; was 4 x 4 m, before that a 3 x 3 m
+  area inside a 4 x 4 m room). Furniture stands 0.15-0.3 m inside the edges, the middle stays open. Clues reset only past
+  3.6 m from CaseRoot (`ClueBounds.DefaultMaxDistance`, just past the corners).
 - **Time cap (decided, session 3):** **15 min**. Cases are designed to take about **10 min**.
 - **Performance target:** stable 72+ fps on Quest 3.
 
@@ -141,10 +142,11 @@ Scripts/ (FYP.Detective.asmdef, references Unity.InputSystem, UnityEngine.UI)
   Experiment/  SessionTimer, SessionManager, ExperimentConfigStore
   Logging/     PoseSample (+LogRow, LogEvents), CsvFormatter, CsvLogWriter, DataLogger,
                SessionMeta (+BuildInfo), SessionMetaBuilder
-  Interaction/ ZoneEntryTracker, FloorFootprint, ExclusionZone, Clue, TrackedPointGate, ClueBounds, ClueResetter
-  UI/          EvidenceSelection, EvidenceBoard, ExperimenterPanel, StatusLabel, ClueTagButton
+  Interaction/ ZoneEntryTracker, FloorFootprint, ExclusionZone, Clue, TrackedPointGate, ClueBounds, ClueResetter,
+               ClueGravity, ClueRestDetector
+  UI/          EvidenceSelection, EvidenceBoard, ExperimenterPanel, StatusLabel, ClueTagButton, UiOcclusion
   Meta/        (FYP.Detective.Meta.asmdef) ScenePlacement, ExperimenterControllerShortcuts, HandTrackingMonitor,
-               HeadsetPresenceMonitor
+               HeadsetPresenceMonitor, DepthOcclusionMonitor (refs Meta.XR.EnvironmentDepth)
   Net/         (FYP.Detective.Net.asmdef, refs FYP.Detective + Unity.Netcode.Runtime + Unity.Networking.Transport)
                NetworkSessionLauncher (host / join / stop, status texts, net_* log rows)
                ColocationCoordinator (Phase 2: advertise/discover + share/load the CaseRoot anchor; refs FYP.Detective.Meta)
@@ -161,12 +163,19 @@ Editor/ (FYP.Detective.Editor.asmdef, Editor-only)
   HeadsetUiTool       menu:  FYP > Set Up Headset UI
   EvidenceBoardTool   menu:  FYP > Set Up Evidence Board
   CaseSceneTool       menu:  FYP > Build Case Scenes (X + Y)
+  OcclusionSetupTool  menu:  FYP > Set Up Occlusion (Depth API)
   StudyBuildTool      menus: FYP > Prepare Study Build (debug off + readiness report) / Restore Debug Settings
+tools/maya/build_props.py  (run with mayapy, Maya 2027): low-poly flat-shaded props, clue visuals, zone decals ->
+                     Assets/_Project/Art/Props/*.fbx + Palette.png + BlobShadow.png; prints sizes + triangles
+                     + tools/maya/scenes/<name>.ma per object (viewing only; the script is the source, a re-run overwrites)
+Editor/PropImportSettings (import settings for Art/Props)   Editor/PropAssets (materials, Visual children, shells)
+Scripts/Interaction/ClueHighlight (hover outline shell)
+tools/receive_data.py  laptop receiver for DataUploader (python, stdlib; UDP beacon + HTTP PUT -> StudyData/)
 tools/pull_data.sh   pulls *.csv/*.json (+ Unity log) from every connected headset to StudyData/<date>/<serial>/,
                      flags runs whose summary still says Interrupted (Git Bash; uses Windows paths for adb.exe)
 docs/cases.md        case content (source of truth for CaseSpecs)   docs/device_test_checklist.md  session procedure
 Tests/ (FYP.Detective.Tests.asmdef, Editor-only, EditMode NUnit)
-Art/Shaders/GhostHand.shader (URP, "FYP/GhostHand")   Art/Materials/HandGhost.mat
+Art/Shaders/GhostHand.shader (URP, "FYP/GhostHand"), OccludedProp / OccludedUI (Depth API)   Art/Materials/HandGhost.mat
 Scenes/Main.unity   Cases/{CaseX,CaseY}/CaseX|Y_Definition.asset (generated from docs/cases.md)   Prefabs/ (empty)
 ```
 
@@ -232,7 +241,14 @@ Data flow:
   (`AddPokeCanvasInteraction`) whose `PokeInteractable` WhenSelect → `MarkFound`. Clue id defaults to the object name.
 - **Tagging:** after a clue is found, a 14 x 5.6 cm pokeable uGUI button floats 8 cm above it facing the player
   (yaw only) and calls `Clue.ToggleTagged` (logs clue_tagged / clue_untagged). Hidden when not running.
-- **Clue reset:** a loose clue more than 3 m from CaseRoot or > 5 cm below the floor goes back to its start pose
+- **Clue gravity (user, session 6):** a grabbable clue stays where the scene put it until it is held and let go; then it
+  falls (`ClueGravity`): no throw (Grabbable `_throwWhenUnselected` off), no bounce, high friction, damping. Physics only
+  while running, only on the controlling headset (team: owner; partner copy kinematic, follows NetworkTransform), never
+  while held. Surfaces: invisible floor box per case (top = y 0) + solid box per furniture footprint up to its spec height
+  (not the door). A dropped clue that comes to rest (< 5 cm/s for 0.5 s) within 5 cm of an exclusion zone (any height)
+  goes home: `clue_reset` detail `<id>;reason=in_zone` (else `reason=out_of_bounds`), so retrieving it never forces a
+  contamination entry. Headset-untested.
+- **Clue reset:** a loose clue more than 3.6 m (was 3 m; 5 x 5 m room) from CaseRoot or > 5 cm below the floor goes back to its start pose
   (relative to CaseRoot), never while held; logged `clue_reset`. Clues also go back home on every session start.
 - **Hand tracking:** `HandTrackingMonitor` sets `PlayerRig.SetTracked(hand, OVRHand.IsTracked ||
   OVRInput.GetControllerPositionTracked)`. Untracked hands → empty cells in samples, ignored by zones, events
@@ -314,6 +330,58 @@ Data flow:
   floor (press again within 5 s to override), loads warn, `placement_check` logs `head_m`. Test 4 (floor re-set in the Quest):
   head 1.56 m above the scene, ARM + participant Start logged, K1/K2/K4 taken with no glass/coffee entries; 7 entries were
   real steps onto the footprints. The floor guard itself wasn't in that build (headset-untested).
+- **Room layout v2 (session 6, user: props weren't placed properly; then scaled to 5 x 5 m: furniture centres x1.25,
+  clue/zone offsets kept):** numbers below are the 4 x 4 m version, see CaseSpecs for the 5 x 5 m ones; furniture against the edges,
+  middle open. Case X: display case centrepiece at the front (-0.75, 1.55) facing the start; reception desk (K2) on the
+  right (1.45, 0.45) facing the room; entrance in the back wall, back-right corner (1.35, -1.85, facing in; moved off the
+  right edge because it looked like it opened onto the desk); office desk (K4) on the left (-1.45, -0.75);
+  monitor (R3) on the left edge (-1.80, 0.25); evidence board at the back (0, -1.75). Clues/zones moved with their
+  furniture (K1 -0.55/1.28, K3 -0.50/1.22, R1 -0.32/1.60, R2 1.70/-1.45; glass -1.05/1.08, coffee beside the desk's
+  front end 1.45/1.22, footprints from the entrance towards the display 1.02/-1.32 yaw -32). Case Y mirrored. Mean clue
+  distance 1.64 m. `PropSpec.Yaw` (front direction) replaces CaseSceneTool's role yaw table. Desk chairs removed.
+- **Visual pass (user spec, session 6):** MR props only (no walls/ceilings). **Floors (user, session 6):** a semi-transparent (alpha 0.7,
+  `Props_Floor`, queue 2950) 5 x 5 m floor per case, just under y 0: Case X 0.5 m concrete tiles, Case Y floorboards; the
+  Case Y varnish zone decal is the same boards clipped to the zone (`Y_Z3_POSE` in build_props.py = CaseSpecs Y zone 3,
+  keep in sync). Floors and the varnish decal are built in Unity coordinates and mirrored on export (`to_maya`). Maya path (mayapy 2027 available):
+  `tools/maya/build_props.py` builds every mesh in code (metres, Y-up, one shared 32 x 32 (64-colour) palette texture via per-face
+  UVs, all edges hard) and exports one FBX each (`<name>_Body`, optional `_Glass`, zone `_Alpha` outline). Conventions:
+  props pivot on the floor, front +Z (**Unity's FBX import negates X** but keeps the look: in the script's Maya
+  coordinates a viewer in front of a +Z face has +X on the right, of a -Z face +X on the left; use `mirrored()`, not a
+  180 degree turn, to fix a left/right mistake) (CaseSceneTool turns them: display/desk 180, office 0, stand 90, door 0; Case Y
+  negated); grabbable clue meshes fill their collider box from the bottom centre; static clues centred, readable -Z.
+  Case X = modern studio (white/grey/black, teal/coral), Case Y = heritage gallery (wood, batik indigo/ochre/maroon).
+  Heights: display case on plinth 1.63 (glass case 0.66 tall so K1 fits at eye height), desks/tables 0.75, monitor 1.59, noticeboard 1.62,
+  door frames 2.0 / 2.1 (thin). Total ~15.1k triangles for both cases. Materials (`Art/Materials/Props`): URP Simple
+  Lit palette (no specular, no shadows), transparent glass/outline, Unlit front-culled hover shell, Unlit blob shadow.
+  `FYP > Build Case Scenes` keeps the functional objects (ids, colliders, grab/poke, tag buttons, zone triggers), removes
+  the grey primitive's renderer and adds a "Visual" child (counter-scaled on clues), a `ClueHighlight` shell wired to
+  WhenHover/WhenUnhover, blob shadows under furniture. **K1 (user, session 6)** = keypad alarm panel like the user's photo (12 x 18 cm,
+  LCD with the time, 4 x 4 round light-blue keys, LED, cover flap open on the left) mounted on the display case's side glass
+  at the front corner, lock side opposite the door hinge (X (-0.65, 1.81) facing +x; no post, nothing in the door's way). Clue collider boxes were resized so each slot
+  has the same size range in both cases (e.g. R2 17 x 13 cm sketch vs 13 x 8 cm card). Greybox name labels removed.
+  `Art/Materials/Greybox` is unused after a rebuild.
+- **Data upload to the laptop (user, session 6):** `DataUploader` (next to DataLogger) sends every study file (`*.csv`,
+  `*_meta.json`) to `tools/receive_data.py` on the laptop: the receiver broadcasts UDP `FYPDATA1|<port>` to 8766 every
+  2 s (fallback `ExperimentConfig.dataReceiverAddress/dataReceiverPort`), headset PUTs
+  `http://ip:8765/upload/quest-<id8>/<file>` with `X-Sha256`, receiver stores it in `StudyData/<date>/quest-<id8>/` and
+  replies `OK <sha>`; only then the file is in `upload_ledger.txt` (name|size|ticks|sha; changed files go again).
+  Never during a run, never deletes on the headset (pull_data.sh = backup); receiver keeps old versions
+  (`.old-<time>`) and logs `StudyData/receiver_log.csv`. Plain HTTP on the LAN: `PlayerSettings.insecureHttpOption =
+  AlwaysAllowed` (Set Up Networking) + `CleartextHttpBuildStep` (Gradle manifests). Status line on the setup panel.
+  Protocol in `DataTransfer` (pure) - keep receive_data.py in sync. Headset-untested.
+- **Evidence board look (user, session 6: "like an actual evidence board"):** cork board in a wooden frame (mesh
+  `EvidenceBoard` from build_props.py, readable side -Z, always visible, ledge with magnifier/markers) + transparent
+  canvas 1100 x 740 mm (centre 1.30 m): 4 suspect Polaroids (silhouette, name/role/alibi, pin, "PRIME SUSPECT" stamp),
+  8 pinned index cards ("PINNED" stamp), red strings chosen suspect -> chosen evidence (`EvidenceBoardView.UpdateStrings`,
+  prebuilt Images), tape headers, notepad summary, red SUBMIT stamp. Logic unchanged. Headset-untested.
+- **Depth occlusion (user, session 6):** Meta Depth API (`EnvironmentDepthManager`, core 207
+  `Scripts/EnvironmentDepth/`), soft occlusion, hands removed from depth; needs the USE_SCENE (spatial data) permission
+  (requested at startup; scene support Required). Every prop material is on `FYP/OccludedProp` (Art/Shaders: palette,
+  Simple-Lit-like diffuse, Meta macros, premultiplied output, `_EnvironmentDepthBias` 0.02 props / 0.06 floor-level
+  things against floor flicker, tune on the headset); world-space uGUI gets `FYP/OccludedUI` at start (`UiOcclusion`).
+  `DepthOcclusionMonitor` (Meta asm) -> `SessionManager.ReportDepthOcclusion` -> row `depth_occlusion`
+  (`when=session_start|change;status=active|waiting|no_permission|unsupported|off`). Same in both conditions.
+  Built by `FYP > Set Up Occlusion (Depth API)`. Headset-untested.
 - **Hand look:** participants see translucent dark "ghost" hands with a white rim (custom shader
   `FYP/GhostHand`: depth prepass + alpha-blended fresnel rim; tune Body Colour/Alpha and Outline Width/Sharpness
   on `HandGhost.mat`). The OVRHand system-gesture material swap is set to None.

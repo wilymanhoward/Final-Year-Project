@@ -89,6 +89,34 @@ namespace FYP.Detective
         /// <summary>Raised when the headset reset its tracking space (reported by the Meta adapter).</summary>
         public event Action TrackingRecentered;
 
+        /// <summary>Raised when the depth occlusion status changes (reported by the Meta adapter).</summary>
+        public event Action<DepthOcclusionStatus> DepthOcclusionChanged;
+
+        /// <summary>Current depth occlusion status (Off until the Meta adapter reports).</summary>
+        public DepthOcclusionStatus DepthOcclusion { get; private set; } = DepthOcclusionStatus.Off;
+
+        /// <summary>Called by the Meta adapter (DepthOcclusionMonitor) with the current status; raises on change only.</summary>
+        public void ReportDepthOcclusion(DepthOcclusionStatus status)
+        {
+            if (status == DepthOcclusion) return;
+            DepthOcclusion = status;
+            Debug.Log("[SessionManager] Depth occlusion: " + DepthOcclusionCode(status));
+            DepthOcclusionChanged?.Invoke(status);
+        }
+
+        /// <summary>Log text of a <see cref="DepthOcclusionStatus"/> (status= of depth_occlusion rows).</summary>
+        public static string DepthOcclusionCode(DepthOcclusionStatus status)
+        {
+            switch (status)
+            {
+                case DepthOcclusionStatus.Active: return "active";
+                case DepthOcclusionStatus.Waiting: return "waiting";
+                case DepthOcclusionStatus.NoPermission: return "no_permission";
+                case DepthOcclusionStatus.Unsupported: return "unsupported";
+                default: return "off";
+            }
+        }
+
         /// <summary>Tracking-space recenters reported since launch.</summary>
         public int RecenterCount { get; private set; }
 
@@ -343,7 +371,8 @@ namespace FYP.Detective
         }
 
         /// <summary>A clue this headset controls was put back home (logging only, never networked).</summary>
-        public void RequestClueReset(string clueId) => State.RecordClueReset(clueId, LocalActor);
+        public void RequestClueReset(string clueId, ClueResetReason reason = ClueResetReason.OutOfBounds) =>
+            State.RecordClueReset(clueId, LocalActor, ClueBounds.ReasonText(reason));
 
         /// <summary>Answer from the evidence board. Team mode: the first submission (either partner) ends both runs.</summary>
         public void RequestSubmit(string suspectId, IReadOnlyList<string> evidenceIds)

@@ -71,6 +71,7 @@ namespace FYP.Detective
         public const string HandTrackingLost = "hand_tracking_lost";
         public const string HandTrackingRegained = "hand_tracking_regained";
         public const string ClueReset = "clue_reset";
+        public const string DepthOcclusion = "depth_occlusion";
         // Networking (Week 3). Written only while a run is open, like every event row.
         public const string NetPeerConnected = "net_peer_connected";
         public const string NetPeerDisconnected = "net_peer_disconnected";
