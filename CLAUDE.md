@@ -440,11 +440,14 @@ Data flow:
 
 ## Current status
 
-_Last updated: session 6 (2026-10-15). All planned phases are done (Week 2 A–E, Week 3 Phases 1–3). Work in phases,
+_Last updated: session 6 (2026-10-17). All planned phases are done (Week 2 A–E, Week 3 Phases 1–3) plus the visual pass,
+clue gravity, floors, depth occlusion, data upload and the new evidence board look. Work in phases,
 stop after each for the user's headset test, commit only after the user confirms it works._
 
 **Where we are (start here)**
-- `main` = `4ef03e1`. EditMode tests **212/212** (batch, session 6). `FYP > Prepare Study Build` report all OK (user).
+- `main` = `52b4c48` (committed at the user's request **before** a headset test of the session-6 additions).
+  EditMode tests **228/228** (batch). Setup order in Unity: Build Case Scenes -> Set Up Networking -> Set Up Evidence
+  Board -> Set Up Occlusion (Depth API) -> Prepare Study Build.
 - Headsets: `2G0YC5ZG4M00Z6` = **P01, host**; `2G0YC5ZG970B12` = **P02, client** (its experiment_config.json was set to
   P02). Campus Wi-Fi works headset-to-headset; IPs come from DHCP (discovery makes them irrelevant; `hostAddress` is
   only the fallback).
@@ -457,7 +460,11 @@ stop after each for the user's headset test, commit only after the user confirms
    covers everything not yet headset-tested: Case Y (mirrored room); shared evidence board in a team run; a fully
    correct submission (culprit + K1–K4 → `answer_correct 1`, evidence score 4); taking a clue from the partner's hand
    (`clue_grab_taken`); ARM/Start across two headsets; the floor guard ("Floor looks wrong…"); `head_m` in
-   `placement_check`. Pull with `bash tools/pull_data.sh` and check the rows listed in the checklist.
+   `placement_check`. New since then, also headset-untested: the visual pass (props, K1 keypad, desks, hanging
+   noticeboard/monitor), floors (alpha 0.7, depth bias), clue gravity (drop, `clue_reset reason=in_zone`, team sync),
+   depth occlusion (`depth_occlusion status=active`, 72 fps), data upload (`python tools/receive_data.py`, setup panel
+   "0 waiting"), the evidence board look (readable at 1 m, poking tilted cards, red strings).
+   Pull with `bash tools/pull_data.sh` (or the receiver) and check the rows listed in the checklist.
 2. Answer the open questions below, then a pilot with real participants.
 3. Later (not built, don't start without the user): interpersonal distance and shared head-gaze attention analysis.
 
