@@ -11,6 +11,7 @@ are for the experimenter only; participants use their hands.
    3. **FYP > Set Up Evidence Board**
    4. **FYP > Set Up Headset UI**
    5. **FYP > Set Up Occlusion (Depth API)**
+   6. **FYP > Set Up Briefing Detective** (after any new voice files)
 2. Run **FYP > Prepare Study Build**. Every line must say OK, and it switches the debug messages off.
    **FYP > Restore Debug Settings** switches them back on for development.
 3. Build And Run to **both** headsets: `…4M00Z6` = P01 (host), `…970B12` = P02 (client).
@@ -52,8 +53,10 @@ are for the experimenter only; participants use their hands.
      **X (Manual)** on the tape mark facing the same wall.
 4. Press **ARM**. ARM is refused if the condition doesn't match the connection (the panel says why). The briefing card
    appears; in team runs it appears on both headsets.
-5. Hand over the headset(s). The card moves in front of the participant; they read the story and poke **Start**.
-   (Fallback: **Start now** on the panel / hold the right stick.)
+5. Hand over the headset(s). The card moves in front of the participant; they poke **Begin briefing**, Inspector Hart
+   appears and explains the case (about a minute; **Replay** afterwards if needed), then they poke **Start** (team runs:
+   Start appears once both partners have heard the briefing). Without a detective in the scene the card shows the story
+   as text instead. (Fallback: **Start now** on the panel / hold the right stick - logged as `heard=0` if it skips it.)
 6. During the run: don't intervene. If a partner disconnects, the run continues and an `incident` row is logged.
    To stop early: hold the **left stick** (= Aborted).
 7. The run ends when the answer is submitted on the evidence board (or after 15 min). The card says "Case closed" /
@@ -80,8 +83,11 @@ are for the experimenter only; participants use their hands.
 - `session_start` has `start_source=participant_start` and a `run_armed` row follows it.
 - `placement_check` at session start: `ok=1` and `head_m` about 1.5-1.8 (a standing participant).
 - Team runs: `team=1` in `session_start`, `by=P01/P02` on clue and board rows, condition `B` in the filename.
+- `briefing` row at session start: `heard=1` (and `partner_heard=1` in team runs); `replays` = how often it was replayed.
 - `depth_occlusion` at session start: `status=active` (else `no_permission` = allow spatial data; `waiting` = no
   depth yet). Team runs: walk behind a desk - the desk should hide your partner's legs, not be drawn over them.
+- Toss: a gentle toss flies about a metre, a hard throw is slowed to 2 m/s; both log `clue_thrown` (`capped=1` for
+  the hard one). Tell participants not to run after objects.
 - Clue gravity: a clue let go in the air drops onto the desk / floor and stays put; one dropped into a zone goes back
   home and logs `clue_reset` with `reason=in_zone`. Team runs: the partner sees it fall too.
 

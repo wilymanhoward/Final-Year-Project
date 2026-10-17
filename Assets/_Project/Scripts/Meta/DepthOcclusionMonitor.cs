@@ -10,7 +10,9 @@ namespace FYP.Detective.Meta
     /// SDK 207, Scripts/EnvironmentDepth/EnvironmentDepthManager.cs): <c>EnvironmentDepthManager.IsSupported</c> (static),
     /// <c>IsDepthAvailable</c>; the manager waits for <c>OVRPermissionsRequester.ScenePermission</c>
     /// ("com.oculus.permission.USE_SCENE", Scripts/OVRPermissionsRequester.cs:96), checked here the same way.
-    /// Added next to the manager by FYP > Set Up Occlusion.
+    /// Added next to the manager by FYP > Set Up Occlusion. Also applies the setup panel's on/off toggle
+    /// (<see cref="ExperimentConfig.occlusionEnabled"/>): off disables the EnvironmentDepthManager, which stops depth
+    /// sensing (its OnDisable turns the provider off) and logs status=off.
     /// </summary>
     public class DepthOcclusionMonitor : MonoBehaviour
     {
@@ -24,6 +26,25 @@ namespace FYP.Detective.Meta
         {
             if (depth == null) depth = FindFirstObjectByType<EnvironmentDepthManager>();
             if (session == null) session = FindFirstObjectByType<SessionManager>();
+        }
+
+        private void OnEnable()
+        {
+            if (session != null) session.ConfigChanged += ApplyToggle;
+        }
+
+        private void OnDisable()
+        {
+            if (session != null) session.ConfigChanged -= ApplyToggle;
+        }
+
+        private void Start() => ApplyToggle();
+
+        private void ApplyToggle()
+        {
+            if (depth == null || session == null) return;
+            bool wanted = session.Config.occlusionEnabled;
+            if (depth.enabled != wanted) depth.enabled = wanted;
         }
 
         private void Update()

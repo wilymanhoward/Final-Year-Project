@@ -14,7 +14,9 @@
         "Unity.Netcode.Runtime",
         "Unity.Networking.Transport",
         "UnityEngine.UI",
-        "Meta.XR.EnvironmentDepth"
+        "Meta.XR.EnvironmentDepth",
+        "Unity.XR.OpenXR",
+        "Unity.XR.MetaOpenXR"
     ],
     "includePlatforms": [
         "Editor"
@@ -25,6 +27,12 @@
     "precompiledReferences": [],
     "autoReferenced": false,
     "defineConstraints": [],
-    "versionDefines": [],
+    "versionDefines": [
+        {
+            "name": "com.unity.xr.meta-openxr",
+            "expression": "2.1.0",
+            "define": "FYP_OPENXR_META"
+        }
+    ],
     "noEngineReferences": false
 }

@@ -15,6 +15,12 @@ namespace FYP.Detective
         ReqBoardSuspect, BoardSuspect, ReqBoardEvidence, BoardEvidence,
         /// <summary>A contamination entry of the sender's body (both directions).</summary>
         Contamination,
+        /// <summary>The sender's briefing (detective) finished (both directions; Start waits for both).</summary>
+        BriefingDone,
+        /// <summary>Team briefing: the client tapped Begin (with its pose); the host starts both once both have.</summary>
+        ReqBriefingReady,
+        /// <summary>Team briefing: start now, with the shared detective spot (host -> client).</summary>
+        BriefingGo,
     }
 
     /// <summary>
@@ -33,6 +39,9 @@ namespace FYP.Detective
     ///   Arm                          1|0, caseCode (the host's case, so the client shows the right briefing)
     ///   ReqBoardSuspect / BoardSuspect      suspect ("-" = none), by
     ///   ReqBoardEvidence / BoardEvidence    clue, 1|0, by
+    ///   BriefingDone                 by
+    ///   ReqBriefingReady             by, x, z, yaw          (CaseRoot-local floor pose of the sender)
+    ///   BriefingGo                   x, z, yaw, ax, az, bx, bz (detective spot; A = host, B = client)
     /// </summary>
     public sealed class TeamMessage
     {
@@ -78,6 +87,19 @@ namespace FYP.Detective
 
         private static string SuspectField(string suspect) => string.IsNullOrEmpty(suspect) ? NoSuspect : Id(suspect);
 
+        public static string BriefingDone(string by) => Join(TeamMessageKind.BriefingDone, Id(by));
+        public static string ReqBriefingReady(string by, PlayerPose2D pose) =>
+            Join(TeamMessageKind.ReqBriefingReady, Id(by), F(pose.X), F(pose.Z), F(pose.Yaw));
+        public static string BriefingGo(BriefingSpot s) =>
+            Join(TeamMessageKind.BriefingGo, F(s.X), F(s.Z), F(s.Yaw), F(s.AX), F(s.AZ), F(s.BX), F(s.BZ));
+
+        /// <summary>ReqBriefingReady: the sender's pose. BriefingGo: the shared spot.</summary>
+        public PlayerPose2D Pose { get; private set; }
+        public BriefingSpot Spot { get; private set; }
+
+        private static string F(float v) => v.ToString("0.###", CultureInfo.InvariantCulture);
+        private static bool TryF(string s, out float v) =>
+            float.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out v) && !float.IsNaN(v) && !float.IsInfinity(v);
         public static string ReqArm(bool armed) => Join(TeamMessageKind.ReqArm, armed ? "1" : "0");
         public static string Arm(bool armed, string caseCode) => Join(TeamMessageKind.Arm, armed ? "1" : "0", Id(caseCode));
 
@@ -152,6 +174,24 @@ namespace FYP.Detective
                     m.Armed = f[1] == "1";
                     m.CaseCode = f[2];
                     break;
+                case TeamMessageKind.BriefingDone:
+                    if (f.Length != 2 || !IsSendableId(f[1])) return false;
+                    m.By = f[1];
+                    break;
+                case TeamMessageKind.ReqBriefingReady:
+                    if (f.Length != 5 || !IsSendableId(f[1]) || !TryF(f[2], out float px) || !TryF(f[3], out float pz)
+                        || !TryF(f[4], out float pyaw)) return false;
+                    m.By = f[1];
+                    m.Pose = new PlayerPose2D(px, pz, pyaw);
+                    break;
+                case TeamMessageKind.BriefingGo:
+                {
+                    if (f.Length != 8) return false;
+                    var v = new float[7];
+                    for (int i = 0; i < 7; i++) if (!TryF(f[i + 1], out v[i])) return false;
+                    m.Spot = new BriefingSpot(v[0], v[1], v[2], v[3], v[4], v[5], v[6]);
+                    break;
+                }
                 case TeamMessageKind.Contamination:
                     if (f.Length != 4 || !IsSendableId(f[1]) || !Enum.TryParse(f[2], false, out BodyPart part)
                         || !Enum.IsDefined(typeof(BodyPart), part) || !IsSendableId(f[3])) return false;

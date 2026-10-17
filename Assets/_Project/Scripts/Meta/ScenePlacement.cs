@@ -334,9 +334,14 @@ namespace FYP.Detective.Meta
                 var anchor = go.AddComponent<OVRSpatialAnchor>();
                 unbound.BindTo(anchor);
 
-                UseAnchor(anchor);
+                // The anchor is at the host's floor estimate; stand the scene on this headset's own floor instead
+                // (same position and heading), otherwise the height check fails on every join.
+                float floorY = trackingSpace != null ? trackingSpace.position.y : 0f;
+                float heightCorrection = floorY - go.transform.position.y;
+                UseAnchor(anchor, floorY);
                 Commit(PlacementMethod.SharedAnchor, true, anchorUuid.ToString("D"));
-                ReportPlaced(StatusSharedLoaded);
+                Debug.Log($"[ScenePlacement] Shared anchor loaded; scene moved {heightCorrection:+0.000;-0.000} m onto this headset's floor");
+                ReportPlaced(StatusSharedLoaded + $" - height matched to this floor ({heightCorrection * 100f:+0;-0} cm)");
                 WarnIfLoadedFloorLooksWrong();
             }
             catch (Exception e)
@@ -472,11 +477,12 @@ namespace FYP.Detective.Meta
         }
 
         /// <summary>CaseRoot follows <paramref name="anchor"/>; any previous anchor object is destroyed.</summary>
-        private void UseAnchor(OVRSpatialAnchor anchor)
+        private void UseAnchor(OVRSpatialAnchor anchor, float? floorY = null)
         {
             if (_anchor != anchor) ReleaseAnchor();
             _anchor = anchor;
-            caseRoot.AttachTo(anchor.transform);
+            if (floorY.HasValue) caseRoot.AttachToOnFloor(anchor.transform, floorY.Value);
+            else caseRoot.AttachTo(anchor.transform);
             EndOperation();
         }
 

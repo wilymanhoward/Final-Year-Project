@@ -67,6 +67,8 @@ namespace FYP.Detective
 
         public void ToggleCondition() => EditConfig(c => c.condition = c.condition == StudyCondition.A ? StudyCondition.B : StudyCondition.A);
         public void ToggleCase() => EditConfig(c => c.caseId = c.caseId == CaseId.X ? CaseId.Y : CaseId.X);
+        /// <summary>Setup panel: Depth API occlusion on/off for this headset (between runs only, saved with the config).</summary>
+        public void ToggleOcclusion() => EditConfig(c => c.occlusionEnabled = !c.occlusionEnabled);
         public void NextParticipant() => EditConfig(c => c.participantId = ExperimentConfig.StepCode(c.participantId, 1));
         public void PreviousParticipant() => EditConfig(c => c.participantId = ExperimentConfig.StepCode(c.participantId, -1));
         public void NextPair() => EditConfig(c => c.pairCode = ExperimentConfig.StepCode(c.pairCode, 1));

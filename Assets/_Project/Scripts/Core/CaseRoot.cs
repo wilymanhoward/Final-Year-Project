@@ -25,6 +25,17 @@ namespace FYP.Detective
             transform.localRotation = Quaternion.identity;
         }
 
+        /// <summary>
+        /// Follows an anchor, but standing on <paramref name="floorY"/> and level (shared anchors from the partner's
+        /// headset, whose floor estimate differs a little; see PlacementMath.FloorAlignedPose).
+        /// </summary>
+        public void AttachToOnFloor(Transform anchor, float floorY)
+        {
+            transform.SetParent(anchor, false);
+            Pose pose = PlacementMath.FloorAlignedPose(anchor.position, anchor.rotation, floorY);
+            transform.SetPositionAndRotation(pose.position, pose.rotation);   // kept as a local offset under the anchor
+        }
+
         /// <summary>Unparents while keeping the current world pose (call before an anchor object is destroyed).</summary>
         public void Detach()
         {

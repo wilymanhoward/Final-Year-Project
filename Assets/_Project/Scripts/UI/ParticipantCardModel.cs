@@ -7,13 +7,18 @@ namespace FYP.Detective
         public readonly string Title;
         public readonly string Body;
         public readonly bool ShowStart;
+        /// <summary>Briefing detective: "Begin briefing" (before it played) and "Replay" (after).</summary>
+        public readonly bool ShowBegin;
+        public readonly bool ShowReplay;
 
-        public ParticipantCardView(bool visible, string title, string body, bool showStart)
+        public ParticipantCardView(bool visible, string title, string body, bool showStart, bool showBegin = false, bool showReplay = false)
         {
             Visible = visible;
             Title = title;
             Body = body;
             ShowStart = showStart;
+            ShowBegin = showBegin;
+            ShowReplay = showReplay;
         }
 
         public static readonly ParticipantCardView Hidden = new ParticipantCardView(false, "", "", false);
@@ -27,11 +32,36 @@ namespace FYP.Detective
     {
         public const string BriefingTitle = "Your case";
         public const string StartLabel = "Start";
+        public const string BeginLabel = "Begin briefing";
+        public const string ReplayLabel = "Replay";
 
+        /// <param name="briefing">Stage of the detective's briefing, or null when there is no detective (card shows the story).</param>
+        /// <param name="canStart">With a detective: Start is allowed (briefing done, and the partner's in team runs).</param>
         public static ParticipantCardView Compute(bool armed, SessionPhase phase, SessionEndReason? endReason, bool teamRun,
-            string caseTitle = null, string caseBriefing = null)
+            string caseTitle = null, string caseBriefing = null, BriefingStage? briefing = null, bool canStart = true)
         {
             if (phase == SessionPhase.Running) return ParticipantCardView.Hidden;
+
+            if (armed && briefing.HasValue)
+            {
+                string title = string.IsNullOrEmpty(caseTitle) ? BriefingTitle : caseTitle;
+                switch (briefing.Value)
+                {
+                    case BriefingStage.NotStarted:
+                        return new ParticipantCardView(true, title,
+                            "Inspector Hart will explain your case.\n\nTap Begin briefing when you are ready to listen.", false, true, false);
+                    case BriefingStage.Playing:
+                        return ParticipantCardView.Hidden;   // out of the way while the detective talks
+                    case BriefingStage.WaitingForPartner:
+                        return new ParticipantCardView(true, title,
+                            "Waiting for your partner to tap Begin briefing...", false, false, false);
+                    default:
+                        if (!canStart)
+                            return new ParticipantCardView(true, title,
+                                "Waiting for your partner to finish the briefing...", false, false, true);
+                        return new ParticipantCardView(true, title, Instructions(teamRun), true, false, true);
+                }
+            }
 
             if (armed)
             {
@@ -59,5 +89,11 @@ namespace FYP.Detective
             }
             return ParticipantCardView.Hidden;
         }
+
+        private static string Instructions(bool teamRun) => teamRun
+            ? "Work together with your partner. Tag the evidence, choose the suspect and the evidence on the evidence " +
+              "board, and submit. Don't step into the marked areas.\n\nTap Start when you are both ready."
+            : "Tag the evidence, choose the suspect and the evidence on the evidence board, and submit. " +
+              "Don't step into the marked areas.\n\nTap Start when you are ready.";
     }
 }

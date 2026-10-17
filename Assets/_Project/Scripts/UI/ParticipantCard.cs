@@ -17,12 +17,17 @@ namespace FYP.Detective
         [SerializeField] private Text title;
         [SerializeField] private Text body;
         [SerializeField] private GameObject startButton;
+        [Tooltip("Briefing detective (session 6): its Begin / Replay buttons; empty = found in the scene, none = old card.")]
+        [SerializeField] private DetectiveBriefing briefing;
+        [SerializeField] private GameObject beginButton;
+        [SerializeField] private GameObject replayButton;
         [Tooltip("Distance in front of the head when the card appears (within arm's reach for poking).")]
         [SerializeField, Min(0.2f)] private float distance = 0.45f;
         [SerializeField] private float heightOffset = -0.15f;
 
         private bool _visible;
         private string _shownTitle;
+        private string _shownBody;
         private float _outOfViewSince = -1f;
 
         // Re-place the card when it has been out of view or reach this long (e.g. after the headset is handed over).
@@ -34,7 +39,20 @@ namespace FYP.Detective
         {
             if (session == null) session = FindFirstObjectByType<SessionManager>();
             if (head == null && Camera.main != null) head = Camera.main.transform;
+            if (briefing == null) briefing = FindFirstObjectByType<DetectiveBriefing>();
             if (content != null) content.SetActive(false);
+        }
+
+        /// <summary>Hook for the Begin briefing button.</summary>
+        public void PressBegin()
+        {
+            if (briefing != null) briefing.BeginBriefing();
+        }
+
+        /// <summary>Hook for the Replay button.</summary>
+        public void PressReplay()
+        {
+            if (briefing != null) briefing.Replay();
         }
 
         /// <summary>Hook for the Start button.</summary>
@@ -48,15 +66,18 @@ namespace FYP.Detective
             if (session == null) return;
             var s = session.State;
             CaseDefinition def = session.ActiveCase;
+            bool hasBriefing = briefing != null && briefing.isActiveAndEnabled;
             ParticipantCardView view = ParticipantCardModel.Compute(
                 session.IsArmed, s.Phase, s.EndReason, session.IsTeamMode || s.IsTeamRun,
-                def != null ? def.Title : null, def != null ? def.Briefing : null);
+                def != null ? def.Title : null, def != null ? def.Briefing : null,
+                hasBriefing ? briefing.Stage : (BriefingStage?)null, session.CanParticipantStart);
 
-            if (view.Visible != _visible || (view.Visible && view.Title != _shownTitle))
+            if (view.Visible != _visible || (view.Visible && (view.Title != _shownTitle || view.Body != _shownBody)))
             {
                 if (view.Visible) PlaceInFront();   // re-place when it appears or changes, then keep it still
                 _visible = view.Visible;
                 _shownTitle = view.Title;
+                _shownBody = view.Body;
                 if (content != null) content.SetActive(view.Visible);
             }
             if (!view.Visible) return;
@@ -64,6 +85,8 @@ namespace FYP.Detective
             if (title != null) title.text = view.Title;
             if (body != null) body.text = view.Body;
             if (startButton != null && startButton.activeSelf != view.ShowStart) startButton.SetActive(view.ShowStart);
+            if (beginButton != null && beginButton.activeSelf != view.ShowBegin) beginButton.SetActive(view.ShowBegin);
+            if (replayButton != null && replayButton.activeSelf != view.ShowReplay) replayButton.SetActive(view.ShowReplay);
         }
 
         private void KeepReachable()

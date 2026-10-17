@@ -72,6 +72,7 @@ namespace FYP.Detective
             s.ContaminationRecorded += HandleContamination;
             s.AnswerSubmitted += HandleAnswerSubmitted;
             s.ClueReset += HandleClueReset;
+            s.ClueThrown += HandleClueThrown;
             s.PartnerContaminationRecorded += HandlePartnerContamination;
             s.ClueGrabTaken += HandleClueGrabTaken;
             s.BoardSuspectSelected += HandleBoardSuspect;
@@ -97,6 +98,7 @@ namespace FYP.Detective
                 s.ContaminationRecorded -= HandleContamination;
                 s.AnswerSubmitted -= HandleAnswerSubmitted;
                 s.ClueReset -= HandleClueReset;
+                s.ClueThrown -= HandleClueThrown;
                 s.PartnerContaminationRecorded -= HandlePartnerContamination;
                 s.ClueGrabTaken -= HandleClueGrabTaken;
                 s.BoardSuspectSelected -= HandleBoardSuspect;
@@ -204,6 +206,7 @@ namespace FYP.Detective
             _pendingPlacementCheckAt = -1;
             LogPlacementCheck("session_start");
             LogDepthOcclusion("session_start");
+            LogBriefing();
             WriteSnapshot();
             _nextSnapshotTime = now + snapshotIntervalSeconds;
             Debug.Log("[DataLogger] Logging to " + path);
@@ -244,6 +247,18 @@ namespace FYP.Detective
 
         // A recenter changes the tracking space; the anchor pose settles over the next frames, so the height is
         // logged again 1 s later.
+        // The detective's briefing happens before the run (no file open), so it is summarised at session start:
+        // when it began and finished (UTC), replays, whether this headset heard it to the end (and the partner, team).
+        private void LogBriefing()
+        {
+            if (_writer == null || !session.BriefingRequired) return;
+            string Utc(DateTime t) => t == DateTime.MinValue ? "" : PlacementRecord.FormatUtc(t);
+            LogEvent(LogEvents.Briefing, "started_utc=" + Utc(session.BriefingStartedUtc) + ";finished_utc=" + Utc(session.BriefingFinishedUtc)
+                + ";replays=" + session.BriefingReplays.ToString(CultureInfo.InvariantCulture)
+                + ";heard=" + (session.LocalBriefingDone ? "1" : "0")
+                + (session.State.IsTeamRun ? ";partner_heard=" + (session.PartnerBriefingDone ? "1" : "0") : ""));
+        }
+
         // Depth occlusion (Meta Depth API) status at session start and on every change during the run.
         private void HandleDepthOcclusionChanged(DepthOcclusionStatus status) => LogDepthOcclusion("change");
 
@@ -365,6 +380,8 @@ namespace FYP.Detective
         private void HandleClueTagged(string clueId) => LogEvent(LogEvents.ClueTagged, clueId + ByField());
         private void HandleClueUntagged(string clueId) => LogEvent(LogEvents.ClueUntagged, clueId + ByField());
         private void HandleClueReset(string clueId) => LogEvent(LogEvents.ClueReset, clueId + ResetReasonField() + ByField());
+        private void HandleClueThrown(string clueId) => LogEvent(LogEvents.ClueThrown, clueId + FormattableString.Invariant(
+            $";speed={session.State.LastThrowSpeed:F2};capped={(session.State.LastThrowCapped ? 1 : 0)}") + ByField());
         private void HandleClueGrabTaken(string clueId) => LogEvent(LogEvents.ClueGrabTaken, clueId + ByField());
 
         private void HandleBoardSuspect(string suspectId) =>

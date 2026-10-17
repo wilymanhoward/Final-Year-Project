@@ -168,6 +168,14 @@ namespace FYP.Detective
         public event Action<ContaminationInfo> ContaminationRecorded;
         public event Action<AnswerResult> AnswerSubmitted;
         public event Action<string> ClueReset;
+        /// <summary>A clue was tossed (logging only; see <see cref="RecordClueThrown"/>).</summary>
+        public event Action<string> ClueThrown;
+
+        /// <summary>Release speed (m/s, before the cap) of the last reported toss.</summary>
+        public float LastThrowSpeed { get; private set; }
+
+        /// <summary>True if the last reported toss was faster than the cap and slowed down to it.</summary>
+        public bool LastThrowCapped { get; private set; }
         /// <summary>Team runs: the partner's body entered a zone (already counted on their headset).</summary>
         public event Action<ContaminationInfo> PartnerContaminationRecorded;
         /// <summary>Team runs: the partner grabbed a clue this headset was holding (last grabber wins).</summary>
@@ -314,6 +322,21 @@ namespace FYP.Detective
         /// came to rest in an exclusion zone; <paramref name="reason"/>, see <see cref="LastResetReason"/>).
         /// Not game state; raised for logging. Only while running.
         /// </summary>
+        /// <summary>
+        /// Reports that a clue was tossed (released faster than the toss threshold, user decision session 6: capped toss
+        /// with logging). <paramref name="speed"/> is the measured release speed, <paramref name="capped"/> whether it
+        /// was limited to the cap. Not game state; raised for logging. Only while running.
+        /// </summary>
+        public bool RecordClueThrown(string clueId, string by, float speed, bool capped)
+        {
+            if (!IsRunning || string.IsNullOrEmpty(clueId)) return false;
+            LastActorId = by;
+            LastThrowSpeed = speed;
+            LastThrowCapped = capped;
+            ClueThrown?.Invoke(clueId);
+            return true;
+        }
+
         public bool RecordClueReset(string clueId, string by = null, string reason = null)
         {
             if (!IsRunning || string.IsNullOrEmpty(clueId)) return false;
