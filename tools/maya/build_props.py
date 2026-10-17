@@ -11,7 +11,7 @@ books, doors ajar); each material has 2-3 tones in the palette so insets and und
 Props are a few hundred to ~1,500 triangles each.
 
 Conventions (the Unity side, CaseSceneTool, relies on them):
-- Metres, Y-up. One shared 32 x 32 palette texture (8 x 8 cells): every face's UVs point at the centre of one cell, so
+- Metres, Y-up. One shared 32 x 36 palette texture (8 x 9 cells): every face's UVs point at the centre of one cell, so
   the meshes work with URP Simple Lit / Unlit (which ignore vertex colours).
 - Props: pivot on the floor at the centre of the footprint, front faces +Z. Footprints match CaseSpecs props (width
   along local X, depth along local Z; the stand is turned 90 degrees in Unity, so its width is the spec depth). Set
@@ -46,7 +46,7 @@ SCENES = os.path.join(HERE, "scenes")
 TRIANGLE_BUDGET = 50000
 
 # ---------------------------------------------------------------------------------------------------------------
-# Palette: 8 x 8 cells of 4 x 4 px (32 x 32 texture). Order matters (UVs point at cells by index).
+# Palette: 8 x 9 cells of 4 x 4 px (32 x 36 texture). Order matters (UVs point at cells by index).
 # Tones: <name> base, <name>_lt lighter, <name>_dk darker.
 # ---------------------------------------------------------------------------------------------------------------
 PALETTE = [
@@ -66,9 +66,12 @@ PALETTE = [
     ("water", (118, 170, 220)), ("water_lt", (170, 206, 236)), ("varnish", (206, 142, 52)), ("varnish_dk", (160, 104, 34)),
     ("shard", (220, 244, 255)), ("shard_dk", (170, 210, 228)), ("outline", (242, 242, 242)), ("chrome", (210, 214, 220)),
     ("rubber", (44, 44, 46)), ("lamp", (255, 236, 170)), ("skin_card", (232, 226, 214)), ("key", (166, 206, 236)),
+    # Row 9 (session 6): the briefing detective.
+    ("skin", (224, 176, 140)), ("skin_dk", (190, 140, 106)), ("coat", (196, 160, 104)), ("coat_dk", (156, 122, 74)),
+    ("hat", (78, 62, 50)), ("hat_dk", (50, 40, 32)), ("lip", (150, 84, 70)), ("eye", (30, 30, 36)),
 ]
-assert len(PALETTE) == 64
-COLS, ROWS, CELL = 8, 8, 4
+assert len(PALETTE) == 72
+COLS, ROWS, CELL = 8, 9, 4
 C = {name: i for i, (name, _) in enumerate(PALETTE)}
 
 
@@ -776,6 +779,387 @@ def evidence_board():
     return to_maya(p)
 
 
+# ---------------------------------------------------------------------------------------------------------------
+# Briefing detective (session 6, user): "Inspector Hart", stylised faceted low-poly (user's reference: slender
+# proportions, organic shapes made of visible triangular facets, line eyes, real hands, clothing details).
+# Built with lofts: shaped cross-section rings swept along a body part and joined by triangles (with a little seeded
+# irregularity so the facets read), flat shaded. Four parts so Unity can animate them without a rig
+# (DetectiveBriefing): body (pivot on the floor), head (pivot at the neck, DETECTIVE_HEAD_AT), moustache (pivot at its
+# centre, DETECTIVE_MOUSTACHE_AT in head space), right arm with a magnifying glass (pivot at the shoulder,
+# DETECTIVE_ARM_AT). Built in Unity coordinates (+Z = front), mirrored on export. Keep the offsets in sync with
+# CharacterSetupTool (Unity).
+# ---------------------------------------------------------------------------------------------------------------
+DETECTIVE_HEAD_AT = (0.0, 1.585, 0.012)
+DETECTIVE_MOUSTACHE_AT = (0.0, 0.074, 0.124)
+DETECTIVE_ARM_AT = (0.195, 1.425, -0.005)
+DETECTIVE_ARM_L_AT = (-0.195, 1.425, -0.005)
+DETECTIVE_EYES_AT = (0.0, 0.14, 0.1155)     # head space
+DETECTIVE_ELBOW_R_AT = (0.035, -0.27, -0.01)    # right shoulder space: forearm pivot
+DETECTIVE_ELBOW_L_AT = (-0.04, -0.275, -0.025)  # left shoulder space: forearm pivot
+DETECTIVE_MOUTH_AT = (0.0, 0.053, 0.119)    # head space
+
+
+def _v_add(a, b): return (a[0] + b[0], a[1] + b[1], a[2] + b[2])
+def _v_sub(a, b): return (a[0] - b[0], a[1] - b[1], a[2] - b[2])
+def _v_mul(a, s): return (a[0] * s, a[1] * s, a[2] * s)
+def _v_cross(a, b): return (a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0])
+
+
+def _v_norm(a):
+    l = math.sqrt(a[0] * a[0] + a[1] * a[1] + a[2] * a[2]) or 1.0
+    return (a[0] / l, a[1] / l, a[2] / l)
+
+
+def ring_y(y, rx, rz, n, cx=0.0, cz=0.0, shape=None, phase=0.5, jitter=0.0, rnd=None):
+    """Horizontal ring (constant y): ellipse rx x rz, optionally reshaped by shape(angle) -> radius factor.
+    Angle 0 = +X, pi/2 = +Z (front)."""
+    pts = []
+    for i in range(n):
+        a = 2 * math.pi * (i + phase) / n
+        f = shape(a) if shape else 1.0
+        if rnd is not None and jitter > 0: f *= 1.0 + rnd.range(-jitter, jitter)
+        pts.append((cx + math.cos(a) * rx * f, y, cz + math.sin(a) * rz * f))
+    return pts
+
+
+def ring_at(center, direction, ra, rb, n, up=(0.0, 0.0, 1.0), phase=0.5, jitter=0.0, rnd=None):
+    """Ring around `direction` through `center`: radius ra along the side axis, rb along the `up`-ish axis."""
+    d = _v_norm(direction)
+    side = _v_cross(d, up)
+    if abs(side[0]) + abs(side[1]) + abs(side[2]) < 1e-6: side = _v_cross(d, (1.0, 0.0, 0.0))
+    side = _v_norm(side)
+    fwd = _v_norm(_v_cross(side, d))
+    pts = []
+    for i in range(n):
+        a = 2 * math.pi * (i + phase) / n
+        f = 1.0 + (rnd.range(-jitter, jitter) if rnd is not None and jitter > 0 else 0.0)
+        pts.append(_v_add(center, _v_add(_v_mul(side, math.cos(a) * ra * f), _v_mul(fwd, math.sin(a) * rb * f))))
+    return pts
+
+
+def loft(p, rings, cols, cap_start=True, cap_end=True):
+    """Joins consecutive rings (same point count) with triangles, faces pointing away from the ring centres.
+    cols: one colour or a list per segment."""
+    if isinstance(cols, int): cols = [cols] * (len(rings) - 1)
+    centres = [tuple(sum(q[k] for q in r) / len(r) for k in range(3)) for r in rings]
+    n = len(rings[0])
+    for s in range(len(rings) - 1):
+        a, b = rings[s], rings[s + 1]
+        mid = _v_mul(_v_add(centres[s], centres[s + 1]), 0.5)
+        for i in range(n):
+            j = (i + 1) % n
+            p.face_out([a[i], a[j], b[j]], cols[s], mid)
+            p.face_out([a[i], b[j], b[i]], cols[s], mid)
+    if cap_start: p.face_out(rings[0], cols[0], centres[1])
+    if cap_end: p.face_out(rings[-1], cols[-1], centres[-2])
+
+
+def limb(p, path, n, col, up=(0.0, 0.0, 1.0), cap_start=True, cap_end=True, jitter=0.03, seed=1):
+    """Tube along path [(point, ra, rb), ...] with rings perpendicular to the local direction."""
+    rnd = Rand(seed)
+    rings = []
+    for k, (pt, ra, rb) in enumerate(path):
+        prev = path[max(0, k - 1)][0]
+        nxt = path[min(len(path) - 1, k + 1)][0]
+        rings.append(ring_at(pt, _v_sub(nxt, prev), ra, rb, n, up, jitter=jitter if 0 < k < len(path) - 1 else 0.0, rnd=rnd))
+    loft(p, rings, col, cap_start, cap_end)
+
+
+def hand(p, wrist, direction, palm_normal, size=1.0, curl=0.5, thumb=1.0, fingers=True):
+    """Stylised hand: palm block + four fingers + thumb. direction = wrist -> knuckles, palm_normal = the way the palm
+    faces (fingers curl towards it), thumb = +1 / -1 picks the side of the thumb (cross(direction, palm_normal))."""
+    d = _v_norm(direction)
+    nrm = _v_norm(palm_normal)
+    side = _v_norm(_v_cross(d, nrm))
+    s = size
+    palm_end = _v_add(wrist, _v_mul(d, 0.075 * s))
+    limb(p, [(wrist, 0.032 * s, 0.016 * s), (_v_add(wrist, _v_mul(d, 0.04 * s)), 0.042 * s, 0.018 * s), (palm_end, 0.04 * s, 0.015 * s)],
+         6, C["skin"], up=nrm, jitter=0.0)
+    if not fingers:
+        return palm_end, side
+    for k, off in enumerate((-0.027, -0.009, 0.009, 0.027)):
+        base = _v_add(palm_end, _v_mul(side, off * s))
+        length = (0.052, 0.06, 0.058, 0.046)[k] * s
+        mid = _v_add(_v_add(base, _v_mul(d, length * (0.5 - 0.1 * curl))), _v_mul(nrm, length * 0.3 * curl))
+        tip = _v_add(_v_add(base, _v_mul(d, length * (1.0 - 0.75 * curl))), _v_mul(nrm, length * 0.75 * curl))
+        limb(p, [(base, 0.0085 * s, 0.0075 * s), (mid, 0.0082 * s, 0.0072 * s), (tip, 0.006 * s, 0.0055 * s)], 5, C["skin"],
+             up=nrm, jitter=0.0)
+    ts = _v_mul(side, thumb)
+    tb = _v_add(_v_add(wrist, _v_mul(d, 0.03 * s)), _v_mul(ts, 0.034 * s))
+    tt = _v_add(_v_add(tb, _v_mul(d, 0.03 * s + 0.01 * curl * s)), _v_add(_v_mul(ts, 0.012 * s), _v_mul(nrm, 0.022 * s * (0.4 + curl))))
+    limb(p, [(tb, 0.011 * s, 0.009 * s), (tt, 0.008 * s, 0.007 * s)], 5, C["skin_dk"], up=nrm, jitter=0.0)
+    return palm_end, side
+
+
+def fist_around(p, knuckles, centre, axis, palm_side, front, handle_r, finger_r=0.0082, wrap_deg=200.0):
+    """Fingers of a fist wrapped around a cylinder (a handle): each finger starts at its knuckle and follows an arc
+    around the cylinder axis just outside its surface, towards `front` first, so nothing passes through the handle.
+    knuckles: [(knuckle point, offset along the axis)], palm_side: direction from the axis to the palm."""
+    a = _v_norm(axis)
+    def perp(v):
+        d = v[0] * a[0] + v[1] * a[1] + v[2] * a[2]
+        return _v_norm(_v_sub(v, _v_mul(a, d)))
+    u = perp(palm_side)
+    v = _v_norm(_v_cross(a, u))
+    if v[0] * front[0] + v[1] * front[1] + v[2] * front[2] < 0: v = _v_mul(v, -1.0)
+    radius = handle_r + finger_r + 0.0025
+    for knuckle, off in knuckles:
+        c = _v_add(centre, _v_mul(a, off))
+        w = _v_sub(knuckle, c)
+        theta0 = math.atan2(w[0] * v[0] + w[1] * v[1] + w[2] * v[2], w[0] * u[0] + w[1] * u[1] + w[2] * u[2])
+        path = [(knuckle, finger_r * 1.05, finger_r * 0.95)]
+        steps = 4
+        for k in range(1, steps + 1):
+            th = theta0 + math.radians(wrap_deg) * k / steps
+            r = radius * (1.0 - 0.04 * k / steps)
+            pt = _v_add(c, _v_add(_v_mul(u, math.cos(th) * r), _v_mul(v, math.sin(th) * r)))
+            fr = finger_r * (1.0 - 0.25 * k / steps)
+            path.append((pt, fr, fr * 0.9))
+        limb(p, path, 5, C["skin"], up=a, jitter=0.0)
+
+
+def detective_body():
+    p = Part()
+    # Legs: long and slim (trousers), knees slightly forward.
+    for sx in (-1, 1):
+        x = sx * 0.088
+        limb(p, [((x, 0.93, 0.0), 0.078, 0.082), ((x * 1.02, 0.72, 0.012), 0.066, 0.07), ((x * 1.03, 0.5, 0.022), 0.054, 0.058),
+                 ((x, 0.3, 0.005), 0.054, 0.058), ((x, 0.12, -0.006), 0.045, 0.048), ((x, 0.04, 0.0), 0.04, 0.043)], 8,
+             C["charcoal"], seed=3 + sx)
+        # Shoe: lofted along z, heel to toe.
+        shoe = []
+        for z, w, h, y0 in ((-0.055, 0.042, 0.065, 0.0), (0.0, 0.05, 0.075, 0.0), (0.07, 0.052, 0.05, 0.0), (0.135, 0.045, 0.036, 0.0),
+                            (0.17, 0.03, 0.024, 0.002)):
+            shoe.append([(x + math.cos(a) * w, y0 + h * 0.5 + math.sin(a) * h * 0.5, z - 0.01)
+                         for a in [2 * math.pi * (i + 0.5) / 8 for i in range(8)]])
+        loft(p, shoe, C["black"])
+    # Coat skirt: flared, slightly longer at the back, open at the front below the belt.
+    rnd = Rand(21)
+    def skirt_shape(a):
+        return 1.0 + 0.06 * math.sin(a)   # a touch fuller at the front
+    skirt = [ring_y(y, rx, rz, 14, cz=-0.01, shape=skirt_shape, jitter=j, rnd=rnd)
+             for y, rx, rz, j in ((0.99, 0.19, 0.13, 0.0), (0.82, 0.215, 0.155, 0.025), (0.62, 0.245, 0.18, 0.03), (0.44, 0.27, 0.2, 0.0))]
+    skirt[-1] = [(q[0], q[1] - 0.02 * max(0.0, -math.sin(2 * math.pi * (i + 0.5) / 14)), q[2]) for i, q in enumerate(skirt[-1])]
+    loft(p, skirt, C["coat"], cap_start=False, cap_end=True)
+    p.face_out([(0.0, 0.99, 0.125), (0.012, 0.44, 0.205), (-0.012, 0.44, 0.205)], C["coat_dk"], (0.0, 0.7, 0.0))   # front opening line
+    # Torso: waist -> chest -> shoulders, collapsing into the neck.
+    def chest_shape(a):
+        return 1.0 + 0.05 * max(0.0, math.sin(a))
+    torso = [ring_y(y, rx, rz, 14, cz=cz, shape=chest_shape, jitter=j, rnd=rnd)
+             for y, rx, rz, cz, j in ((0.99, 0.19, 0.13, -0.01, 0.0), (1.12, 0.2, 0.135, 0.0, 0.02), (1.3, 0.215, 0.145, 0.005, 0.02),
+                                      (1.42, 0.218, 0.13, 0.0, 0.015), (1.475, 0.17, 0.105, -0.005, 0.0), (1.525, 0.075, 0.07, 0.0, 0.0))]
+    loft(p, torso, [C["coat"], C["coat"], C["coat"], C["coat"], C["coat_dk"]], cap_start=False, cap_end=False)
+    # Belt with buckle.
+    loft(p, [ring_y(0.965, 0.196, 0.136, 14, cz=-0.01, shape=skirt_shape), ring_y(1.015, 0.196, 0.136, 14, cz=-0.01, shape=skirt_shape)],
+         C["walnut_dk"], cap_start=False, cap_end=False)
+    p.cbb(0.0, 0.968, 0.137, 0.045, 0.044, 0.012, C["brass"], b=0.004)
+    # Open V at the chest: shirt, red tie, lapels.
+    zc = 0.158
+    p.face_out([(-0.065, 1.47, zc - 0.03), (0.065, 1.47, zc - 0.03), (0.0, 1.24, zc + 0.004)], C["white"], (0.0, 1.38, 0.0))
+    p.face_out([(-0.016, 1.455, zc - 0.022), (0.016, 1.455, zc - 0.022), (0.0, 1.425, zc - 0.016)], C["red"], (0.0, 1.44, 0.0))     # knot
+    p.face_out([(0.0, 1.43, zc - 0.014), (0.02, 1.33, zc + 0.002), (0.0, 1.25, zc + 0.008), (-0.02, 1.33, zc + 0.002)], C["red"], (0.0, 1.34, 0.0))
+    for sx in (-1, 1):
+        p.face_out([(sx * 0.075, 1.48, zc - 0.035), (sx * 0.0, 1.24, zc + 0.012), (sx * 0.12, 1.36, zc + 0.006), (sx * 0.13, 1.45, zc - 0.01)],
+                   C["coat_dk"], (sx * 0.05, 1.36, 0.0))                                                            # lapel
+        for y in (1.07, 1.17):
+            p.cbb(sx * 0.075, y, 0.142, 0.018, 0.018, 0.01, C["walnut_dk"], b=0.003)                                  # buttons
+        p.face_out([(sx * 0.11, 1.2, 0.149), (sx * 0.17, 1.2, 0.137), (sx * 0.17, 1.215, 0.137), (sx * 0.11, 1.215, 0.149)],
+                   C["coat_dk"], (sx * 0.14, 1.2, 0.0))                                                              # pocket flaps
+    # Raised collar around the neck (open at the front).
+    col_rings = []
+    for y, r in ((1.49, 0.098), (1.545, 0.086), (1.575, 0.092)):
+        col_rings.append([(math.cos(a) * r, y, math.sin(a) * r * 0.95 - 0.005) for a in
+                          [math.radians(110 + 320 * i / 12.0) for i in range(13)]])
+    for s in range(2):
+        for i in range(12):
+            a, b = col_rings[s], col_rings[s + 1]
+            p.face_out([a[i], a[i + 1], b[i + 1]], C["coat_dk"], (0.0, 1.54, 0.0))
+            p.face_out([a[i], b[i + 1], b[i]], C["coat_dk"], (0.0, 1.54, 0.0))
+            p.face_out([a[i], b[i + 1], a[i + 1]], C["coat_dk"], (0.0, 1.54, 0.4))   # inside of the collar
+            p.face_out([a[i], b[i], b[i + 1]], C["coat_dk"], (0.0, 1.54, 0.4))
+    limb(p, [((0.0, 1.5, 0.0), 0.052, 0.05), ((0.0, 1.6, 0.012), 0.047, 0.047)], 8, C["skin_dk"], jitter=0.0)      # neck
+    return p
+
+
+def detective_head():
+    """Head with the neck pivot at the origin: long faceted head, jaw and chin, wedge nose, line eyes, brows, ears,
+    hair at the sides and back, fedora with a curved brim and pinched crown."""
+    p = Part()
+    rnd = Rand(41)
+    def face_shape(y):
+        def f(a):
+            front = max(0.0, math.sin(a))
+            side = abs(math.cos(a))
+            return 1.0 - 0.1 * side * (1.0 if y < 0.08 else 0.0) + 0.04 * front
+        return f
+    rings = []
+    for y, rx, rz, cz in ((0.0, 0.03, 0.03, 0.075), (0.02, 0.055, 0.05, 0.06), (0.05, 0.078, 0.078, 0.035), (0.09, 0.088, 0.096, 0.022),
+                          (0.135, 0.092, 0.1, 0.02), (0.18, 0.09, 0.098, 0.015), (0.22, 0.078, 0.086, 0.01), (0.25, 0.05, 0.055, 0.008),
+                          (0.265, 0.02, 0.022, 0.008)):
+        rings.append(ring_y(y, rx, rz, 12, cz=cz, shape=face_shape(y), jitter=0.02 if 0.03 < y < 0.24 else 0.0, rnd=rnd))
+    loft(p, rings, C["skin"])
+    limb(p, [((0.0, -0.045, -0.012), 0.05, 0.048), ((0.0, 0.03, 0.0), 0.05, 0.05), ((0.0, 0.1, 0.01), 0.045, 0.045)], 8,
+         C["skin_dk"], jitter=0.0)                                                                                  # neck into the skull
+    # Nose: a wedge down the middle of the face.
+    zf = 0.118
+    p.face_out([(0.0, 0.16, zf - 0.006), (0.0, 0.105, zf + 0.035), (0.018, 0.098, zf + 0.004)], C["skin_dk"], (0.03, 0.12, 0.0))
+    p.face_out([(0.0, 0.16, zf - 0.006), (-0.018, 0.098, zf + 0.004), (0.0, 0.105, zf + 0.035)], C["skin_dk"], (-0.03, 0.12, 0.0))
+    p.face_out([(0.0, 0.105, zf + 0.035), (-0.018, 0.098, zf + 0.004), (0.018, 0.098, zf + 0.004)], C["skin_dk"], (0.0, 0.14, 0.0))
+    # Line eyes and slanted brows (the reference's style), mouth.
+    for sx in (-1, 1):
+        p.face_out([(sx * 0.018, 0.168, zf - 0.006), (sx * 0.058, 0.172, zf - 0.012), (sx * 0.058, 0.163, zf - 0.012),
+                    (sx * 0.018, 0.16, zf - 0.006)], C["hat_dk"], (sx * 0.03, 0.16, 0.0))
+        # Ear grows out of the skull: the first ring sits inside the head, so there is never a gap at the join.
+        ear = [ring_at((sx * 0.075, 0.13, 0.026), (1.0, 0.0, 0.0), 0.016, 0.024, 6, up=(0.0, 1.0, 0.0)),
+               ring_at((sx * 0.098, 0.13, 0.03), (1.0, 0.0, 0.0), 0.018, 0.028, 6, up=(0.0, 1.0, 0.0)),
+               ring_at((sx * 0.107, 0.131, 0.028), (1.0, 0.0, 0.0), 0.012, 0.022, 6, up=(0.0, 1.0, 0.0))]
+        loft(p, ear, C["skin_dk"])
+    # Hair: dark band at the sides and back under the hat.
+    hair = []
+    for y, r in ((0.12, 0.094), (0.2, 0.098), (0.235, 0.09)):
+        hair.append([(math.cos(a) * r * 1.02, y, math.sin(a) * r * 1.08 + 0.012) for a in
+                     [math.radians(200 + 140 * i / 8.0) for i in range(9)]])
+    for s in range(2):
+        for i in range(8):
+            a, b = hair[s], hair[s + 1]
+            p.face_out([a[i], a[i + 1], b[i + 1]], C["hat_dk"], (0.0, 0.17, 0.0))
+            p.face_out([a[i], b[i + 1], b[i]], C["hat_dk"], (0.0, 0.17, 0.0))
+    # Fedora: brim curving down at the front and back, band, pinched crown with a dent on top.
+    def brim_y(a):
+        return 0.228 - 0.022 * abs(math.sin(a))
+    inner = [(math.cos(a) * 0.098, 0.23, math.sin(a) * 0.108 + 0.01) for a in [2 * math.pi * (i + 0.5) / 16 for i in range(16)]]
+    outer = [(math.cos(a) * 0.19, brim_y(a), math.sin(a) * 0.2 + 0.012) for a in [2 * math.pi * (i + 0.5) / 16 for i in range(16)]]
+    outer_lo = [(q[0], q[1] - 0.008, q[2]) for q in outer]
+    inner_lo = [(q[0], q[1] - 0.008, q[2]) for q in inner]
+    for i in range(16):
+        j = (i + 1) % 16
+        p.face_out([inner[i], outer[i], outer[j]], C["hat"], (0.0, 0.1, 0.01))
+        p.face_out([inner[i], outer[j], inner[j]], C["hat"], (0.0, 0.1, 0.01))
+        p.face_out([inner_lo[i], outer_lo[j], outer_lo[i]], C["hat_dk"], (0.0, 0.4, 0.01))
+        p.face_out([inner_lo[i], inner_lo[j], outer_lo[j]], C["hat_dk"], (0.0, 0.4, 0.01))
+        p.face_out([outer[i], outer_lo[i], outer_lo[j], outer[j]], C["hat_dk"], (0.0, 0.2, 0.01))
+    def pinch(a):
+        return 1.0 - 0.12 * max(0.0, math.sin(a)) ** 2
+    crown = [ring_y(0.226, 0.1, 0.11, 12, cz=0.01), ring_y(0.258, 0.1, 0.108, 12, cz=0.01),
+             ring_y(0.262, 0.098, 0.106, 12, cz=0.01), ring_y(0.33, 0.088, 0.096, 12, cz=0.008, shape=pinch),
+             ring_y(0.345, 0.07, 0.078, 12, cz=0.006, shape=pinch), ring_y(0.335, 0.03, 0.05, 12, cz=0.004)]
+    loft(p, crown, [C["hat_dk"], C["hat"], C["hat"], C["hat"], C["hat_dk"]], cap_start=True, cap_end=True)
+    # Inside of the crown seen from below (the cap above faces down only from outside): a dark lining facing down.
+    lining = ring_y(0.229, 0.098, 0.108, 12, cz=0.01)
+    p.face_out(lining, C["hat_dk"], (0.0, 0.5, 0.01))
+    return p
+
+
+def translated(part, offset):
+    q = Part()
+    for verts, col in part.faces:
+        q.face([_v_add(v, offset) for v in verts], col)
+    return q
+
+
+def detective_arm_left(piece="all"):
+    """Left arm in shoulder space (pivot DETECTIVE_ARM_L_AT): hanging, slightly bent, hand relaxed; it gestures.
+    piece: "upper" (shoulder to a rounded elbow), "fore" (elbow to hand, translated so the elbow
+    DETECTIVE_ELBOW_L_AT is the origin) or "all"."""
+    elbow, wrist = DETECTIVE_ELBOW_L_AT, (-0.035, -0.535, 0.025)
+    upper, fore = Part(), Part()
+    limb(upper, [((0.012, 0.045, 0.0), 0.03, 0.03), ((0.004, 0.022, 0.0), 0.06, 0.058), ((0.0, 0.0, 0.0), 0.068, 0.066),
+                 ((-0.02, -0.14, -0.012), 0.062, 0.06), (elbow, 0.056, 0.055), (_v_add(elbow, (0.0, -0.035, 0.002)), 0.035, 0.035)],
+         8, C["coat"], up=(1.0, 0.0, 0.0), seed=31)
+    limb(fore, [(_v_add(elbow, (0.0, 0.02, 0.0)), 0.052, 0.051), ((-0.038, -0.405, 0.0), 0.052, 0.05),
+                (_v_add(wrist, (0.0, 0.025, 0.0)), 0.05, 0.048)], 8, C["coat"], up=(1.0, 0.0, 0.0), seed=32)
+    limb(fore, [(_v_add(wrist, (0.0, 0.03, 0.0)), 0.052, 0.05), (_v_add(wrist, (0.0, 0.005, 0.0)), 0.052, 0.05)], 8, C["coat_dk"],
+         up=(1.0, 0.0, 0.0), jitter=0.0)                                                                             # cuff
+    hand(fore, _v_add(wrist, (0.0, 0.01, 0.0)), (0.02, -1.0, 0.05), (1.0, 0.0, 0.0), curl=0.4, thumb=1.0)
+    if piece == "upper": return upper
+    if piece == "fore": return translated(fore, _v_mul(elbow, -1.0))
+    upper.faces.extend(fore.faces)
+    return upper
+
+
+def detective_eyes():
+    """The two line eyes, pivot between them (DETECTIVE_EYES_AT): Unity squashes this part to blink."""
+    p = Part()
+    for sx in (-1, 1):
+        p.bbox(sx * 0.034 - 0.003, -0.012, -0.0015, sx * 0.034 + 0.003, 0.012, 0.0015, C["eye"])
+    return p
+
+
+def detective_mouth():
+    """Mouth opening with lips, pivot at its centre (DETECTIVE_MOUTH_AT): Unity opens it (scale y) with the voice."""
+    p = Part()
+    p.face_out([(-0.017, 0.0, 0.0), (-0.008, 0.006, 0.0), (0.008, 0.006, 0.0), (0.017, 0.0, 0.0), (0.008, -0.007, 0.0),
+                (-0.008, -0.007, 0.0)], C["eye"], (0.0, 0.0, -0.01))                                               # opening
+    p.face_out([(-0.019, 0.001, 0.0012), (-0.008, 0.008, 0.0012), (0.008, 0.008, 0.0012), (0.019, 0.001, 0.0012),
+                (0.008, 0.004, 0.0012), (-0.008, 0.004, 0.0012)], C["lip"], (0.0, 0.0, -0.01))                    # upper lip
+    p.face_out([(-0.019, 0.0, 0.0012), (-0.008, -0.004, 0.0012), (0.008, -0.004, 0.0012), (0.019, 0.0, 0.0012),
+                (0.008, -0.010, 0.0012), (-0.008, -0.010, 0.0012)], C["lip"], (0.0, 0.0, -0.01))                  # lower lip
+    return p
+
+
+def detective_moustache():
+    """A curled moustache, pivot at its centre (it bobs with the voice)."""
+    p = Part()
+    for sx in (-1, 1):
+        limb(p, [((sx * 0.002, 0.004, 0.0), 0.008, 0.006), ((sx * 0.022, 0.002, -0.004), 0.009, 0.007),
+                 ((sx * 0.042, -0.006, -0.012), 0.006, 0.005), ((sx * 0.052, 0.002, -0.016), 0.003, 0.003)],
+             6, C["hat_dk"], up=(0.0, 0.0, 1.0), jitter=0.0)
+    return p
+
+
+def detective_arm(piece="all"):
+    """Right arm in shoulder space (pivot DETECTIVE_ARM_AT): upper arm down, forearm forward, hand holding a
+    magnifying glass up. piece: "upper", "fore" (elbow DETECTIVE_ELBOW_R_AT = origin) or "all"."""
+    elbow, wrist = DETECTIVE_ELBOW_R_AT, (0.01, -0.29, 0.24)
+    upper = Part()
+    limb(upper, [((-0.012, 0.045, 0.0), 0.03, 0.03), ((-0.004, 0.022, 0.0), 0.06, 0.058), ((0.0, 0.0, 0.0), 0.068, 0.066),
+                 ((0.02, -0.14, -0.006), 0.062, 0.06), (elbow, 0.057, 0.056), (_v_add(elbow, (0.003, -0.03, -0.012)), 0.036, 0.036)],
+         8, C["coat"], up=(1.0, 0.0, 0.0), seed=51)
+    p = Part()   # forearm, hand, magnifier
+    limb(p, [(_v_add(elbow, (0.0, 0.004, -0.018)), 0.054, 0.053), ((0.024, -0.29, 0.11), 0.052, 0.05),
+             (_v_add(wrist, (0.0, 0.0, -0.025)), 0.05, 0.048)], 8, C["coat"], up=(1.0, 0.0, 0.0), seed=52)
+    limb(p, [(_v_add(wrist, (0.0, 0.0, -0.03)), 0.052, 0.05), (_v_add(wrist, (0.0, 0.0, -0.005)), 0.052, 0.05)], 8, C["coat_dk"],
+         up=(1.0, 0.0, 0.0), jitter=0.0)                                                                             # cuff
+    hdir = _v_norm((0.0, 0.25, 1.0))
+    palm_end, side = hand(p, wrist, hdir, (-1.0, 0.0, 0.0), fingers=False)
+    # Magnifying glass: the handle runs through the fist (palm side), the ring sits on the handle's top end.
+    up = _v_norm((0.0, 1.0, 0.28))
+    grip = _v_add(_v_add(wrist, _v_mul(hdir, 0.062)), (-0.024, 0.0, 0.0))
+    # Four fingers wrap around the handle (index on top), the thumb over the front just above them.
+    knuckles = []
+    for off in (0.027, 0.009, -0.009, -0.027):
+        k = _v_add(palm_end, _v_mul(up, off))
+        knuckles.append((k, off + 0.003))
+    fist_around(p, knuckles, grip, up, (1.0, 0.0, 0.0), (0.0, 0.0, 1.0), 0.011)
+    thumb_base = _v_add(_v_add(wrist, _v_mul(hdir, 0.035)), _v_mul(up, 0.036))
+    fist_around(p, [(thumb_base, 0.04)], grip, up, (1.0, 0.0, 0.0), (0.0, 0.0, 1.0), 0.011, finger_r=0.0095, wrap_deg=120.0)
+    bottom = _v_add(grip, _v_mul(up, -0.045))
+    top = _v_add(grip, _v_mul(up, 0.11))
+    limb(p, [(bottom, 0.0105, 0.0105), (grip, 0.011, 0.011), (top, 0.0085, 0.0085)], 6, C["walnut_dk"], jitter=0.0)
+    limb(p, [(_v_add(top, _v_mul(up, -0.012)), 0.011, 0.011), (_v_add(top, _v_mul(up, 0.006)), 0.011, 0.011)], 6, C["brass"],
+         jitter=0.0)                                                                                                 # ferrule
+    axis = _v_norm((0.0, -0.28, 1.0))          # the lens faces forward, perpendicular to the handle
+    radius = 0.064
+    ring_c = _v_add(top, _v_mul(up, radius + 0.002))
+    outer = ring_at(ring_c, axis, radius, radius, 16, up=(1.0, 0.0, 0.0))
+    inner = ring_at(ring_c, axis, radius - 0.012, radius - 0.012, 16, up=(1.0, 0.0, 0.0))
+    d = _v_mul(axis, 0.007)
+    for i in range(16):
+        j = (i + 1) % 16
+        for sgn in (1, -1):
+            o1, o2, i1, i2 = (_v_add(q, _v_mul(d, sgn)) for q in (outer[i], outer[j], inner[i], inner[j]))
+            p.face_out([o1, o2, i2, i1], C["brass"], _v_sub(ring_c, _v_mul(d, sgn * 4)))
+        p.face_out([_v_add(outer[i], d), _v_sub(outer[i], d), _v_sub(outer[j], d), _v_add(outer[j], d)], C["brass"], ring_c)
+        p.face_out([_v_add(inner[i], d), _v_add(inner[j], d), _v_sub(inner[j], d), _v_sub(inner[i], d)], C["brass"],
+                   _v_add(ring_c, _v_mul(_v_sub(inner[i], ring_c), 3.0)))
+    p.face_out(inner, C["glass"], _v_sub(ring_c, d))
+    p.face_out(inner, C["glass"], _v_add(ring_c, d))
+    if piece == "upper": return upper
+    if piece == "fore": return translated(p, _v_mul(elbow, -1.0))
+    upper.faces.extend(p.faces)
+    return upper
+
+
 def door(w, studio):
     """Door frame (thin, 2.0-2.1 m) with the door leaf ajar towards the outside (-Z)."""
     p = Part()
@@ -1302,6 +1686,17 @@ def build():
 
     # Evidence board (shared by both cases; under CaseRoot, built by FYP > Set Up Evidence Board).
     export("EvidenceBoard", evidence_board())
+
+    # Briefing detective (parts animated in Unity; offsets DETECTIVE_*_AT = CharacterSetupTool).
+    export("Detective_Body", to_maya(detective_body()))
+    export("Detective_Head", to_maya(detective_head()))
+    export("Detective_Moustache", to_maya(detective_moustache()))
+    export("Detective_Arm", to_maya(detective_arm("upper")))
+    export("Detective_Forearm", to_maya(detective_arm("fore")))
+    export("Detective_ArmL", to_maya(detective_arm_left("upper")))
+    export("Detective_ForearmL", to_maya(detective_arm_left("fore")))
+    export("Detective_Eyes", to_maya(detective_eyes()))
+    export("Detective_Mouth", to_maya(detective_mouth()))
 
     # Room floors (semi-transparent in Unity).
     export("X_Floor", to_maya(floor_tiles()), kind="floor")

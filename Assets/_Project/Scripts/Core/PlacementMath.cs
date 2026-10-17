@@ -22,6 +22,17 @@ namespace FYP.Detective
         /// Heading of the face around world up, in degrees (0 = +Z, 90 = +X, range -180..180).
         /// Ignores pitch and roll.
         /// </summary>
+        /// <summary>
+        /// Team placement (session 6 fix): the host's shared anchor sits at the HOST headset's floor estimate, which
+        /// differs from the client's by a few cm. Keep the anchor's floor position (x, z) and heading, but put the scene
+        /// on THIS headset's floor (<paramref name="floorY"/>) and level it, so it stands on the real floor in both views.
+        /// </summary>
+        public static Pose FloorAlignedPose(Vector3 anchorPosition, Quaternion anchorRotation, float floorY)
+        {
+            return new Pose(new Vector3(anchorPosition.x, floorY, anchorPosition.z),
+                Quaternion.Euler(0f, HeadingDegrees(anchorRotation), 0f));
+        }
+
         public static float HeadingDegrees(Quaternion headRotation)
         {
             Vector3 forward = headRotation * Vector3.forward;

@@ -29,6 +29,8 @@ namespace FYP.Detective.Net
 
         private readonly Dictionary<string, NetworkClue> _clues = new Dictionary<string, NetworkClue>();
         private string _partnerId;
+        // Team briefing (host): who has tapped Begin, with their pose; both -> BriefingGo to both headsets.
+        private PlayerPose2D? _hostReady, _clientReady;
         private bool _applyingRemoteEnd;
 
         private NetworkManager Nm => launcher != null ? launcher.Manager : null;
@@ -49,6 +51,8 @@ namespace FYP.Detective.Net
             {
                 session.Authority = this;
                 session.SessionEnded += HandleSessionEnded;
+                session.LocalBriefingFinished += HandleLocalBriefingFinished;
+                session.ArmedChanged += HandleArmedChanged;
             }
             if (Nm != null)
             {
@@ -63,6 +67,8 @@ namespace FYP.Detective.Net
             {
                 if (ReferenceEquals(session.Authority, this)) session.Authority = null;
                 session.SessionEnded -= HandleSessionEnded;
+                session.LocalBriefingFinished -= HandleLocalBriefingFinished;
+                session.ArmedChanged -= HandleArmedChanged;
             }
             if (Nm != null)
             {
@@ -190,6 +196,11 @@ namespace FYP.Detective.Net
                 case TeamMessageKind.ReqTag: RequestClueTagged(m.ClueId, m.Tagged, m.By); break;
                 case TeamMessageKind.ReqSubmit: RequestSubmit(m.SuspectId, m.EvidenceIds, m.By); break;
                 case TeamMessageKind.Contamination: session.ApplyPartnerContamination(m.ZoneId, m.Part, m.By); break;
+                case TeamMessageKind.BriefingDone: session.SetPartnerBriefingDone(true); break;
+                case TeamMessageKind.ReqBriefingReady:
+                    _clientReady = m.Pose;
+                    TryStartTeamBriefing();
+                    break;
                 case TeamMessageKind.ReqOwnership:
                     if (_clues.TryGetValue(m.ClueId, out NetworkClue clue) && clue.IsSpawned) clue.NetworkObject.ChangeOwnership(sender);
                     else Debug.LogWarning("[Team] Ownership request for unknown clue " + m.ClueId);
@@ -224,10 +235,40 @@ namespace FYP.Detective.Net
                 case TeamMessageKind.Tag: session.ApplyClueTagged(m.ClueId, m.Tagged, m.By); break;
                 case TeamMessageKind.Submit: session.ApplySubmission(m.SuspectId, m.EvidenceIds, m.By); break;
                 case TeamMessageKind.Contamination: session.ApplyPartnerContamination(m.ZoneId, m.Part, m.By); break;
+                case TeamMessageKind.BriefingDone: session.SetPartnerBriefingDone(true); break;
+                case TeamMessageKind.BriefingGo: session.ApplyBriefingGo(m.Spot); break;
                 default:
                     Debug.LogWarning("[Team] Client ignored " + m.Kind);
                     break;
             }
+        }
+
+        /// <inheritdoc/>
+        public void RequestBriefingReady(PlayerPose2D pose, string by)
+        {
+            if (!IsHost) { SendToHost(TeamMessage.ReqBriefingReady(by, pose)); return; }
+            _hostReady = pose;
+            TryStartTeamBriefing();
+        }
+
+        // Host: once both players tapped Begin, one shared spot for the detective, and both start at the same moment.
+        private void TryStartTeamBriefing()
+        {
+            if (!_hostReady.HasValue || !_clientReady.HasValue) return;
+            BriefingSpot spot = BriefingSpot.Compute(_hostReady.Value, _clientReady.Value);
+            _hostReady = _clientReady = null;
+            Broadcast(TeamMessage.BriefingGo(spot));
+            session.ApplyBriefingGo(spot);
+        }
+
+        private void HandleArmedChanged(bool armed) => _hostReady = _clientReady = null;
+
+        // Tell the partner this headset's briefing finished (both directions; their Start waits for it).
+        private void HandleLocalBriefingFinished()
+        {
+            if (!IsActive) return;
+            string msg = TeamMessage.BriefingDone(session.SelfId);
+            if (IsHost) Broadcast(msg); else SendToHost(msg);
         }
 
         // Host: mirror every end except Submitted (the Submit message ends the client's run itself).

@@ -101,7 +101,9 @@ namespace FYP.Detective.EditorTools
                 Fail("Depth occlusion not set up (run FYP > Set Up Occlusion (Depth API))");
             else if (depth.OcclusionShadersMode == OcclusionShadersMode.None)
                 Fail("Depth occlusion shaders mode is None (run FYP > Set Up Occlusion (Depth API))");
-            else Ok($"Depth occlusion on ({depth.OcclusionShadersMode}, hands removed: {depth.RemoveHands})");
+            else if (!OcclusionSetupTool.IsOpenXrOcclusionEnabled(out string occlusionWhy))
+                Fail("Depth occlusion can't run on OpenXR: " + occlusionWhy + " (run FYP > Set Up Occlusion (Depth API))");
+            else Ok($"Depth occlusion on ({depth.OcclusionShadersMode}, hands removed: {depth.RemoveHands}, OpenXR occlusion + session)");
             int notOccluded = 0;
             foreach (var r in Object.FindObjectsByType<MeshRenderer>(FindObjectsInactive.Include, FindObjectsSortMode.None))
             {
@@ -113,6 +115,28 @@ namespace FYP.Detective.EditorTools
             else Ok("All case materials use the occlusion shader");
             if (ovr != null && !new SerializedObject(ovr).FindProperty("requestScenePermissionOnStartup").boolValue)
                 Fail("OVRManager doesn't request the scene permission at startup (needed for occlusion)");
+
+            // Briefing detective (session 6): optional, but every script line should have its voice clip.
+            var detective = Object.FindFirstObjectByType<DetectiveBriefing>(FindObjectsInactive.Include);
+            if (detective == null) Warn("No briefing detective (FYP > Set Up Briefing Detective) - the card shows the story as text");
+            else
+            {
+                var dso = new SerializedObject(detective);
+                var script = dso.FindProperty("script").objectReferenceValue as TextAsset;
+                var clipsProp = dso.FindProperty("clips");
+                var clipNames = new HashSet<string>();
+                for (int i = 0; i < clipsProp.arraySize; i++)
+                    if (clipsProp.GetArrayElementAtIndex(i).objectReferenceValue is AudioClip clip) clipNames.Add(clip.name);
+                var silent = new List<string>();
+                foreach (var line in BriefingScript.Parse(script != null ? script.text : null))
+                    if (!clipNames.Contains(line.File)) silent.Add(line.File);
+                if (dso.FindProperty("rightForearm").objectReferenceValue == null || dso.FindProperty("leftForearm").objectReferenceValue == null
+                    || dso.FindProperty("mouth").objectReferenceValue == null)
+                    Fail("Briefing detective is out of date (no forearms / mouth) - rerun FYP > Set Up Briefing Detective");
+                if (script == null) Fail("Briefing detective has no line script (rerun FYP > Set Up Briefing Detective)");
+                else if (silent.Count > 0) Warn("Briefing lines without audio (text only): " + string.Join(", ", silent));
+                else Ok($"Briefing detective: {clipNames.Count} voice clip(s) for every line");
+            }
 
             // Data upload to the laptop (session 6).
             var dataLogger = Object.FindFirstObjectByType<DataLogger>();

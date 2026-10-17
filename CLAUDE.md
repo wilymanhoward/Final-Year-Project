@@ -56,7 +56,7 @@ Read this first in every session. Update **Current status** at the end of each s
 
 | `com.unity.netcode.gameobjects` / `com.unity.transport` | 2.13.3 / 2.6.0 | installed session 6; Meta's `Meta.XR.MultiplayerBlocks.NGO(.Editor)` compile |
 
-Not installed: AR Foundation, `com.unity.xr.meta-openxr`.
+| `com.unity.xr.meta-openxr` | 2.5.1 | added session 6 (user-approved) for the Depth API on OpenXR; pulls AR Foundation 6.5.0 + XR Composition Layers 2.4.0; Android features "Meta Quest: Occlusion" + "Meta Quest: Session" enabled by FYP > Set Up Occlusion |
 
 **Week 3 networking findings (session 5, read from the 207 source + packages.unity.com):**
 - Meta's NGO multiplayer blocks need NGO >= 1.7.1 (`versionDefines` in
@@ -164,6 +164,7 @@ Editor/ (FYP.Detective.Editor.asmdef, Editor-only)
   EvidenceBoardTool   menu:  FYP > Set Up Evidence Board
   CaseSceneTool       menu:  FYP > Build Case Scenes (X + Y)
   OcclusionSetupTool  menu:  FYP > Set Up Occlusion (Depth API)
+  CharacterSetupTool  menu:  FYP > Set Up Briefing Detective
   StudyBuildTool      menus: FYP > Prepare Study Build (debug off + readiness report) / Restore Debug Settings
 tools/maya/build_props.py  (run with mayapy, Maya 2027): low-poly flat-shaded props, clue visuals, zone decals ->
                      Assets/_Project/Art/Props/*.fbx + Palette.png + BlobShadow.png; prints sizes + triangles
@@ -224,6 +225,11 @@ Data flow:
   `EraseAnchorsAsync` + delete the PlayerPrefs key + CaseRoot back to origin. 15 s timeout → "Anchor failed - use
   Manual". Placement is refused while a session runs. Placement happens before a run (no log file open), so
   `placement_set`/`placement_loaded` is written right after `session_start` with `at_utc` = when it happened.
+- **Shared anchor on the client's own floor (session 6 fix, user: "height wrong every time I join"):** the host's anchor
+  sits at the host headset's floor estimate, which differs from the client's by a few cm, so the 5 cm height check failed
+  on every join. `ScenePlacement.LoadSharedPlacement` now attaches CaseRoot with `CaseRoot.AttachToOnFloor` /
+  `PlacementMath.FloorAlignedPose`: anchor x, z and heading, but this headset's floor height and level (status shows the
+  correction in cm). The head-height floor guard still catches a badly calibrated headset.
 - **Placement height check (session 5):** `SessionManager.PlacementHeightOffset` = CaseRoot y - TrackingSpace y
   (`floorReference`); start is refused if |offset| > 5 cm ("Placement height wrong (+0.62 m) - re-place").
   `ScenePlacement` subscribes `OVRManager.display.RecenteredPose` (`Scripts/OVRDisplay.cs:167`) → `SessionManager.
@@ -241,6 +247,35 @@ Data flow:
   (`AddPokeCanvasInteraction`) whose `PokeInteractable` WhenSelect → `MarkFound`. Clue id defaults to the object name.
 - **Tagging:** after a clue is found, a 14 x 5.6 cm pokeable uGUI button floats 8 cm above it facing the player
   (yaw only) and calls `Clue.ToggleTagged` (logs clue_tagged / clue_untagged). Hidden when not running.
+- **Briefing detective (user, session 6):** after ARM the participant's card shows "Begin briefing"; tapping it puts
+  the low-poly Inspector Hart (Maya parts Detective_Body/_Head/_Moustache/_Arm, offsets `DETECTIVE_*_AT` =
+  `CharacterSetupTool`) 1.6 m in front of them on the floor; he speaks the lines of `Audio/Briefing/briefing_lines.csv`
+  (order,file,case,condition,text; same structure for X/Y, `work_solo`/`work_team` by condition) with a speech bubble;
+  procedural animation (user: all four): mouth part opens with loudness, eyes blink every 2.5-5 s, left hand lifts on every
+  third line, right arm gestures, head nods, and a Rig pivot at the feet breathes / shifts weight. **Natural motion
+  (user: "too robotic"):** every joint goes through a damped `Spring`; targets = Perlin noise + speech beats
+  (`SpeechBeatDetector`: loudness jumps kick a nod and a hand beat) + one gesture per line (OpenPalm/Explain/Magnifier/
+  Point/Relaxed, seeded) + gaze at the participant (head leads, body turns only past 22 deg); arms split at the elbow
+  (Detective_Forearm/_ForearmL, `DETECTIVE_ELBOW_*_AT`). Parts: Body, Head (+Eyes,
+  Mouth, Moustache), Arm, ArmL; character style = faceted lofts (`loft`/`limb`/`hand` in build_props.py). Card hidden while he talks, then Start +
+  Replay. **Team runs (user, session 6): both players must tap Begin** (card: "Waiting for your partner to tap Begin");
+  TeamMessage `ReqBriefingReady|by|x|z|yaw` -> host computes one shared spot (`BriefingSpot.Compute`, in front of the pair,
+  CaseRoot-local) -> `BriefingGo|x|z|yaw|ax|az|bx|bz` -> both headsets start together, detective in the same place, facing
+  the pair, head looking at player A (host) on even lines and B on odd lines; Replay stays local. **Start waits for the briefing** (`SessionManager.CanParticipantStart`), in team runs for both partners
+  (TeamMessage `BriefingDone|by`, both directions); Start now still bypasses. Timer starts on Start (listening isn't
+  completion time). Row `briefing` at session start (`started_utc;finished_utc;replays;heard;partner_heard`).
+  Voice: user will generate an **online AI voice** (same base names, any of .wav/.mp3/.ogg, in Audio/Briefing, then rerun
+  Set Up Briefing Detective); until then placeholders from `tools/make_briefing_tts.ps1` (Windows offline TTS, never
+  overwrites existing clips). No audio = text only for an estimated time. Headset-untested.
+- **Clue sync fix (session 6, user: "picked-up item doesn't move in my partner's view"):** the gravity work gave clue
+  Rigidbodies interpolation on every headset; on the non-owner the physics interpolation redrew the old pose over the
+  NetworkTransform's writes, so the clue looked frozen. `ClueGravity.Update` now sets interpolation only where the clue is
+  controlled (`Clue.HasLocalAuthority`), None on the partner's copy - Netcode's own NetworkRigidbody rule
+  (NetworkRigidBodyBase.cs). NetworkRigidbody itself is NOT used (it would fight ClueGravity / ISDK over isKinematic).
+- **Capped toss (user, session 6):** clues can be tossed, not flung: `ClueGravity` samples the held clue's position
+  (`TossEstimator`, last 0.1 s) and on release gives it that velocity capped at 2 m/s, no spin (the ISDK's own throw stays
+  off). Releases >= 0.6 m/s log `clue_thrown` (`<id>;speed=<raw m/s>;capped=0|1;by=`, logging only, never networked).
+  Briefing tells participants not to run after objects (safety). Headset-untested.
 - **Clue gravity (user, session 6):** a grabbable clue stays where the scene put it until it is held and let go; then it
   falls (`ClueGravity`): no throw (Grabbable `_throwWhenUnselected` off), no bounce, high friction, damping. Physics only
   while running, only on the controlling headset (team: owner; partner copy kinematic, follows NetworkTransform), never
@@ -369,11 +404,29 @@ Data flow:
   (`.old-<time>`) and logs `StudyData/receiver_log.csv`. Plain HTTP on the LAN: `PlayerSettings.insecureHttpOption =
   AlwaysAllowed` (Set Up Networking) + `CleartextHttpBuildStep` (Gradle manifests). Status line on the setup panel.
   Protocol in `DataTransfer` (pure) - keep receive_data.py in sync. Headset-untested.
+- **Setup panel look (user, session 6: "too plain"):** 720 x 560 mm at 0.55 m: header (codes + run-state chip
+  READY/ARMED/RUNNING mm:ss/ENDED) and four rounded cards 1 Participant / 2 Placement / 3 Network & data / 4 Run, each
+  with a traffic light (`SetupStatusModel`: placement red until placed + height ok; network vs. condition like the ARM
+  rule; data amber while files wait; run green/amber/red), status text and its buttons (ARM green, Start now blue,
+  Abort red). `SetupPanel.RefreshSections`; the old single status text stays as fallback. Headset-untested.
+  The ExperimenterStatusLabel has the same look (`PlacementSetupTool.StyleLabel`, in place, also run by Set Up Headset
+  UI): rounded card, "EXPERIMENTER" header, accent bar coloured by `SetupStatusModel.MessageLight` (keywords: red
+  problem / amber in progress / green).
 - **Evidence board look (user, session 6: "like an actual evidence board"):** cork board in a wooden frame (mesh
   `EvidenceBoard` from build_props.py, readable side -Z, always visible, ledge with magnifier/markers) + transparent
   canvas 1100 x 740 mm (centre 1.30 m): 4 suspect Polaroids (silhouette, name/role/alibi, pin, "PRIME SUSPECT" stamp),
   8 pinned index cards ("PINNED" stamp), red strings chosen suspect -> chosen evidence (`EvidenceBoardView.UpdateStrings`,
   prebuilt Images), tape headers, notepad summary, red SUBMIT stamp. Logic unchanged. Headset-untested.
+- **Occlusion on/off (user, session 6):** setup panel button "Occlusion: ON/OFF" (Placement & View card) toggles
+  `ExperimentConfig.occlusionEnabled` (saved; between runs only); `DepthOcclusionMonitor` enables/disables the
+  EnvironmentDepthManager (off stops depth sensing). Per headset, not synced - set both the same in team runs. Each run's
+  `depth_occlusion` row records it (active / off).
+- **Depth occlusion NOT WORKING YET (found session 6):** Meta's `EnvironmentDepthManager` on the OpenXR backend needs
+  `com.unity.xr.meta-openxr` >= 2.1 (versionDefine OPEN_XR_META_2_1_OR_NEWER -> `DepthProviderOpenXR`) and the OpenXR feature
+  "Meta Quest: Occlusion"; without it `IsSupported` is false (log `depth_occlusion status=unsupported`). Compatible version
+  for OpenXR 1.16.1: **2.5.1** (pulls AR Foundation 6.5.0, XR Composition Layers 2.4.0); 2.6.1 needs OpenXR 1.18. **Installed
+  (user OK)**; Set Up Occlusion enables Occlusion + Session on Android (Meta's rule, ProjectSetupDepthAPI.cs); Prepare Study
+  Build fails without them. Headset-untested.
 - **Depth occlusion (user, session 6):** Meta Depth API (`EnvironmentDepthManager`, core 207
   `Scripts/EnvironmentDepth/`), soft occlusion, hands removed from depth; needs the USE_SCENE (spatial data) permission
   (requested at startup; scene support Required). Every prop material is on `FYP/OccludedProp` (Art/Shaders: palette,
@@ -441,13 +494,16 @@ Data flow:
 ## Current status
 
 _Last updated: session 6 (2026-10-17). All planned phases are done (Week 2 A–E, Week 3 Phases 1–3) plus the visual pass,
-clue gravity, floors, depth occlusion, data upload and the new evidence board look. Work in phases,
+clue gravity, floors, depth occlusion, data upload, the new evidence board look, the setup panel / case-file card /
+status label redesign, capped toss, the briefing detective (ElevenLabs voice, natural motion, team-synchronised
+briefing), the shared-anchor floor fix, the clue sync fix and the occlusion toggle. Work in phases,
 stop after each for the user's headset test, commit only after the user confirms it works._
 
 **Where we are (start here)**
-- `main` = `52b4c48` (committed at the user's request **before** a headset test of the session-6 additions).
-  EditMode tests **228/228** (batch). Setup order in Unity: Build Case Scenes -> Set Up Networking -> Set Up Evidence
-  Board -> Set Up Occlusion (Depth API) -> Prepare Study Build.
+- `main` = the "Briefing detective, ..." commit after `4a90a9c` (committed at the user's request **before** a headset
+  test of these additions). EditMode tests **255/255** (batch). Packages: + `com.unity.xr.meta-openxr` 2.5.1 (AR Foundation
+  6.5.0, XR Composition Layers 2.6.0). Setup order in Unity: Build Case Scenes -> Set Up Networking -> Set Up Evidence
+  Board -> Set Up Headset UI -> Set Up Occlusion (Depth API) -> Set Up Briefing Detective -> Prepare Study Build.
 - Headsets: `2G0YC5ZG4M00Z6` = **P01, host**; `2G0YC5ZG970B12` = **P02, client** (its experiment_config.json was set to
   P02). Campus Wi-Fi works headset-to-headset; IPs come from DHCP (discovery makes them irrelevant; `hostAddress` is
   only the fallback).
@@ -463,7 +519,11 @@ stop after each for the user's headset test, commit only after the user confirms
    `placement_check`. New since then, also headset-untested: the visual pass (props, K1 keypad, desks, hanging
    noticeboard/monitor), floors (alpha 0.7, depth bias), clue gravity (drop, `clue_reset reason=in_zone`, team sync),
    depth occlusion (`depth_occlusion status=active`, 72 fps), data upload (`python tools/receive_data.py`, setup panel
-   "0 waiting"), the evidence board look (readable at 1 m, poking tilted cards, red strings).
+   "0 waiting"), the evidence board look (readable at 1 m, poking tilted cards, red strings). Newest, also untested:
+   occlusion now that the OpenXR Meta package is in (status=active? fps? the ON/OFF button), the briefing detective
+   (both tap Begin, same spot for both, voice, gestures, the Start gate), clue sync (a picked-up clue moves in the
+   partner's view), joining no longer says "height wrong" (status shows the cm correction), capped toss
+   (`clue_thrown`), the new setup panel / case-file card / status label.
    Pull with `bash tools/pull_data.sh` (or the receiver) and check the rows listed in the checklist.
 2. Answer the open questions below, then a pilot with real participants.
 3. Later (not built, don't start without the user): interpersonal distance and shared head-gaze attention analysis.

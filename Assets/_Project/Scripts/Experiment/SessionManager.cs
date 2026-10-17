@@ -256,11 +256,85 @@ namespace FYP.Detective
             return true;
         }
 
-        /// <summary>Participant's Start button: starts the run only if the experimenter armed it.</summary>
+        /// <summary>Participant's Start button: starts the run only if it is armed and the briefing rule allows it.</summary>
         public void RequestParticipantStart()
         {
-            if (!IsArmed || State.IsRunning) return;
+            if (!CanParticipantStart) return;
             RequestStart(StartSource.ParticipantStart);
+        }
+
+        // ---- Briefing by the detective (session 6): played after ARM, before the timer ----
+
+        /// <summary>True while a briefing detective is in the scene: then Start waits for the briefing (and, in team runs, the partner's).</summary>
+        public bool BriefingRequired { get; private set; }
+
+        /// <summary>This headset's briefing has played to the end since the current arming.</summary>
+        public bool LocalBriefingDone { get; private set; }
+
+        /// <summary>Team runs: the partner's briefing has played to the end (their BriefingDone message arrived).</summary>
+        public bool PartnerBriefingDone { get; private set; }
+
+        public DateTime BriefingStartedUtc { get; private set; } = DateTime.MinValue;
+        public DateTime BriefingFinishedUtc { get; private set; } = DateTime.MinValue;
+        public int BriefingReplays { get; private set; }
+
+        /// <summary>Raised when this headset's briefing finished (the team sync tells the partner).</summary>
+        public event Action LocalBriefingFinished;
+
+        /// <summary>
+        /// Participant's Start is allowed: armed, not running, and - when a briefing detective is present - this
+        /// headset's briefing finished and, in team runs, the partner's too (user decision, session 6).
+        /// The experimenter's Start now always works.
+        /// </summary>
+        public bool CanParticipantStart =>
+            IsArmed && !State.IsRunning && (!BriefingRequired || (LocalBriefingDone && (!IsTeamMode || PartnerBriefingDone)));
+
+        /// <summary>Called by the briefing detective when it is enabled / disabled.</summary>
+        public void SetBriefingRequired(bool required) => BriefingRequired = required;
+
+        public void ReportBriefingStarted()
+        {
+            if (BriefingStartedUtc == DateTime.MinValue) BriefingStartedUtc = DateTime.UtcNow;
+        }
+
+        public void ReportBriefingReplayed() => BriefingReplays++;
+
+        public void ReportBriefingFinished()
+        {
+            if (LocalBriefingDone) return;
+            LocalBriefingDone = true;
+            BriefingFinishedUtc = DateTime.UtcNow;
+            Debug.Log("[SessionManager] Briefing finished");
+            LocalBriefingFinished?.Invoke();
+        }
+
+        /// <summary>Team briefing: raised on both headsets when both players have tapped Begin (shared detective spot).</summary>
+        public event Action<BriefingSpot> BriefingGo;
+
+        /// <summary>Team briefing: this player tapped Begin; the briefing starts when the partner has too.</summary>
+        public void RequestBriefingReady(PlayerPose2D pose)
+        {
+            if (IsTeamMode) Authority.RequestBriefingReady(pose, SelfId);
+        }
+
+        /// <summary>Team sync: start the briefing now at the shared spot.</summary>
+        public void ApplyBriefingGo(BriefingSpot spot)
+        {
+            if (!IsArmed || State.IsRunning) return;
+            BriefingGo?.Invoke(spot);
+        }
+
+        /// <summary>Team sync: the partner's briefing finished.</summary>
+        public void SetPartnerBriefingDone(bool done) => PartnerBriefingDone = done;
+
+        // A new arming starts a new briefing (the values stay after disarming/starting, for the session_start row).
+        private void ResetBriefing()
+        {
+            LocalBriefingDone = false;
+            PartnerBriefingDone = false;
+            BriefingStartedUtc = DateTime.MinValue;
+            BriefingFinishedUtc = DateTime.MinValue;
+            BriefingReplays = 0;
         }
 
         /// <summary>When the current arming happened (UTC); DateTime.MinValue when not armed.</summary>
@@ -279,6 +353,7 @@ namespace FYP.Detective
         private void SetArmed(bool armed)
         {
             if (IsArmed == armed) return;
+            if (armed) ResetBriefing();
             IsArmed = armed;
             ArmedUtc = armed ? DateTime.UtcNow : DateTime.MinValue;
             Debug.Log("[SessionManager] " + (armed ? "Armed - waiting for the participant's Start" : "Disarmed"));
@@ -371,6 +446,10 @@ namespace FYP.Detective
         }
 
         /// <summary>A clue this headset controls was put back home (logging only, never networked).</summary>
+        /// <summary>A clue this headset controls was tossed (logging only, never networked).</summary>
+        public void RequestClueThrown(string clueId, float speed, bool capped) =>
+            State.RecordClueThrown(clueId, LocalActor, speed, capped);
+
         public void RequestClueReset(string clueId, ClueResetReason reason = ClueResetReason.OutOfBounds) =>
             State.RecordClueReset(clueId, LocalActor, ClueBounds.ReasonText(reason));
 

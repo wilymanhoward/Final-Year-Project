@@ -113,6 +113,8 @@ InitTestScene*.unity*
 # Study data must never be committed by accident (it lives on the headset / a secure drive)
 *.csv
 !/Assets/**/*Template*.csv
+# ...and the detective's briefing script (game content, not study data)
+!/Assets/_Project/Audio/Briefing/briefing_lines.csv
 /StudyData/
 experiment_config.json
 # OS clutter

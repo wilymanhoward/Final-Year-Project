@@ -10,11 +10,14 @@ namespace FYP.Detective
     /// <see cref="visibleSeconds"/>. Put it on the root of a world-space Canvas.
     /// With <see cref="showDebugMessages"/> on, it also shows "Resumed - paused X.X s" when a pause during a
     /// session ends (app paused and/or headset off, overlap counted once). Debug only: turn it OFF for the real study so participants never see it.
+    /// Styled like the setup panel by the FYP menu tools (rounded card, "EXPERIMENTER" header, coloured accent bar).
     /// </summary>
     public class StatusLabel : MonoBehaviour
     {
         [SerializeField] private Text text;
         [SerializeField] private Canvas canvas;
+        [Tooltip("Optional accent bar coloured by the message (red = problem, amber = in progress, green = ok).")]
+        [SerializeField] private Image accent;
         [Tooltip("Usually OVRCameraRig/TrackingSpace/CenterEyeAnchor. Empty = Camera.main.")]
         [SerializeField] private Transform head;
         [Tooltip("Seconds the message stays visible. 0 = until the next message.")]
@@ -71,6 +74,7 @@ namespace FYP.Detective
         public void Show(string message, float seconds)
         {
             if (text != null) text.text = message;
+            if (accent != null) accent.color = SetupStatusModel.ColorOf(SetupStatusModel.MessageLight(message));
             Reposition();
             if (canvas != null) canvas.enabled = true;
             _hideAt = seconds > 0f ? Time.unscaledTime + seconds : -1f;

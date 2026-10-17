@@ -22,6 +22,9 @@ namespace FYP.Detective
         void RequestBoardSuspect(string suspectId, string by);
         void RequestBoardEvidence(string clueId, bool selected, string by);
 
+        /// <summary>Team briefing: this player tapped Begin briefing (their CaseRoot-local floor pose).</summary>
+        void RequestBriefingReady(PlayerPose2D pose, string by);
+
         /// <summary>This headset counted a contamination entry of its own body; tell the partner.</summary>
         void ReportContamination(string zoneId, BodyPart part, string by);
     }

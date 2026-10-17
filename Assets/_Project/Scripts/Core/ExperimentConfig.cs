@@ -41,6 +41,10 @@ namespace FYP.Detective
 
         public const int DefaultNetPort = 7777;
 
+        [Tooltip("Depth API occlusion on this headset (setup panel toggle, session 6). Off also stops depth sensing. " +
+                 "Logged per run as depth_occlusion status=active / off.")]
+        public bool occlusionEnabled = true;
+
         [Tooltip("Data upload: IPv4 address of the laptop running tools/receive_data.py. Empty = found automatically from " +
                  "the receiver's broadcast; set it (e.g. with adb) only if the broadcast doesn't get through.")]
         public string dataReceiverAddress = "";

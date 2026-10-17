@@ -13,6 +13,7 @@
     "com.unity.timeline": "1.8.13",
     "com.unity.transport": "2.6.0",
     "com.unity.ugui": "2.0.0",
+    "com.unity.xr.meta-openxr": "2.5.1",
     "com.unity.xr.openxr": "1.16.1",
     "com.unity.modules.accessibility": "1.0.0",
     "com.unity.modules.adaptiveperformance": "1.0.0",

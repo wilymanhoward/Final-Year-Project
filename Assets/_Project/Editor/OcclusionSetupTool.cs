@@ -3,6 +3,10 @@ using Meta.XR.EnvironmentDepth;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+#if FYP_OPENXR_META
+using UnityEngine.XR.OpenXR;
+using UnityEngine.XR.OpenXR.Features.Meta;
+#endif
 
 namespace FYP.Detective.EditorTools
 {
@@ -75,6 +79,8 @@ namespace FYP.Detective.EditorTools
                 OVRProjectConfig.CommitProjectConfig(config);
             }
 
+            string openXr = EnableOpenXrOcclusion();
+
             AssetDatabase.SaveAssets();
             var scene = session.gameObject.scene;
             EditorSceneManager.MarkSceneDirty(scene);
@@ -84,9 +90,54 @@ namespace FYP.Detective.EditorTools
                 "- EnvironmentDepthManager: soft occlusion, hands removed from depth\n" +
                 "- Prop materials on " + PropAssets.PropShaderName + ", world-space UI on " + UiShaderName + " (applied at start)\n" +
                 "- Scene permission requested at startup; scene support = " + config.sceneSupport + "\n" +
-                "- Runs log depth_occlusion (status=active / no_permission / unsupported ...)\n\n" +
+                "- Runs log depth_occlusion (status=active / no_permission / unsupported ...)\n" +
+                "- OpenXR (Android): " + openXr + "\n\n" +
                 "On each headset allow \"spatial data\" when asked (once). Over Link: Meta Quest Link app > Settings > " +
                 "Developer > Spatial Data over Meta Quest Link. Scene saved; rebuild to apply.", "OK");
+        }
+
+        /// <summary>
+        /// The OpenXR backend's depth source (found session 6: without it EnvironmentDepthManager reports unsupported):
+        /// package com.unity.xr.meta-openxr (2.5.1, user-approved) and, on Android, its features "Meta Quest: Occlusion"
+        /// (AROcclusionFeature, enables XR_META_environment_depth) and "Meta Quest: Session" (ARSessionFeature, its required
+        /// dependency) - exactly Meta's own project-setup rule (com.meta.xr.sdk.core Editor/EnvironmentDepth/
+        /// ProjectSetupDepthAPI.cs: "DepthAPI requires Occlusions and Session to be enabled in the OpenXR menu").
+        /// Render mode must be Single Pass Instanced (Multiview), already the case.
+        /// </summary>
+        internal static string EnableOpenXrOcclusion()
+        {
+#if FYP_OPENXR_META
+            var settings = OpenXRSettings.GetSettingsForBuildTargetGroup(BuildTargetGroup.Android);
+            if (settings == null) return "no OpenXR settings for Android";
+            var occlusion = settings.GetFeature<AROcclusionFeature>();
+            var sessionFeature = settings.GetFeature<ARSessionFeature>();
+            if (occlusion == null || sessionFeature == null) return "Meta Quest features not found (reopen the project)";
+            occlusion.enabled = true;
+            sessionFeature.enabled = true;
+            EditorUtility.SetDirty(occlusion);
+            EditorUtility.SetDirty(sessionFeature);
+            return "Meta Quest: Occlusion + Session enabled" +
+                (settings.renderMode == OpenXRSettings.RenderMode.SinglePassInstanced ? "" : " (WARNING: set render mode to Single Pass Instanced)");
+#else
+            return "MISSING package com.unity.xr.meta-openxr - occlusion can't work on OpenXR";
+#endif
+        }
+
+        /// <summary>True when the OpenXR occlusion features are on (for FYP > Prepare Study Build).</summary>
+        internal static bool IsOpenXrOcclusionEnabled(out string why)
+        {
+#if FYP_OPENXR_META
+            var settings = OpenXRSettings.GetSettingsForBuildTargetGroup(BuildTargetGroup.Android);
+            var occlusion = settings != null ? settings.GetFeature<AROcclusionFeature>() : null;
+            var sessionFeature = settings != null ? settings.GetFeature<ARSessionFeature>() : null;
+            bool ok = occlusion != null && occlusion.enabled && sessionFeature != null && sessionFeature.enabled
+                && settings.renderMode == OpenXRSettings.RenderMode.SinglePassInstanced;
+            why = ok ? "" : "OpenXR features 'Meta Quest: Occlusion' + 'Meta Quest: Session' (Android) or Multiview not set";
+            return ok;
+#else
+            why = "package com.unity.xr.meta-openxr is not installed";
+            return false;
+#endif
         }
 
         /// <summary>The depth-occluded UI material (created / updated on access).</summary>
