@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Text;
 using FYP.Detective.Meta;
 using FYP.Detective.Net;
+using Meta.XR.EnvironmentDepth;
 using Oculus.Interaction.Locomotion;
 using Unity.Netcode;
 using Unity.Netcode.Components;
@@ -15,7 +16,7 @@ namespace FYP.Detective.EditorTools
     /// Phase E: <c>FYP > Prepare Study Build</c> switches the debug settings off (status-label "Resumed" messages,
     /// zone debug visuals) and checks that the open scene is ready for a study build: case specs valid, both case
     /// scenes built and matching their definitions, grabbable clues networked, test content off, UI and networking
-    /// present, locomotion off, boundary suppression and the INTERNET permission on, Main.unity in the build, not a
+    /// present, locomotion off, depth occlusion set up, boundary suppression and the INTERNET permission on, Main.unity in the build, not a
     /// development build. It never fixes the scene beyond the debug switches; it reports what to run instead.
     /// <c>FYP > Restore Debug Settings</c> switches the debug messages back on for development.
     /// </summary>
@@ -57,8 +58,11 @@ namespace FYP.Detective.EditorTools
             if (specErrors.Count == 0) Ok("Case specs pass the validator");
             else Fail("Case specs fail the validator: " + string.Join("; ", specErrors));
 
+            int triangles = 0;
             foreach (var spec in new[] { CaseSpecs.X, CaseSpecs.Y })
-                CheckCase(spec, Ok, Fail);
+                triangles += CheckCase(spec, Ok, Fail);
+            if (triangles > 50000) Fail($"Case visuals use {triangles} triangles (budget 50k)");
+            else Ok($"Case visuals: {triangles} triangles in both cases (budget 50k)");
 
             // 3. Old test content.
             var caseRoot = Object.FindFirstObjectByType<CaseRoot>(FindObjectsInactive.Include);
@@ -72,6 +76,9 @@ namespace FYP.Detective.EditorTools
             Require<SetupPanel>("Setup panel", "FYP > Set Up Headset UI", Ok, Fail);
             Require<ParticipantCard>("Participant card", "FYP > Set Up Headset UI", Ok, Fail);
             Require<EvidenceBoardView>("Evidence board", "FYP > Set Up Evidence Board", Ok, Fail);
+            var boardView = Object.FindFirstObjectByType<EvidenceBoardView>(FindObjectsInactive.Include);
+            if (boardView != null && boardView.transform.Find("Visual") == null)
+                Warn("Evidence board has no cork board mesh (run mayapy tools/maya/build_props.py, then FYP > Set Up Evidence Board)");
             Require<ScenePlacement>("Scene placement", "FYP > Set Up Case Root and Placement", Ok, Fail);
             Require<ColocationCoordinator>("Colocation coordinator", "FYP > Set Up Networking", Ok, Fail);
             Require<TeamSessionSync>("Team session sync", "FYP > Set Up Networking", Ok, Fail);
@@ -86,6 +93,34 @@ namespace FYP.Detective.EditorTools
             if (ovr == null) Fail("No OVRManager in the scene");
             else if (!ovr.shouldBoundaryVisibilityBeSuppressed) Warn("Boundary suppression off (FYP > Suppress Boundary)");
             else Ok("Boundary suppression requested");
+
+            // Depth API occlusion (session 6): real people hide virtual objects behind them.
+            var depth = Object.FindFirstObjectByType<EnvironmentDepthManager>(FindObjectsInactive.Include);
+            var ui = depth != null ? depth.GetComponent<UiOcclusion>() : null;
+            if (depth == null || !depth.isActiveAndEnabled || depth.GetComponent<DepthOcclusionMonitor>() == null || ui == null)
+                Fail("Depth occlusion not set up (run FYP > Set Up Occlusion (Depth API))");
+            else if (depth.OcclusionShadersMode == OcclusionShadersMode.None)
+                Fail("Depth occlusion shaders mode is None (run FYP > Set Up Occlusion (Depth API))");
+            else Ok($"Depth occlusion on ({depth.OcclusionShadersMode}, hands removed: {depth.RemoveHands})");
+            int notOccluded = 0;
+            foreach (var r in Object.FindObjectsByType<MeshRenderer>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            {
+                if (r.GetComponentInParent<CaseContent>(true) == null) continue;
+                foreach (var m in r.sharedMaterials)
+                    if (m != null && m.shader.name != PropAssets.PropShaderName) notOccluded++;
+            }
+            if (notOccluded > 0) Fail($"{notOccluded} case material slot(s) not on {PropAssets.PropShaderName} (run FYP > Set Up Occlusion, then Build Case Scenes)");
+            else Ok("All case materials use the occlusion shader");
+            if (ovr != null && !new SerializedObject(ovr).FindProperty("requestScenePermissionOnStartup").boolValue)
+                Fail("OVRManager doesn't request the scene permission at startup (needed for occlusion)");
+
+            // Data upload to the laptop (session 6).
+            var dataLogger = Object.FindFirstObjectByType<DataLogger>();
+            if (dataLogger == null || dataLogger.GetComponent<DataUploader>() == null)
+                Fail("No DataUploader next to the DataLogger (run FYP > Set Up Networking)");
+            else if (PlayerSettings.insecureHttpOption != InsecureHttpOption.AlwaysAllowed)
+                Fail("Plain HTTP not allowed, the data upload would fail (run FYP > Set Up Networking)");
+            else Ok("Data upload to the laptop set up (run tools/receive_data.py during sessions)");
 
             if (PlayerSettings.Android.forceInternetPermission) Ok("Android INTERNET permission forced");
             else Fail("INTERNET permission not forced (run FYP > Set Up Networking)");
@@ -131,13 +166,14 @@ namespace FYP.Detective.EditorTools
             return n;
         }
 
-        private static void CheckCase(CaseSpec spec, System.Action<string> ok, System.Action<string> fail)
+        /// <summary>Checks one case scene; returns the triangles of its visuals.</summary>
+        private static int CheckCase(CaseSpec spec, System.Action<string> ok, System.Action<string> fail)
         {
             string name = "Case_" + spec.Case;
             CaseContent content = null;
             foreach (var c in Object.FindObjectsByType<CaseContent>(FindObjectsInactive.Include, FindObjectsSortMode.None))
                 if (c.CaseId == spec.Case) content = c;
-            if (content == null) { fail($"{name} missing (run FYP > Build Case Scenes)"); return; }
+            if (content == null) { fail($"{name} missing (run FYP > Build Case Scenes)"); return 0; }
 
             var clues = new Dictionary<string, Clue>();
             foreach (var clue in content.GetComponentsInChildren<Clue>(true)) clues[clue.ClueId] = clue;
@@ -146,7 +182,18 @@ namespace FYP.Detective.EditorTools
             {
                 if (!clues.TryGetValue(cs.Id, out Clue clue)) { fail($"{name}: clue {cs.Id} missing (rebuild the case scenes)"); problems++; continue; }
                 if (clue.InspectText != cs.InspectText) { fail($"{name}: {cs.Id} text differs from the spec (rebuild)"); problems++; }
+                if (clue.transform.Find("Visual") == null || clue.GetComponent<ClueHighlight>() == null)
+                {
+                    fail($"{name}: {cs.Id} has no Visual / hover highlight (run mayapy tools/maya/build_props.py, then Build Case Scenes)");
+                    problems++;
+                }
                 if (!cs.Grabbable) continue;
+                var body = clue.GetComponent<Rigidbody>();
+                if (clue.GetComponent<ClueGravity>() == null || body == null || !body.isKinematic || !body.useGravity)
+                {
+                    fail($"{name}: {cs.Id} has no clue gravity (rebuild the case scenes)");
+                    problems++;
+                }
                 var netObj = clue.GetComponent<NetworkObject>();
                 var netTransform = clue.GetComponent<NetworkTransform>();
                 if (netObj == null || clue.GetComponent<NetworkClue>() == null || netTransform == null)
@@ -160,9 +207,28 @@ namespace FYP.Detective.EditorTools
                     problems++;
                 }
             }
-            if (content.GetComponentsInChildren<ExclusionZone>(true).Length != spec.Zones.Count)
+            var zones = content.GetComponentsInChildren<ExclusionZone>(true);
+            if (zones.Length != spec.Zones.Count)
             {
                 fail($"{name}: expected {spec.Zones.Count} zones (rebuild)");
+                problems++;
+            }
+            foreach (var z in zones)
+                if (z.transform.Find("Visual") == null) { fail($"{name}: zone {z.ZoneId} has no floor decal (rebuild)"); problems++; }
+            foreach (var p in spec.Props)
+            {
+                var prop = content.transform.Find(p.Name);
+                if (prop == null || prop.Find("Visual") == null) { fail($"{name}: prop '{p.Name}' has no Visual (rebuild)"); problems++; }
+                else if (p.Role != "door" && prop.Find("Surface (clue physics)") == null)
+                {
+                    fail($"{name}: prop '{p.Name}' has no clue physics surface (rebuild)");
+                    problems++;
+                }
+            }
+            var floor = content.transform.Find("Floor");
+            if (floor == null || floor.GetComponent<BoxCollider>() == null || floor.Find("Visual") == null)
+            {
+                fail($"{name}: no room floor / clue physics floor (rebuild)");
                 problems++;
             }
 
@@ -180,7 +246,8 @@ namespace FYP.Detective.EditorTools
                     problems++;
                 }
             }
-            if (problems == 0) ok($"{name}: 7 clues (grabbables networked), {spec.Zones.Count} zones, definition matches");
+            if (problems == 0) ok($"{name}: 7 clues (grabbables networked, visuals + highlight), {spec.Zones.Count} zones with decals, props with visuals, definition matches");
+            return PropAssets.Triangles(content.transform);
         }
 
         private static void Require<T>(string what, string fix, System.Action<string> ok, System.Action<string> fail) where T : Object

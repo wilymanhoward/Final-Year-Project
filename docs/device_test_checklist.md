@@ -10,13 +10,18 @@ are for the experimenter only; participants use their hands.
    2. **FYP > Set Up Networking**
    3. **FYP > Set Up Evidence Board**
    4. **FYP > Set Up Headset UI**
+   5. **FYP > Set Up Occlusion (Depth API)**
 2. Run **FYP > Prepare Study Build**. Every line must say OK, and it switches the debug messages off.
    **FYP > Restore Debug Settings** switches them back on for development.
 3. Build And Run to **both** headsets: `…4M00Z6` = P01 (host), `…970B12` = P02 (client).
 
 ## Before the session (both headsets)
 
-- [ ] Batteries charged; the 4 x 4 m play area is clear; tape mark on the floor at the
+- [ ] Laptop on the **same Wi-Fi / hotspot** as the headsets; start the data receiver and leave its window open:
+      `python tools/receive_data.py` (first time: allow Python through the Windows firewall on private networks).
+      The setup panel's last line shows "Data: laptop <ip> ..." once a headset has found it.
+
+- [ ] Batteries charged; the 5 x 5 m play area is clear; tape mark on the floor at the
       centre, with a strip showing which way the front wall is.
 - [ ] Wi-Fi: both on the same network **with internet** (shared anchors go through Meta's cloud). If campus Wi-Fi
       fails, use a phone hotspot.
@@ -25,6 +30,8 @@ are for the experimenter only; participants use their hands.
 - [ ] **Floor height correct**: Settings > Physical space > Boundary > set the floor. A wrong floor puts the scene
       under or above the real floor; the app warns when your head looks too high or too low above the floor.
 - [ ] Boundary: if the system boundary still shows, set up a large roomscale boundary.
+- [ ] First launch of a new build: allow **spatial data** when the headset asks (needed for occlusion: a person in front
+      of a desk hides it). If it was denied: Settings > Privacy > App permissions > Spatial data.
 
 ## Placing the scene (each headset, wearing it)
 
@@ -54,13 +61,16 @@ are for the experimenter only; participants use their hands.
 
 ## After the session
 
-1. Connect each headset by USB (one or both) and run, from the repo root in Git Bash:
+1. The run files arrive by themselves if the laptop receiver ran during the session (see "Before the session"):
+   `StudyData/<date>/quest-<id>/`, one folder per headset, `StudyData/receiver_log.csv` lists every file. On each headset
+   the setup panel's last line must say **0 waiting** before you switch it off.
+   Backup / if something is still waiting: connect each headset by USB and run, from the repo root in Git Bash:
 
    ```
    bash tools/pull_data.sh
    ```
 
-   Files go to `StudyData/<date>/<headset serial>/`. The script never deletes anything on the headset.
+   Files go to `StudyData/<date>/<headset serial>/`. Neither way ever deletes anything on the headset.
 2. Check the report: every run should have a summary, and no run should say **Interrupted**. If one does, the app was
    closed or crashed mid-run - note it in the session log.
 3. Back up `StudyData/` (it is not in git).
@@ -70,6 +80,10 @@ are for the experimenter only; participants use their hands.
 - `session_start` has `start_source=participant_start` and a `run_armed` row follows it.
 - `placement_check` at session start: `ok=1` and `head_m` about 1.5-1.8 (a standing participant).
 - Team runs: `team=1` in `session_start`, `by=P01/P02` on clue and board rows, condition `B` in the filename.
+- `depth_occlusion` at session start: `status=active` (else `no_permission` = allow spatial data; `waiting` = no
+  depth yet). Team runs: walk behind a desk - the desk should hide your partner's legs, not be drawn over them.
+- Clue gravity: a clue let go in the air drops onto the desk / floor and stays put; one dropped into a zone goes back
+  home and logs `clue_reset` with `reason=in_zone`. Team runs: the partner sees it fall too.
 
 ## Troubleshooting
 

@@ -38,7 +38,6 @@ namespace FYP.Detective
         Interrupted = 3,
     }
 
-    /// <summary>Which tracked point entered an exclusion zone.</summary>
     /// <summary>How a run was started (logged as start_source).</summary>
     public enum StartSource
     {
@@ -48,10 +47,29 @@ namespace FYP.Detective
         ParticipantStart = 1,
     }
 
+    /// <summary>Which tracked point entered an exclusion zone.</summary>
     public enum BodyPart
     {
         Head = 0,
         LeftHand = 1,
         RightHand = 2,
+    }
+
+    /// <summary>
+    /// Whether real people/objects hide virtual ones (Meta Depth API environment occlusion), logged per run as
+    /// depth_occlusion status=... so runs without working occlusion can be found in the data.
+    /// </summary>
+    public enum DepthOcclusionStatus
+    {
+        /// <summary>No occlusion component in the scene (or it is switched off).</summary>
+        Off = 0,
+        /// <summary>The device / runtime has no environment depth (e.g. the Editor without Link).</summary>
+        Unsupported = 1,
+        /// <summary>Spatial data permission (com.oculus.permission.USE_SCENE) not granted.</summary>
+        NoPermission = 2,
+        /// <summary>Supported and permitted, but no depth frame yet.</summary>
+        Waiting = 3,
+        /// <summary>Depth frames arrive; virtual objects behind real ones are hidden.</summary>
+        Active = 4,
     }
 }

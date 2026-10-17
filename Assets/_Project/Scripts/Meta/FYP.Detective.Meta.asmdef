@@ -3,7 +3,8 @@
     "rootNamespace": "FYP.Detective.Meta",
     "references": [
         "FYP.Detective",
-        "Oculus.VR"
+        "Oculus.VR",
+        "Meta.XR.EnvironmentDepth"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

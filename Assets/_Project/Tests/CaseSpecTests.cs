@@ -1,5 +1,6 @@
 using System;
 using NUnit.Framework;
+using UnityEngine;
 
 namespace FYP.Detective.Tests
 {
@@ -29,7 +30,7 @@ namespace FYP.Detective.Tests
         public void MeanDistancesAreEqual()
         {
             Assert.AreEqual(CaseSpecValidator.MeanDistance(CaseSpecs.X), CaseSpecValidator.MeanDistance(CaseSpecs.Y), 0.001f);
-            Assert.AreEqual(1.22f, CaseSpecValidator.MeanDistance(CaseSpecs.X), 0.01f);
+            Assert.AreEqual(2.10f, CaseSpecValidator.MeanDistance(CaseSpecs.X), 0.01f);
         }
 
         [Test]
@@ -89,15 +90,27 @@ namespace FYP.Detective.Tests
             float oldX = glass.X, oldW = glass.Width;
             try
             {
-                glass.X = -0.95f;   // the first headset test: glass across the whole display front
+                glass.X = x.Prop("display").X;   // the first headset test: glass across the whole display front
                 glass.Width = 0.9f;
                 var errors = string.Join("; ", CaseSpecValidator.Validate(x));
-                StringAssert.Contains("K1 can't be reached", errors);
+                StringAssert.Contains("K3 can't be reached", errors);   // K1 is now read from the case's side
             }
             finally
             {
                 glass.X = oldX;
                 glass.Width = oldW;
+            }
+            // A zone on K1's reading side (the keypad on the display case's side glass) blocks it.
+            var k1 = x.Clue(ClueSlot.K1);
+            float gz = glass.Z, gd = glass.Depth;
+            try
+            {
+                glass.X = k1.X + 0.30f; glass.Z = k1.Z; glass.Width = 0.3f; glass.Depth = 0.6f;
+                StringAssert.Contains("K1 can't be reached", string.Join("; ", CaseSpecValidator.Validate(x)));
+            }
+            finally
+            {
+                glass.X = oldX; glass.Z = gz; glass.Width = oldW; glass.Depth = gd;
             }
             foreach (var clue in x.Clues) Assert.IsTrue(CaseSpecValidator.IsReachable(x, clue), clue.Slot.ToString());
 
@@ -106,13 +119,31 @@ namespace FYP.Detective.Tests
             float cx = coffee.X, cz = coffee.Z, cw = coffee.Width, cd = coffee.Depth;
             try
             {
-                coffee.X = 1.00f; coffee.Z = 0.05f; coffee.Width = 0.5f; coffee.Depth = 0.4f;
+                var desk = x.Prop("desk");   // the second headset test: coffee right in front of the desk
+                Vector3 front = Quaternion.Euler(0f, desk.Yaw, 0f) * Vector3.forward;
+                coffee.X = desk.X + front.x * 0.45f; coffee.Z = desk.Z + front.z * 0.45f; coffee.Width = 0.4f; coffee.Depth = 0.5f;
                 StringAssert.Contains("K2 can't be reached", string.Join("; ", CaseSpecValidator.Validate(x)));
             }
             finally
             {
                 coffee.X = cx; coffee.Z = cz; coffee.Width = cw; coffee.Depth = cd;
             }
+        }
+
+        [Test]
+        public void MayaVarnishDecalUsesTheZonePose()
+        {
+            // tools/maya/build_props.py cuts the Case Y varnish decal from the floorboards at this pose; if the zone
+            // moves in CaseSpecs, update Y_Z3_POSE there and rerun mayapy, or the decal won't line up with the boards.
+            string path = System.IO.Path.Combine(Application.dataPath, "..", "tools", "maya", "build_props.py");
+            var m = System.Text.RegularExpressions.Regex.Match(System.IO.File.ReadAllText(path),
+                @"Y_Z3_POSE = \(([-\d.]+), ([-\d.]+), ([-\d.]+)\)");
+            Assert.IsTrue(m.Success, "Y_Z3_POSE not found in build_props.py");
+            var zone = CaseSpecs.Y.Zones[2];
+            var inv = System.Globalization.CultureInfo.InvariantCulture;
+            Assert.AreEqual(zone.X, float.Parse(m.Groups[1].Value, inv), 1e-3f);
+            Assert.AreEqual(zone.Z, float.Parse(m.Groups[2].Value, inv), 1e-3f);
+            Assert.AreEqual(zone.Yaw, float.Parse(m.Groups[3].Value, inv), 1e-3f);
         }
 
         [Test]

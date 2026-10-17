@@ -16,6 +16,7 @@ namespace FYP.Detective.EditorTools
     /// <summary>
     /// Week 3: adds a "Network" object (NetworkManager + UnityTransport + NetworkSessionLauncher +
     /// ColocationCoordinator) to the open scene, wires the controller shortcuts and the status label, and forces the Android INTERNET permission.
+    /// Also adds the <see cref="DataUploader"/> (run files to the laptop) and allows plain HTTP for it.
     /// Idempotent: running it again only fills in what is missing.
     /// </summary>
     /// <remarks>
@@ -108,6 +109,20 @@ namespace FYP.Detective.EditorTools
             bool permissionChanged = !PlayerSettings.Android.forceInternetPermission;
             PlayerSettings.Android.forceInternetPermission = true;
 
+            // 7. Data upload to the laptop (session 6): DataUploader next to the DataLogger, plain HTTP allowed
+            //    (local network only, user decision; CleartextHttpBuildStep also marks the Gradle manifests).
+            bool uploaderAdded = false;
+            if (logger != null)
+            {
+                var uploader = logger.GetComponent<DataUploader>();
+                uploaderAdded = uploader == null;
+                if (uploaderAdded) uploader = logger.gameObject.AddComponent<DataUploader>();
+                MainSceneBuilder.SetObject(uploader, "session", session);
+                var setupPanel = Object.FindFirstObjectByType<SetupPanel>(FindObjectsInactive.Include);
+                if (setupPanel != null) MainSceneBuilder.SetObject(setupPanel, "uploader", uploader);
+            }
+            PlayerSettings.insecureHttpOption = InsecureHttpOption.AlwaysAllowed;
+
             var scene = go.scene;
             EditorSceneManager.MarkSceneDirty(scene);
             EditorSceneManager.SaveScene(scene);
@@ -120,6 +135,8 @@ namespace FYP.Detective.EditorTools
                 $"TeamSessionSync added; {networkedClues} grabbable clue(s) networked.\n" +
                 (placement == null ? "WARNING: no ScenePlacement found - run Set Up Case Root and Placement.\n" : "") +
                 (permissionChanged ? "Android INTERNET permission forced on.\n" : "") +
+                (logger == null ? "WARNING: no DataLogger - data upload not set up.\n"
+                    : (uploaderAdded ? "DataUploader added" : "DataUploader present") + " (sends run files to tools/receive_data.py; HTTP allowed).\n") +
                 "Scene saved. Rebuild to apply.", "OK");
         }
 

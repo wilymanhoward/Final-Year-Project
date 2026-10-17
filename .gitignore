@@ -122,3 +122,6 @@ Thumbs.db
 # Unity IL2CPP debug/build output (Build Settings > Android), never commit
 *_BackUpThisFolder_ButDontShipItWithYourGame/
 *_BurstDebugInformation_DoNotShip/
+
+# Maya scenes saved by tools/maya/build_props.py (regenerated from the script)
+/tools/maya/scenes/

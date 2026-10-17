@@ -76,12 +76,79 @@ namespace FYP.Detective.EditorTools
             EditorUtility.SetDirty(wrapper);
         }
 
+        /// <summary>Every interaction wrapper under the clue: WhenHover → highlight.Hover, WhenUnhover → Unhover.</summary>
+        public static void WireHover(Clue clue, ClueHighlight highlight)
+        {
+            foreach (var wrapper in clue.GetComponentsInChildren<InteractableUnityEventWrapper>(true))
+            {
+                AddVoidOnce(wrapper.WhenHover, highlight, highlight.Hover, nameof(ClueHighlight.Hover));
+                AddVoidOnce(wrapper.WhenUnhover, highlight, highlight.Unhover, nameof(ClueHighlight.Unhover));
+                EditorUtility.SetDirty(wrapper);
+            }
+        }
+
         public static void EnsureResetter(Clue clue, CaseRoot caseRoot, SessionManager session)
         {
             var resetter = clue.GetComponent<ClueResetter>();
             if (resetter == null) resetter = clue.gameObject.AddComponent<ClueResetter>();
             MainSceneBuilder.SetObject(resetter, "caseRoot", caseRoot);
             MainSceneBuilder.SetObject(resetter, "session", session);
+            EnsureGravity(clue, session);
+        }
+
+        public const string PhysicsMaterialPath = "Assets/_Project/Art/Materials/Props/CluePhysics.physicMaterial";
+
+        /// <summary>
+        /// Gravity for a grabbable clue (see <see cref="ClueGravity"/>): the Rigidbody starts kinematic with gravity on,
+        /// interpolated, continuous speculative collision (thin paper, 4 mm), damped and with a no-bounce,
+        /// high-friction material so a dropped clue doesn't roll or slide; the Grabbable's throw-on-release is off
+        /// (Grabbable `_throwWhenUnselected`, Runtime/Scripts/Interaction/Grabbable/Grabbable.cs; `_kinematicWhileSelected`
+        /// stays on, so the Interaction SDK keeps it kinematic while held).
+        /// </summary>
+        public static void EnsureGravity(Clue clue, SessionManager session)
+        {
+            var body = clue.GetComponent<Rigidbody>();
+            if (body == null) body = clue.gameObject.AddComponent<Rigidbody>();
+            body.isKinematic = true;
+            body.useGravity = true;
+            body.mass = 0.2f;
+            body.linearDamping = 0.5f;
+            body.angularDamping = 4f;
+            body.interpolation = RigidbodyInterpolation.Interpolate;
+            body.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
+            var material = CluePhysicsMaterial();
+            foreach (var c in clue.GetComponents<Collider>()) if (!c.isTrigger) c.sharedMaterial = material;
+
+            foreach (var grabbable in clue.GetComponentsInChildren<Grabbable>(true))
+            {
+                var so = new SerializedObject(grabbable);
+                so.FindProperty("_rigidbody").objectReferenceValue = body;   // GrabWizard relies on Grabbable.Reset() for this
+                so.FindProperty("_throwWhenUnselected").boolValue = false;
+                so.FindProperty("_kinematicWhileSelected").boolValue = true;
+                so.ApplyModifiedPropertiesWithoutUndo();
+            }
+
+            var gravity = clue.GetComponent<ClueGravity>();
+            if (gravity == null) gravity = clue.gameObject.AddComponent<ClueGravity>();
+            MainSceneBuilder.SetObject(gravity, "session", session);
+        }
+
+        private static PhysicsMaterial CluePhysicsMaterial()
+        {
+            var material = AssetDatabase.LoadAssetAtPath<PhysicsMaterial>(PhysicsMaterialPath);
+            if (material == null)
+            {
+                System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(PhysicsMaterialPath));
+                material = new PhysicsMaterial("CluePhysics");
+                AssetDatabase.CreateAsset(material, PhysicsMaterialPath);
+            }
+            material.bounciness = 0f;
+            material.bounceCombine = PhysicsMaterialCombine.Minimum;
+            material.dynamicFriction = 0.9f;
+            material.staticFriction = 1f;
+            material.frictionCombine = PhysicsMaterialCombine.Maximum;
+            EditorUtility.SetDirty(material);
+            return material;
         }
 
         /// <summary>

@@ -64,6 +64,7 @@ namespace FYP.Detective
             session.HeadsetRemoved += HandleHeadsetRemoved;
             session.HeadsetPutOn += HandleHeadsetPutOn;
             session.TrackingRecentered += HandleTrackingRecentered;
+            session.DepthOcclusionChanged += HandleDepthOcclusionChanged;
             var s = session.State;
             s.ClueFound += HandleClueFound;
             s.ClueTagged += HandleClueTagged;
@@ -88,6 +89,7 @@ namespace FYP.Detective
                 session.HeadsetRemoved -= HandleHeadsetRemoved;
                 session.HeadsetPutOn -= HandleHeadsetPutOn;
                 session.TrackingRecentered -= HandleTrackingRecentered;
+                session.DepthOcclusionChanged -= HandleDepthOcclusionChanged;
                 var s = session.State;
                 s.ClueFound -= HandleClueFound;
                 s.ClueTagged -= HandleClueTagged;
@@ -201,6 +203,7 @@ namespace FYP.Detective
             if (placement.Method != PlacementMethod.None) LogEvent(placement.EventName, placement.FormatDetail());
             _pendingPlacementCheckAt = -1;
             LogPlacementCheck("session_start");
+            LogDepthOcclusion("session_start");
             WriteSnapshot();
             _nextSnapshotTime = now + snapshotIntervalSeconds;
             Debug.Log("[DataLogger] Logging to " + path);
@@ -241,6 +244,15 @@ namespace FYP.Detective
 
         // A recenter changes the tracking space; the anchor pose settles over the next frames, so the height is
         // logged again 1 s later.
+        // Depth occlusion (Meta Depth API) status at session start and on every change during the run.
+        private void HandleDepthOcclusionChanged(DepthOcclusionStatus status) => LogDepthOcclusion("change");
+
+        private void LogDepthOcclusion(string when)
+        {
+            if (_writer == null) return;
+            LogEvent(LogEvents.DepthOcclusion, "when=" + when + ";status=" + SessionManager.DepthOcclusionCode(session.DepthOcclusion));
+        }
+
         private void HandleTrackingRecentered()
         {
             if (_writer == null) return;
@@ -352,7 +364,7 @@ namespace FYP.Detective
         private void HandleClueFound(string clueId) => LogEvent(LogEvents.ClueFound, clueId + ByField());
         private void HandleClueTagged(string clueId) => LogEvent(LogEvents.ClueTagged, clueId + ByField());
         private void HandleClueUntagged(string clueId) => LogEvent(LogEvents.ClueUntagged, clueId + ByField());
-        private void HandleClueReset(string clueId) => LogEvent(LogEvents.ClueReset, clueId + ByField());
+        private void HandleClueReset(string clueId) => LogEvent(LogEvents.ClueReset, clueId + ResetReasonField() + ByField());
         private void HandleClueGrabTaken(string clueId) => LogEvent(LogEvents.ClueGrabTaken, clueId + ByField());
 
         private void HandleBoardSuspect(string suspectId) =>
@@ -360,6 +372,12 @@ namespace FYP.Detective
 
         private void HandleBoardEvidence(string clueId, bool selected) =>
             LogEvent(LogEvents.BoardEvidence, "clue=" + clueId + ";selected=" + (selected ? "1" : "0") + ByField());
+
+        private string ResetReasonField()
+        {
+            string reason = session.State.LastResetReason;
+            return reason == null ? string.Empty : ";reason=" + reason;
+        }
 
         private string ByField()
         {

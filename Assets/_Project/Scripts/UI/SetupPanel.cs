@@ -19,6 +19,8 @@ namespace FYP.Detective
         [SerializeField] private Transform head;
         [SerializeField] private GameObject content;
         [SerializeField] private Text statusText;
+        [Tooltip("Optional: shows whether the run files reached the laptop (found automatically if empty).")]
+        [SerializeField] private DataUploader uploader;
         [Tooltip("Shows a one-time hint at launch that the panel exists (it is hidden until the menu button is pressed).")]
         [SerializeField] private StatusLabel hintLabel;
         [SerializeField, Min(0.2f)] private float distance = 0.5f;
@@ -35,6 +37,7 @@ namespace FYP.Detective
         {
             if (session == null) session = FindFirstObjectByType<SessionManager>();
             if (panel == null) panel = FindFirstObjectByType<ExperimenterPanel>();
+            if (uploader == null) uploader = FindFirstObjectByType<DataUploader>();
             if (head == null && Camera.main != null) head = Camera.main.transform;
             if (content != null) content.SetActive(false);
         }
@@ -127,6 +130,7 @@ namespace FYP.Detective
             }
             _sb.Append("Placement: ").Append(_placementStatus).Append('\n');
             _sb.Append("Network: ").Append(_networkStatus);
+            if (uploader != null) _sb.Append('\n').Append(uploader.StatusText);
             statusText.text = _sb.ToString();
         }
 

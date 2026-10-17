@@ -20,11 +20,8 @@ namespace FYP.Detective
     /// <summary>Room constants shared by the case specs, the validator and the greybox generator.</summary>
     public static class PlayArea
     {
-        /// <summary>
-        /// Half of the playable square: 4 x 4 m (user decision, session 6, "for now"). The current case layouts
-        /// still keep everything inside the central 3 x 3 m.
-        /// </summary>
-        public const float HalfSize = 2.0f;
+        /// <summary>Half of the playable square: 5 x 5 m (user, session 6; was 4 x 4 m). Furniture stands near its edges.</summary>
+        public const float HalfSize = 2.5f;
 
         public const float FloorHeight = 0.03f;
         public const float TableHeight = 0.75f;
@@ -78,7 +75,11 @@ namespace FYP.Detective
         public float Yaw;
     }
 
-    /// <summary>Greybox furniture box (centre x/z, footprint, height; bottom on the floor).</summary>
+    /// <summary>
+    /// Furniture: centre x/z and footprint (axis-aligned, after turning), height, and <see cref="Yaw"/> = the direction
+    /// its front faces (degrees from +z towards +x). Used for the validator (standing spots can't be inside furniture)
+    /// and by the scene generator (where the mesh goes and which way it faces).
+    /// </summary>
     public sealed class PropSpec
     {
         /// <summary>Role shared by both cases ("display", "desk", "office", "stand", "door"), used by the mirror rule.</summary>
@@ -89,6 +90,7 @@ namespace FYP.Detective
         public float Width;
         public float Depth;
         public float Height;
+        public float Yaw;
     }
 
     /// <summary>One study case: text content (docs/cases.md) plus its greybox layout.</summary>

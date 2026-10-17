@@ -41,6 +41,14 @@ namespace FYP.Detective
 
         public const int DefaultNetPort = 7777;
 
+        [Tooltip("Data upload: IPv4 address of the laptop running tools/receive_data.py. Empty = found automatically from " +
+                 "the receiver's broadcast; set it (e.g. with adb) only if the broadcast doesn't get through.")]
+        public string dataReceiverAddress = "";
+
+        [Tooltip("Data upload: HTTP port of the laptop receiver (used with dataReceiverAddress).")]
+        [Range(1024, 65535)]
+        public int dataReceiverPort = DataTransfer.DefaultHttpPort;
+
         public double TimeCapSeconds => timeCapMinutes * 60.0;
 
         public string ConditionCode => condition.ToString();
