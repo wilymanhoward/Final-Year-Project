@@ -57,6 +57,42 @@ namespace FYP.Detective
         public static StatusLight ChipLight(bool running, bool armed, bool ended) =>
             running ? StatusLight.Ok : armed ? StatusLight.Warn : ended ? StatusLight.Off : StatusLight.Ok;
 
+        /// <summary>
+        /// The experimenter's next step (setup panel "NEXT" banner, session 6 redesign) and which card it belongs to
+        /// (0 Participant, 1 Placement, 2 Network, 3 Run) so that card can be highlighted. Order follows the session
+        /// checklist: team connection first (the client gets its placement from the host), then placement, then ARM.
+        /// </summary>
+        public static string NextStep(bool running, bool ended, bool armed, StudyCondition condition, bool partnerConnected,
+            bool placementOk, out int card)
+        {
+            if (running) { card = 3; return "Run in progress - don't intervene. Hold the left stick only to abort."; }
+            string prefix = ended && !armed ? "Run finished. Set the next participant's codes, then: " : "";
+            if (condition == StudyCondition.B && !partnerConnected)
+            {
+                card = 2;
+                return prefix + "Team run: press Host on this headset, or Join on the partner's.";
+            }
+            if (condition == StudyCondition.A && partnerConnected)
+            {
+                card = 2;
+                return prefix + "Solo run, but a partner is connected: press Stop network (or switch to Condition B).";
+            }
+            if (!placementOk)
+            {
+                card = 1;
+                return prefix + (partnerConnected
+                    ? "Place the scene on the host: tape mark, facing the front wall, Place here. The partner's scene follows."
+                    : "Place the scene: stand on the tape mark facing the front wall, then press Place here.");
+            }
+            if (!armed)
+            {
+                card = ended ? 0 : 3;
+                return prefix + "Ready - check the codes, then press ARM.";
+            }
+            card = 3;
+            return "Armed - hand over the headset. The participant taps Begin briefing, then Start.";
+        }
+
         private static readonly string[] BadWords =
         {
             "fail", "wrong", "error", "can't", "cannot", "could not", "couldn't", "refused", "not started", "lost",

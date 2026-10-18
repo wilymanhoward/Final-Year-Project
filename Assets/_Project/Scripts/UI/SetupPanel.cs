@@ -36,6 +36,25 @@ namespace FYP.Detective
         [SerializeField] private Image runLight;
         [Tooltip("Label of the Occlusion on/off button (text and colour follow the setting).")]
         [SerializeField] private Text occlusionLabel;
+
+        [Header("Guided layout (session 6 redesign: detective desk, NEXT banner, per-value labels)")]
+        [Tooltip("The NEXT banner: what the experimenter should do now (SetupStatusModel.NextStep).")]
+        [SerializeField] private Text nextStepText;
+        [Tooltip("Frame behind each card (0 Participant, 1 Placement, 2 Network, 3 Run); the next step's card is highlighted.")]
+        [SerializeField] private Image[] cardFrames = new Image[0];
+        [SerializeField] private Text pairValue;
+        [SerializeField] private Text participantValue;
+        [SerializeField] private Text caseValue;
+        [SerializeField] private Text conditionValue;
+        [Tooltip("Label of the Abort button: asks for a second tap.")]
+        [SerializeField] private Text abortLabel;
+        [SerializeField] private Color frameNormal = new Color(0.30f, 0.23f, 0.18f, 1f);
+        [SerializeField] private Color frameHighlight = new Color(0.96f, 0.76f, 0.26f, 1f);
+
+        private float _abortConfirmUntil = -1f;
+        private const float AbortConfirmSeconds = 3f;
+        private const string AbortText = "Abort run";
+        private const string AbortConfirmText = "Tap again to abort";
         [Tooltip("Shows a one-time hint at launch that the panel exists (it is hidden until the menu button is pressed).")]
         [SerializeField] private StatusLabel hintLabel;
         [SerializeField, Min(0.2f)] private float distance = 0.5f;
@@ -117,8 +136,16 @@ namespace FYP.Detective
             Refresh();
         }
 
+        /// <summary>Abort needs two taps within 3 s (first tap: "Tap again to abort").</summary>
         public void Abort()
         {
+            if (Time.unscaledTime > _abortConfirmUntil)
+            {
+                _abortConfirmUntil = Time.unscaledTime + AbortConfirmSeconds;
+                Refresh();
+                return;
+            }
+            _abortConfirmUntil = -1f;
             if (session != null) session.RequestAbort();
             Refresh();
         }
@@ -161,6 +188,19 @@ namespace FYP.Detective
             string mismatch = SessionManager.ConditionMismatch(c.condition, session.IsTeamMode);
 
             headerText.text = c.pairCode + "  ·  " + c.participantId + "  ·  Case " + c.CaseCode + "  ·  Cond " + c.ConditionCode;
+
+            // Guided layout: what to do next, and that step's card highlighted.
+            bool placementOk = session.Placement.Method != PlacementMethod.None && session.IsPlacementHeightOk;
+            string next = SetupStatusModel.NextStep(running, ended, armed, c.condition, session.IsTeamMode, placementOk, out int nextCard);
+            if (nextStepText != null) nextStepText.text = next;
+            for (int i = 0; i < cardFrames.Length; i++)
+                if (cardFrames[i] != null) cardFrames[i].color = i == nextCard ? frameHighlight : frameNormal;
+            var caseDef = session.ActiveCase;
+            if (pairValue != null) pairValue.text = c.pairCode;
+            if (participantValue != null) participantValue.text = c.participantId;
+            if (caseValue != null) caseValue.text = c.CaseCode + (caseDef != null && !string.IsNullOrEmpty(caseDef.Title) ? "  ·  " + caseDef.Title : "");
+            if (conditionValue != null) conditionValue.text = c.ConditionCode + (c.condition == StudyCondition.A ? "  ·  Solo" : "  ·  Team of two");
+            if (abortLabel != null) abortLabel.text = Time.unscaledTime <= _abortConfirmUntil ? AbortConfirmText : AbortText;
             StatusLight chip = SetupStatusModel.ChipLight(running, armed, ended);
             if (chipText != null) chipText.text = SetupStatusModel.Chip(running, armed, ended, session.ElapsedSeconds);
             if (chipImage != null) chipImage.color = SetupStatusModel.ColorOf(chip);
@@ -182,7 +222,7 @@ namespace FYP.Detective
                     ? "Occlusion: ON  (" + SessionManager.DepthOcclusionCode(session.DepthOcclusion) + ")"
                     : "Occlusion: OFF";
                 var image = occlusionLabel.transform.parent != null ? occlusionLabel.transform.parent.GetComponent<Image>() : null;
-                if (image != null) image.color = c.occlusionEnabled ? new Color(0.12f, 0.50f, 0.30f, 1f) : new Color(0.40f, 0.40f, 0.44f, 1f);
+                if (image != null) image.color = c.occlusionEnabled ? new Color(0.16f, 0.45f, 0.27f, 1f) : new Color(0.50f, 0.39f, 0.24f, 1f);   // desk green / brass
             }
 
             if (networkText != null)

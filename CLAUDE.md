@@ -404,6 +404,11 @@ Data flow:
   (`.old-<time>`) and logs `StudyData/receiver_log.csv`. Plain HTTP on the LAN: `PlayerSettings.insecureHttpOption =
   AlwaysAllowed` (Set Up Networking) + `CleartextHttpBuildStep` (Gradle manifests). Status line on the setup panel.
   Protocol in `DataTransfer` (pure) - keep receive_data.py in sync. Headset-untested.
+- **Setup panel v2 (user, session 6: "like a detective game, more user friendly"):** case-control desk (leather + brass,
+  manila header with codes + tilted state stamp), **NEXT banner** (`SetupStatusModel.NextStep`: team connect -> placement ->
+  ARM -> armed/running; that card gets a brass frame), case-file cards with red number stamps and wax-seal lights; card 1
+  shows each value with [-]/[+] or Switch; ARM "show the briefing card", "Cancel ARM", "Start now (skip briefing)", Abort
+  needs a second tap within 3 s. 780 x 650 mm at 0.58 m. Rebuilt by Set Up Headset UI.
 - **Setup panel look (user, session 6: "too plain"):** 720 x 560 mm at 0.55 m: header (codes + run-state chip
   READY/ARMED/RUNNING mm:ss/ENDED) and four rounded cards 1 Participant / 2 Placement / 3 Network & data / 4 Run, each
   with a traffic light (`SetupStatusModel`: placement red until placed + height ok; network vs. condition like the ARM
@@ -417,7 +422,8 @@ Data flow:
   canvas 1100 x 740 mm (centre 1.30 m): 4 suspect Polaroids (silhouette, name/role/alibi, pin, "PRIME SUSPECT" stamp),
   8 pinned index cards ("PINNED" stamp), red strings chosen suspect -> chosen evidence (`EvidenceBoardView.UpdateStrings`,
   prebuilt Images), tape headers, notepad summary, red SUBMIT stamp. Logic unchanged. Headset-untested.
-- **Occlusion on/off (user, session 6):** setup panel button "Occlusion: ON/OFF" (Placement & View card) toggles
+- **Occlusion on/off (user, session 6; default OFF, user decision; Set Up Occlusion also writes OFF into the scene):**
+  setup panel button "Occlusion: ON/OFF" (Placement & View card) toggles
   `ExperimentConfig.occlusionEnabled` (saved; between runs only); `DepthOcclusionMonitor` enables/disables the
   EnvironmentDepthManager (off stops depth sensing). Per headset, not synced - set both the same in team runs. Each run's
   `depth_occlusion` row records it (active / off).

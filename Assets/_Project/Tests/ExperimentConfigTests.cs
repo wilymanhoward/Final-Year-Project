@@ -20,6 +20,18 @@ namespace FYP.Detective.Tests
         }
 
         [Test]
+        public void Occlusion_IsOffByDefault_AlsoForOldConfigFiles()
+        {
+            Assert.IsFalse(new ExperimentConfig().occlusionEnabled, "user decision, session 6: off unless switched on");
+            var old = new ExperimentConfig();   // ExperimentConfigStore overwrites the scene's config from the file
+            UnityEngine.JsonUtility.FromJsonOverwrite("{\"pairCode\":\"G01\"}", old);
+            Assert.IsFalse(old.occlusionEnabled, "a file saved before the setting existed keeps the default");
+            var on = new ExperimentConfig();
+            UnityEngine.JsonUtility.FromJsonOverwrite("{\"occlusionEnabled\":true}", on);
+            Assert.IsTrue(on.occlusionEnabled, "a saved ON survives");
+        }
+
+        [Test]
         public void Validate_RejectsBadCodes()
         {
             Assert.IsTrue(new ExperimentConfig().Validate(out _));
