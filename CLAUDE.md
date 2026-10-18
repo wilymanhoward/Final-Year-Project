@@ -404,6 +404,11 @@ Data flow:
   (`.old-<time>`) and logs `StudyData/receiver_log.csv`. Plain HTTP on the LAN: `PlayerSettings.insecureHttpOption =
   AlwaysAllowed` (Set Up Networking) + `CleartextHttpBuildStep` (Gradle manifests). Status line on the setup panel.
   Protocol in `DataTransfer` (pure) - keep receive_data.py in sync. Headset-untested.
+- **Setup panel v2 (user, session 6: "like a detective game, more user friendly"):** case-control desk (leather + brass,
+  manila header with codes + tilted state stamp), **NEXT banner** (`SetupStatusModel.NextStep`: team connect -> placement ->
+  ARM -> armed/running; that card gets a brass frame), case-file cards with red number stamps and wax-seal lights; card 1
+  shows each value with [-]/[+] or Switch; ARM "show the briefing card", "Cancel ARM", "Start now (skip briefing)", Abort
+  needs a second tap within 3 s. 780 x 650 mm at 0.58 m. Rebuilt by Set Up Headset UI.
 - **Setup panel look (user, session 6: "too plain"):** 720 x 560 mm at 0.55 m: header (codes + run-state chip
   READY/ARMED/RUNNING mm:ss/ENDED) and four rounded cards 1 Participant / 2 Placement / 3 Network & data / 4 Run, each
   with a traffic light (`SetupStatusModel`: placement red until placed + height ok; network vs. condition like the ARM
@@ -500,8 +505,9 @@ briefing), the shared-anchor floor fix, the clue sync fix and the occlusion togg
 stop after each for the user's headset test, commit only after the user confirms it works._
 
 **Where we are (start here)**
-- `main` = the "Briefing detective, ..." commit after `4a90a9c` (committed at the user's request **before** a headset
-  test of these additions). EditMode tests **255/255** (batch). Packages: + `com.unity.xr.meta-openxr` 2.5.1 (AR Foundation
+- `main` = the "Setup panel v2, occlusion off by default" commit (after `e60c0bd`; everything committed at the user's
+  request **before** a headset test - the user tests it all next). EditMode tests **256/256** (batch). Occlusion is OFF by
+  default (`ExperimentConfig.occlusionEnabled`; scene set by Set Up Occlusion) - turn it on with the setup panel button. Packages: + `com.unity.xr.meta-openxr` 2.5.1 (AR Foundation
   6.5.0, XR Composition Layers 2.6.0). Setup order in Unity: Build Case Scenes -> Set Up Networking -> Set Up Evidence
   Board -> Set Up Headset UI -> Set Up Occlusion (Depth API) -> Set Up Briefing Detective -> Prepare Study Build.
 - Headsets: `2G0YC5ZG4M00Z6` = **P01, host**; `2G0YC5ZG970B12` = **P02, client** (its experiment_config.json was set to

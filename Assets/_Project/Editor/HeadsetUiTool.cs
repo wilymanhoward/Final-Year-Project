@@ -67,31 +67,38 @@ namespace FYP.Detective.EditorTools
             Selection.activeObject = card.gameObject;
         }
 
-        // ---- Setup panel (session 6 redesign): header with codes + run-state chip, four section cards ----
-        // Cards in the order the experimenter works: 1 Participant, 2 Placement, 3 Network & data, 4 Run. Each card has
-        // a traffic light (SetupStatusModel), its status text and its buttons; rounded shapes use Unity's built-in
-        // "UI/Skin/UISprite.psd" (sliced) and "UI/Skin/Knob.psd" sprites.
+        // ---- Setup panel (session 6, "detective game" + user friendly): the experimenter's case-control desk ----
+        // Dark leather desk with a brass rim, a manila header (run codes + state stamp), a NEXT banner that always says
+        // what to do now (SetupStatusModel.NextStep; that step's card gets a brass frame), and four case-file cards with
+        // red numbered stamps and wax-seal lights: 1 Participant (value + [-]/[+] / Switch), 2 Placement & View,
+        // 3 Network & Data, 4 Run (ARM, Cancel ARM, Start now (skip briefing), Abort with a confirming second tap).
+        // Rounded shapes: Unity's built-in "UI/Skin/UISprite.psd" (sliced) and "UI/Skin/Knob.psd".
 
-        private static readonly Color HeaderColor = new Color(0.09f, 0.12f, 0.19f, 0.97f);
-        private static readonly Color CardColor = new Color(0.13f, 0.15f, 0.20f, 0.97f);
-        private static readonly Color MutedText = new Color(0.62f, 0.68f, 0.78f, 1f);
-        private static readonly Color BodyText = new Color(0.86f, 0.89f, 0.94f, 1f);
-        private static readonly Color NeutralButton = new Color(0.22f, 0.27f, 0.36f, 1f);
-        private static readonly Color ArmColor = new Color(0.12f, 0.50f, 0.30f, 1f);
-        private static readonly Color StartNowColor = new Color(0.15f, 0.38f, 0.70f, 1f);
-        private static readonly Color AbortColor = new Color(0.62f, 0.16f, 0.14f, 1f);
+        private static readonly Color DeskLeather = new Color(0.14f, 0.10f, 0.08f, 0.97f);
+        private static readonly Color DeskBrass = new Color(0.72f, 0.56f, 0.28f, 1f);
+        private static readonly Color DeskManila = new Color(0.86f, 0.73f, 0.48f, 1f);
+        private static readonly Color DeskPaper = new Color(0.96f, 0.93f, 0.85f, 1f);
+        private static readonly Color DeskInk = new Color(0.14f, 0.12f, 0.13f, 1f);
+        private static readonly Color DeskMuted = new Color(0.42f, 0.36f, 0.30f, 1f);
+        private static readonly Color DeskStamp = new Color(0.72f, 0.13f, 0.10f, 1f);
+        private static readonly Color NeutralButton = new Color(0.50f, 0.39f, 0.24f, 1f);
+        private static readonly Color ArmColor = new Color(0.16f, 0.45f, 0.27f, 1f);
+        private static readonly Color StartNowColor = new Color(0.18f, 0.28f, 0.50f, 1f);
+        private static readonly Color AbortColor = new Color(0.62f, 0.14f, 0.11f, 1f);
 
         private static SetupPanel BuildSetupPanel(SessionManager session, ExperimenterPanel panel, Transform head,
             ScenePlacement placement, ColocationCoordinator coordinator)
         {
-            const float width = 720f, height = 560f, gap = 14f, headerH = 72f;
-            const float cardW = (width - 3 * gap) / 2f, cardH = (height - headerH - 3 * gap) / 2f;
+            const float width = 780f, height = 650f, gap = 12f, headerH = 82f, nextH = 46f;
+            float top = headerH + 8f + nextH + 10f;
+            float cardW = (width - 3 * gap) / 2f, cardH = (height - top - 2 * gap) / 2f;
             Sprite rounded = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/UISprite.psd");
             Sprite knob = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/Knob.psd");
 
             var root = new GameObject(PanelName);
-            GameObject content = Canvas(root.transform, width, height, new Color(0.05f, 0.06f, 0.09f, 0.94f));
+            GameObject content = Canvas(root.transform, width, height, DeskBrass);
             Round(content.GetComponent<Image>(), rounded);
+            Panel(content.transform, "Leather", new Rect(5f, 5f, width - 10f, height - 10f), DeskLeather, rounded);
 
             var setup = root.AddComponent<SetupPanel>();
             MainSceneBuilder.SetObject(setup, "session", session);
@@ -100,86 +107,134 @@ namespace FYP.Detective.EditorTools
             MainSceneBuilder.SetObject(setup, "content", content);
             MainSceneBuilder.SetObject(setup, "statusText", null);
             var setupSo = new SerializedObject(setup);
-            setupSo.FindProperty("distance").floatValue = 0.55f;
+            setupSo.FindProperty("distance").floatValue = 0.58f;
             setupSo.ApplyModifiedPropertiesWithoutUndo();
             var hint = Object.FindFirstObjectByType<StatusLabel>(FindObjectsInactive.Include);
             if (hint != null) MainSceneBuilder.SetObject(setup, "hintLabel", hint);
 
-            // Header: what this run is + its state.
-            var header = Panel(content.transform, "Header", new Rect(0f, 0f, width, headerH), HeaderColor, rounded);
-            Text kicker = Label(header, "Kicker", new Rect(20f, 8f, 400f, 20f), 13, TextAnchor.MiddleLeft);
-            kicker.text = "EXPERIMENTER SETUP   (menu button: close)";
-            kicker.color = MutedText;
-            Text headerText = Label(header, "Codes", new Rect(20f, 28f, 500f, 38f), 24, TextAnchor.MiddleLeft);
-            headerText.fontStyle = FontStyle.Bold;
-            var chip = Panel(header, "Chip", new Rect(width - 20f - 190f, 16f, 190f, 40f), SetupStatusModel.ColorOf(StatusLight.Ok), rounded);
-            Text chipText = Label(chip, "Text", new Rect(0f, 0f, 190f, 40f), 17, TextAnchor.MiddleCenter);
-            chipText.fontStyle = FontStyle.Bold;
+            Text Txt(Transform parent, string name, Rect r, int size, TextAnchor anchor, Color color, bool bold = false)
+            {
+                var t = Label(parent, name, r, size, anchor);
+                t.color = color;
+                if (bold) t.fontStyle = FontStyle.Bold;
+                return t;
+            }
+
+            // Header: manila folder strip with the run codes and a stamp-like state chip.
+            var header = Panel(content.transform, "Header", new Rect(14f, 12f, width - 28f, headerH), DeskManila, rounded);
+            Txt(header, "Kicker", new Rect(18f, 6f, 460f, 22f), 14, TextAnchor.MiddleLeft, DeskMuted, true).text =
+                "CASE CONTROL  -  EXPERIMENTER ONLY   (menu button: close)";
+            Text headerText = Txt(header, "Codes", new Rect(18f, 30f, 520f, 44f), 26, TextAnchor.MiddleLeft, DeskInk, true);
+            var chip = Panel(header, "Chip", new Rect(width - 28f - 18f - 200f, 18f, 200f, 46f), SetupStatusModel.ColorOf(StatusLight.Ok), rounded);
+            ((RectTransform)chip).localRotation = Quaternion.Euler(0f, 0f, -3f);
+            Text chipText = Txt(chip, "Text", new Rect(0f, 0f, 200f, 46f), 19, TextAnchor.MiddleCenter, Color.white, true);
             MainSceneBuilder.SetObject(setup, "headerText", headerText);
             MainSceneBuilder.SetObject(setup, "chipText", chipText);
             MainSceneBuilder.SetObject(setup, "chipImage", chip.GetComponent<Image>());
 
-            float top = headerH + gap;
-            Transform Card(int index, string title, string textField, string lightField, out Text status, float statusH)
+            // NEXT banner: a paper strip with a red "NEXT" tag.
+            var next = Panel(content.transform, "Next", new Rect(14f, headerH + 20f, width - 28f, nextH), DeskPaper, rounded);
+            var nextTag = Panel(next, "Tag", new Rect(8f, 7f, 74f, nextH - 14f), DeskStamp, rounded);
+            Txt(nextTag, "Text", new Rect(0f, 0f, 74f, nextH - 14f), 16, TextAnchor.MiddleCenter, Color.white, true).text = "NEXT";
+            Text nextText = Txt(next, "Text", new Rect(94f, 0f, width - 28f - 104f, nextH), 16, TextAnchor.MiddleLeft, DeskInk, true);
+            MainSceneBuilder.SetObject(setup, "nextStepText", nextText);
+
+            // Cards (case-file paper) with a frame behind each (brass when it is the next step).
+            var frames = new Image[4];
+            Transform Card(int index, string title, string textField, string lightField, Rect statusRect)
             {
                 float x = gap + (index % 2) * (cardW + gap), y = top + (index / 2) * (cardH + gap);
-                var card = Panel(content.transform, "Card " + (index + 1) + " " + title, new Rect(x, y, cardW, cardH), CardColor, rounded);
-                var light = Panel(card, "Light", new Rect(14f, 12f, 16f, 16f), SetupStatusModel.ColorOf(StatusLight.Off), knob);
-                Text t = Label(card, "Title", new Rect(38f, 6f, cardW - 52f, 28f), 15, TextAnchor.MiddleLeft);
-                t.text = (index + 1) + "   " + title;
-                t.fontStyle = FontStyle.Bold;
-                status = Label(card, "Status", new Rect(14f, 36f, cardW - 28f, statusH), 13, TextAnchor.UpperLeft);
-                status.color = BodyText;
-                MainSceneBuilder.SetObject(setup, textField, status);
-                if (lightField != null) MainSceneBuilder.SetObject(setup, lightField, light.GetComponent<Image>());
+                frames[index] = Panel(content.transform, "Frame " + (index + 1), new Rect(x - 4f, y - 4f, cardW + 8f, cardH + 8f),
+                    new Color(0.30f, 0.23f, 0.18f, 1f), rounded).GetComponent<Image>();
+                var card = Panel(content.transform, "Card " + (index + 1) + " " + title, new Rect(x, y, cardW, cardH), DeskPaper, rounded);
+                var stamp = Panel(card, "Number", new Rect(10f, 8f, 30f, 30f), DeskStamp, knob);
+                Txt(stamp, "Text", new Rect(0f, 0f, 30f, 30f), 17, TextAnchor.MiddleCenter, Color.white, true).text = (index + 1).ToString();
+                Txt(card, "Title", new Rect(48f, 6f, cardW - 100f, 34f), 17, TextAnchor.MiddleLeft, DeskInk, true).text = title;
+                if (lightField != null)
+                {
+                    var light = Panel(card, "Seal", new Rect(cardW - 36f, 10f, 24f, 24f), SetupStatusModel.ColorOf(StatusLight.Off), knob);
+                    MainSceneBuilder.SetObject(setup, lightField, light.GetComponent<Image>());
+                }
+                if (textField != null)
+                {
+                    Text status = Txt(card, "Status", statusRect, 14, TextAnchor.UpperLeft, DeskInk);
+                    MainSceneBuilder.SetObject(setup, textField, status);
+                }
                 return card;
             }
 
-            const float bh = 44f, bgap = 8f;
-            float row1 = cardH - 14f - 2 * bh - bgap, row2 = cardH - 14f - bh;
-            float w3 = (cardW - 28f - 2 * bgap) / 3f, w2 = (cardW - 28f - bgap) / 2f;
-            void Buttons(Transform card, float y, float w, params (string label, UnityAction action, Color color)[] buttons)
+            const float bh = 44f;
+            GameObject Btn(Transform card, string label, Rect r, UnityAction action, Color color, int size = 15)
             {
-                for (int i = 0; i < buttons.Length; i++)
-                {
-                    if (buttons[i].action == null) continue;
-                    var b = Button(card, buttons[i].label, new Rect(14f + i * (w + bgap), y, w, bh), buttons[i].action, buttons[i].color);
-                    Round(b.GetComponent<Image>(), rounded);
-                    b.GetComponentInChildren<Text>().fontSize = 15;
-                }
+                if (action == null) return null;
+                var b = Button(card, label, r, action, color);
+                Round(b.GetComponent<Image>(), rounded);
+                var t = b.GetComponentInChildren<Text>();
+                t.fontSize = size;
+                t.fontStyle = FontStyle.Bold;
+                return b;
             }
+            float inner = cardW - 28f;
 
-            var participant = Card(0, "PARTICIPANT", "participantText", null, out _, row1 - 44f);
-            Buttons(participant, row1, w3, ("Pair -", panel.PreviousPair, NeutralButton), ("Pair +", panel.NextPair, NeutralButton),
-                ("Case X / Y", panel.ToggleCase, NeutralButton));
-            Buttons(participant, row2, w3, ("Participant -", panel.PreviousParticipant, NeutralButton),
-                ("Participant +", panel.NextParticipant, NeutralButton), ("Condition A / B", panel.ToggleCondition, NeutralButton));
-            Object.DestroyImmediate(participant.Find("Light").gameObject);   // codes can't be "wrong": no light
+            // 1 Participant: label | value | [-] [+] or [Switch].
+            var who = Card(0, "PARTICIPANT", null, null, default);
+            Text Row(Transform card, string label, float y, string field)
+            {
+                Txt(card, label + "Label", new Rect(14f, y, 104f, bh), 14, TextAnchor.MiddleLeft, DeskMuted, true).text = label;
+                Text v = Txt(card, label + "Value", new Rect(118f, y, inner - 104f - 112f, bh), 18, TextAnchor.MiddleLeft, DeskInk, true);
+                v.resizeTextForBestFit = true;
+                v.resizeTextMinSize = 12;
+                v.resizeTextMaxSize = 18;
+                MainSceneBuilder.SetObject(setup, field, v);
+                return v;
+            }
+            float r0 = 46f, rs = bh + 6f;
+            Row(who, "Pair", r0, "pairValue");
+            Btn(who, "-", new Rect(cardW - 14f - 104f, r0, 50f, bh), panel.PreviousPair, NeutralButton, 20);
+            Btn(who, "+", new Rect(cardW - 14f - 50f, r0, 50f, bh), panel.NextPair, NeutralButton, 20);
+            Row(who, "Participant", r0 + rs, "participantValue");
+            Btn(who, "-", new Rect(cardW - 14f - 104f, r0 + rs, 50f, bh), panel.PreviousParticipant, NeutralButton, 20);
+            Btn(who, "+", new Rect(cardW - 14f - 50f, r0 + rs, 50f, bh), panel.NextParticipant, NeutralButton, 20);
+            Row(who, "Case", r0 + 2 * rs, "caseValue");
+            Btn(who, "Switch", new Rect(cardW - 14f - 104f, r0 + 2 * rs, 104f, bh), panel.ToggleCase, NeutralButton);
+            Row(who, "Condition", r0 + 3 * rs, "conditionValue");
+            Btn(who, "Switch", new Rect(cardW - 14f - 104f, r0 + 3 * rs, 104f, bh), panel.ToggleCondition, NeutralButton);
 
-            var place = Card(1, "PLACEMENT & VIEW", "placementText", "placementLight", out _, row1 - 44f);
-            Buttons(place, row2, w3, ("Place here (A)", placement.PlaceSceneHere, NeutralButton),
-                ("Load saved (B)", placement.LoadSavedPlacement, NeutralButton), ("Manual (X)", placement.ManualPlacement, NeutralButton));
-            // Depth API occlusion on/off (session 6): label and colour updated by SetupPanel from the saved setting.
-            var occlusion = Button(place, "Occlusion", new Rect(14f, row1, cardW - 28f, bh), panel.ToggleOcclusion, ArmColor);
-            Round(occlusion.GetComponent<Image>(), rounded);
+            // 2 Placement & View.
+            float rowA = cardH - 12f - 2 * bh - 8f, rowB = cardH - 12f - bh;
+            float w3 = (inner - 16f) / 3f, w2 = (inner - 8f) / 2f;
+            var place = Card(1, "PLACEMENT & VIEW", "placementText", "placementLight", new Rect(14f, 44f, inner, rowA - 50f));
+            var occlusion = Btn(place, "Occlusion", new Rect(14f, rowA, inner, bh), panel.ToggleOcclusion, NeutralButton);
             var occlusionText = occlusion.GetComponentInChildren<Text>();
-            occlusionText.fontSize = 15;
-            occlusionText.text = "Occlusion: ON";
+            occlusionText.text = "Occlusion: OFF";
             MainSceneBuilder.SetObject(setup, "occlusionLabel", occlusionText);
+            Btn(place, "Place here (A)", new Rect(14f, rowB, w3, bh), placement.PlaceSceneHere, NeutralButton, 14);
+            Btn(place, "Load saved (B)", new Rect(14f + w3 + 8f, rowB, w3, bh), placement.LoadSavedPlacement, NeutralButton, 14);
+            Btn(place, "Manual (X)", new Rect(14f + 2 * (w3 + 8f), rowB, w3, bh), placement.ManualPlacement, NeutralButton, 14);
 
-            var network = Card(2, "NETWORK & DATA", "networkText", "networkLight", out _, row2 - 44f);
-            var dataLight = Panel(network, "DataLight", new Rect(cardW - 30f, 12f, 16f, 16f), SetupStatusModel.ColorOf(StatusLight.Off), knob);
-            MainSceneBuilder.SetObject(setup, "dataLight", dataLight.GetComponent<Image>());
-            Text dataTag = Label(network, "DataTag", new Rect(cardW - 90f, 6f, 56f, 28f), 12, TextAnchor.MiddleRight);
-            dataTag.text = "data";
-            dataTag.color = MutedText;
-            Buttons(network, row2, w3, ("Host", coordinator != null ? coordinator.Host : (UnityAction)null, NeutralButton),
-                ("Join", coordinator != null ? coordinator.Join : (UnityAction)null, NeutralButton),
-                ("Stop network", coordinator != null ? coordinator.Stop : (UnityAction)null, NeutralButton));
+            // 3 Network & Data (data seal next to the network seal).
+            var network = Card(2, "NETWORK & DATA", "networkText", "networkLight", new Rect(14f, 44f, inner, rowB - 50f));
+            var dataSeal = Panel(network, "DataSeal", new Rect(cardW - 66f, 10f, 24f, 24f), SetupStatusModel.ColorOf(StatusLight.Off), knob);
+            MainSceneBuilder.SetObject(setup, "dataLight", dataSeal.GetComponent<Image>());
+            Txt(network, "DataTag", new Rect(cardW - 120f, 8f, 50f, 28f), 12, TextAnchor.MiddleRight, DeskMuted, true).text = "data";
+            Btn(network, "Host", new Rect(14f, rowB, w3, bh), coordinator != null ? coordinator.Host : (UnityAction)null, NeutralButton);
+            Btn(network, "Join", new Rect(14f + w3 + 8f, rowB, w3, bh), coordinator != null ? coordinator.Join : (UnityAction)null, NeutralButton);
+            Btn(network, "Stop network", new Rect(14f + 2 * (w3 + 8f), rowB, w3, bh), coordinator != null ? coordinator.Stop : (UnityAction)null,
+                NeutralButton, 14);
 
-            var run = Card(3, "RUN", "runText", "runLight", out _, row1 - 44f);
-            Buttons(run, row1, w2, ("ARM", setup.Arm, ArmColor), ("Disarm", setup.Disarm, NeutralButton));
-            Buttons(run, row2, w2, ("Start now", setup.StartNow, StartNowColor), ("Abort", setup.Abort, AbortColor));
+            // 4 Run: ARM is the main action; Start now is clearly a fallback; Abort asks twice.
+            var run = Card(3, "RUN", "runText", "runLight", new Rect(14f, 44f, inner, rowA - 50f));
+            Btn(run, "ARM  -  show the briefing card", new Rect(14f, rowA, inner, bh), setup.Arm, ArmColor, 16);
+            Btn(run, "Cancel ARM", new Rect(14f, rowB, w3, bh), setup.Disarm, NeutralButton, 14);
+            Btn(run, "Start now (skip briefing)", new Rect(14f + w3 + 8f, rowB, w3, bh), setup.StartNow, StartNowColor, 12);
+            var abort = Btn(run, "Abort run", new Rect(14f + 2 * (w3 + 8f), rowB, w3, bh), setup.Abort, AbortColor, 14);
+            MainSceneBuilder.SetObject(setup, "abortLabel", abort.GetComponentInChildren<Text>());
+
+            var so = new SerializedObject(setup);
+            var framesProp = so.FindProperty("cardFrames");
+            framesProp.arraySize = frames.Length;
+            for (int i = 0; i < frames.Length; i++) framesProp.GetArrayElementAtIndex(i).objectReferenceValue = frames[i];
+            so.ApplyModifiedPropertiesWithoutUndo();
 
             QuickActionsAPI.AddPokeCanvasInteraction(content);
             return setup;

@@ -45,6 +45,23 @@ namespace FYP.Detective.Tests
         }
 
         [Test]
+        public void NextStep_FollowsTheChecklistOrder()
+        {
+            StringAssert.Contains("Host", SetupStatusModel.NextStep(false, false, false, StudyCondition.B, false, false, out int c));
+            Assert.AreEqual(2, c, "team: connect first (the client gets the host's placement)");
+            StringAssert.Contains("Stop network", SetupStatusModel.NextStep(false, false, false, StudyCondition.A, true, true, out c));
+            Assert.AreEqual(2, c);
+            StringAssert.Contains("Place here", SetupStatusModel.NextStep(false, false, false, StudyCondition.A, false, false, out c));
+            Assert.AreEqual(1, c);
+            StringAssert.Contains("ARM", SetupStatusModel.NextStep(false, false, false, StudyCondition.A, false, true, out c));
+            Assert.AreEqual(3, c);
+            StringAssert.Contains("Begin briefing", SetupStatusModel.NextStep(false, false, true, StudyCondition.B, true, true, out c));
+            StringAssert.Contains("don't intervene", SetupStatusModel.NextStep(true, false, false, StudyCondition.A, false, true, out c));
+            StringAssert.StartsWith("Run finished", SetupStatusModel.NextStep(false, true, false, StudyCondition.A, false, true, out c));
+            Assert.AreEqual(0, c, "after a run: the next participant's codes first");
+        }
+
+        [Test]
         public void Chip()
         {
             Assert.AreEqual("RUNNING 03:07", SetupStatusModel.Chip(true, false, false, 187.9));
