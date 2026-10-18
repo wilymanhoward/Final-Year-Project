@@ -69,6 +69,12 @@ namespace FYP.Detective.EditorTools
 
             foreach (var m in PropAssets.All) EditorUtility.SetDirty(m);   // (re)creates them on FYP/OccludedProp
 
+            // Default OFF (user decision, session 6): the experimenter switches it on with the setup panel's
+            // "Occlusion" button when wanted. SessionManager keeps its config in the scene, so set it there too.
+            var sso = new SerializedObject(session);
+            sso.FindProperty("config.occlusionEnabled").boolValue = false;
+            sso.ApplyModifiedPropertiesWithoutUndo();
+
             var mso = new SerializedObject(manager);
             mso.FindProperty("requestScenePermissionOnStartup").boolValue = true;
             mso.ApplyModifiedPropertiesWithoutUndo();
@@ -138,6 +144,13 @@ namespace FYP.Detective.EditorTools
             why = "package com.unity.xr.meta-openxr is not installed";
             return false;
 #endif
+        }
+
+        /// <summary>Batch mode: opens Main.unity and runs <see cref="SetUp"/> (dialogs don't block in batch mode).</summary>
+        public static void SetUpBatch()
+        {
+            EditorSceneManager.OpenScene("Assets/_Project/Scenes/Main.unity");
+            SetUp();
         }
 
         /// <summary>The depth-occluded UI material (created / updated on access).</summary>
