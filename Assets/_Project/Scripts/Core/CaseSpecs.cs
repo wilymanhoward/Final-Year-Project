@@ -113,31 +113,31 @@ namespace FYP.Detective
             var c = new CaseSpec
             {
                 Case = CaseId.Y,
-                Title = "The Missing Keris",
-                Briefing = "Yesterday evening, an antique keris disappeared from its display case in the Heritage Gallery's " +
-                           "Melaka Room, one week before it was due to go on loan overseas. The case was found open this morning. " +
+                Title = "Death in the Melaka Room",
+                Briefing = "Last night, Datuk Hashim Karim, founder of the Heritage Gallery, was found dead on the floor of the " +
+                           "Melaka Room, beside the reception table. He had found out that real pieces were being swapped for replicas. " +
                            "Four people had a reason to be near the room last night. Search the room, tag the evidence, and name " +
-                           "the person who took the keris.",
+                           "the person who killed him.",
                 BoardX = 0f, BoardZ = -2.19f, BoardYaw = 0f,
             };
             c.Suspects.Add(new SuspectSpec { Id = "Y_farid", Name = "Farid Rahman", Role = "Tour guide", IsCulprit = true,
-                Alibi = "\"My last tour ended at 7:30 pm and I went home.\" (No one can confirm.)" });
+                Alibi = "\"I was alone, preparing tomorrow's tour.\" (No one can confirm.)" });
             c.Suspects.Add(new SuspectSpec { Id = "Y_tan", Name = "Mr Tan", Role = "Security guard",
-                Alibi = "On gate duty 8:00-9:00 pm; the front-desk camera shows him there." });
+                Alibi = "On gate duty 8:00-8:40 pm; the gate camera shows him there." });
             c.Suspects.Add(new SuspectSpec { Id = "Y_sofia", Name = "Dr Sofia Idris", Role = "Curator",
-                Alibi = "Hosting a donor dinner across town 7:00-9:30 pm; the guests confirm it." });
+                Alibi = "On a video call with a lender 7:50-8:45 pm; the recording confirms it." });
             c.Suspects.Add(new SuspectSpec { Id = "Y_lim", Name = "Mr Lim", Role = "Private collector",
-                Alibi = "On a flight that landed at KLIA at 9:00 pm; the airline confirms it." });
+                Alibi = "At the hotel restaurant at 8:10 pm; the receipt and staff confirm it." });
 
-            c.Clues.Add(Clue("Y_", ClueSlot.K1, "Display case alarm panel", "\"Case 3 opened: 20:17.\""));
+            c.Clues.Add(Clue("Y_", ClueSlot.K1, "Forensic report: blood", "Blood sample: clotted and dry at the edges. Death between 20:15 and 20:30."));
             c.Clues.Add(Clue("Y_", ClueSlot.K2, "Key logbook", "\"Gallery key out 20:05, F.R.\" No return time written."));
-            c.Clues.Add(Clue("Y_", ClueSlot.K3, "Laser pointer", "Engraved: \"Farid, Guide Team.\""));
-            c.Clues.Add(Clue("Y_", ClueSlot.K4, "Printed chat message", "To Farid: \"Still selling the keris? I can pay cash this week.\""));
-            c.Clues.Add(Clue("Y_", ClueSlot.R1, "Torch", "A security-issue torch, battery flat.", "Y_tan"));
+            c.Clues.Add(Clue("Y_", ClueSlot.K3, "Forensic marker: body", "One blow to the back of the head with a narrow, heavy object. No struggle: he knew his attacker."));
+            c.Clues.Add(Clue("Y_", ClueSlot.K4, "Printed chat message", "To Farid: \"He knows about the replicas. If he talks tomorrow I'm finished.\""));
+            c.Clues.Add(Clue("Y_", ClueSlot.R1, "Torch", "A security-issue torch, battery flat. Mr Tan argued with the Datuk this week.", "Y_tan"));
             c.Clues.Add(Clue("Y_", ClueSlot.R2, "Business card", "Mr Lim's card; on the back: \"That keris will be mine.\"", "Y_lim"));
-            c.Clues.Add(Clue("Y_", ClueSlot.R3, "Noticeboard note", "\"Move keris to storage before loan. - S.\"", "Y_sofia"));
+            c.Clues.Add(Clue("Y_", ClueSlot.R3, "Noticeboard note", "\"Datuk, I will resign if the keris is sold. - S.\"", "Y_sofia"));
 
-            c.Zones.AddRange(Zones("Y_", "Shattered display glass", "Water from overturned vase", "Wet floor varnish"));
+            c.Zones.AddRange(Zones("Y_", "Shattered display glass", "Pool of blood", "Wet floor varnish"));
             c.Props.AddRange(Props("Display plinth", "Reception table", "Tour desk", "Noticeboard", "Entrance"));
             Mirror(c);
             return c;

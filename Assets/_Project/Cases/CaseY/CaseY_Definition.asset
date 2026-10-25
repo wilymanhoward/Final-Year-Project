@@ -13,29 +13,29 @@ MonoBehaviour:
   m_Name: CaseY_Definition
   m_EditorClassIdentifier: FYP.Detective::FYP.Detective.CaseDefinition
   caseId: 1
-  title: The Missing Keris
-  briefing: Yesterday evening, an antique keris disappeared from its display case
-    in the Heritage Gallery's Melaka Room, one week before it was due to go on loan
-    overseas. The case was found open this morning. Four people had a reason to be
-    near the room last night. Search the room, tag the evidence, and name the person
-    who took the keris.
+  title: Death in the Melaka Room
+  briefing: Last night, Datuk Hashim Karim, founder of the Heritage Gallery, was
+    found dead on the floor of the Melaka Room, beside the reception table. He had
+    found out that real pieces were being swapped for replicas. Four people had a
+    reason to be near the room last night. Search the room, tag the evidence, and
+    name the person who killed him.
   suspects:
   - id: Y_farid
     displayName: Farid Rahman
     role: Tour guide
-    alibi: '"My last tour ended at 7:30 pm and I went home." (No one can confirm.)'
+    alibi: '"I was alone, preparing tomorrow''s tour." (No one can confirm.)'
   - id: Y_tan
     displayName: Mr Tan
     role: Security guard
-    alibi: On gate duty 8:00-9:00 pm; the front-desk camera shows him there.
+    alibi: On gate duty 8:00-8:40 pm; the gate camera shows him there.
   - id: Y_sofia
     displayName: Dr Sofia Idris
     role: Curator
-    alibi: Hosting a donor dinner across town 7:00-9:30 pm; the guests confirm it.
+    alibi: On a video call with a lender 7:50-8:45 pm; the recording confirms it.
   - id: Y_lim
     displayName: Mr Lim
     role: Private collector
-    alibi: On a flight that landed at KLIA at 9:00 pm; the airline confirms it.
+    alibi: At the hotel restaurant at 8:10 pm; the receipt and staff confirm it.
   correctSuspectId: Y_farid
   keyEvidenceIds:
   - Y_K1
@@ -47,17 +47,17 @@ MonoBehaviour:
     Culprit:
     Farid Rahman
 
-    K1 Y_K1 - Display case alarm panel
+    K1 Y_K1 - Forensic report: blood
 
     K2 Y_K2 - Key logbook
 
     K3
-    Y_K3 - Laser pointer
+    Y_K3 - Forensic marker: body
 
     K4 Y_K4 - Printed chat message
 
-    R1 Y_R1 - Torch
-    (red herring: Mr Tan)
+    R1 Y_R1
+    - Torch (red herring: Mr Tan)
 
     R2 Y_R2 - Business card (red herring: Mr Lim)
 

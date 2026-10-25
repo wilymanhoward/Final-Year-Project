@@ -19,9 +19,9 @@ namespace FYP.Detective.Tests
             Assert.AreEqual("Grace Wong", CaseSpecs.X.Culprit.Name);
             Assert.AreEqual("Farid Rahman", CaseSpecs.Y.Culprit.Name);
             Assert.AreEqual("The Missing Design Award", CaseSpecs.X.Title);
-            Assert.AreEqual("The Missing Keris", CaseSpecs.Y.Title);
+            Assert.AreEqual("Death in the Melaka Room", CaseSpecs.Y.Title);
             StringAssert.Contains("21:42", CaseSpecs.X.Clue(ClueSlot.K1).InspectText);
-            StringAssert.Contains("20:17", CaseSpecs.Y.Clue(ClueSlot.K1).InspectText);
+            StringAssert.Contains("20:15", CaseSpecs.Y.Clue(ClueSlot.K1).InspectText);
             Assert.AreEqual("X_kumar", CaseSpecs.X.Clue(ClueSlot.R1).PointsAtSuspectId);
             Assert.AreEqual("Y_sofia", CaseSpecs.Y.Clue(ClueSlot.R3).PointsAtSuspectId);
         }

@@ -31,10 +31,10 @@ namespace FYP.Detective.EditorTools
         // clue visibility doesn't differ between X and Y (e.g. R2 torn sketch 17 x 13 cm vs. business card 13 x 8 cm).
         internal static readonly Dictionary<string, Vector3> ClueSize = new Dictionary<string, Vector3>
         {
-            { "X_K1", new Vector3(0.12f, 0.18f, 1f) }, { "Y_K1", new Vector3(0.12f, 0.18f, 1f) },   // keypad panels (quads)
+            { "X_K1", new Vector3(0.12f, 0.18f, 1f) }, { "Y_K1", new Vector3(0.12f, 0.18f, 1f) },   // X keypad / Y forensic report (quads)
             { "X_R3", new Vector3(0.10f, 0.10f, 1f) }, { "Y_R3", new Vector3(0.12f, 0.12f, 1f) },
             { "X_K2", new Vector3(0.23f, 0.015f, 0.32f) }, { "Y_K2", new Vector3(0.21f, 0.03f, 0.29f) },
-            { "X_K3", new Vector3(0.10f, 0.02f, 0.07f) }, { "Y_K3", new Vector3(0.12f, 0.022f, 0.022f) },
+            { "X_K3", new Vector3(0.10f, 0.02f, 0.07f) }, { "Y_K3", new Vector3(0.10f, 0.05f, 0.07f) },
             { "X_K4", new Vector3(0.21f, 0.008f, 0.297f) }, { "Y_K4", new Vector3(0.21f, 0.008f, 0.297f) },
             { "X_R1", new Vector3(0.18f, 0.04f, 0.10f) }, { "Y_R1", new Vector3(0.20f, 0.045f, 0.045f) },
             { "X_R2", new Vector3(0.17f, 0.008f, 0.13f) }, { "Y_R2", new Vector3(0.13f, 0.008f, 0.08f) },
@@ -53,11 +53,19 @@ namespace FYP.Detective.EditorTools
             foreach (var n in PropMeshY.Values) yield return n;
             yield return "X_Floor";
             yield return "Y_Floor";
+            yield return BodyTapeMesh;
             foreach (var spec in new[] { CaseSpecs.X, CaseSpecs.Y })
             {
                 foreach (var c in spec.Clues) yield return c.Id;
                 foreach (var z in spec.Zones) yield return z.Id;
             }
+        }
+
+        /// <summary>Batch mode: opens Main.unity and runs <see cref="Build"/> (dialogs don't block in batch mode).</summary>
+        public static void BuildBatch()
+        {
+            EditorSceneManager.OpenScene("Assets/_Project/Scenes/Main.unity");
+            Build();
         }
 
         [MenuItem("FYP/Build Case Scenes (X + Y)")]
@@ -134,6 +142,7 @@ namespace FYP.Detective.EditorTools
             BuildFloor(root.transform, spec);
             foreach (var p in spec.Props) BuildProp(root.transform, spec, p);
             foreach (var z in spec.Zones) BuildZone(root.transform, z, session);
+            if (spec.Case == CaseId.Y) BuildBodyTape(root.transform);
             foreach (var c in spec.Clues) BuildClue(root.transform, spec, c, session, caseRoot, head);
             return root.transform;
         }
@@ -202,6 +211,19 @@ namespace FYP.Detective.EditorTools
                 if (f != null && f.sharedMesh != null) parts.Add($"{t.name} {f.sharedMesh.bounds.max.y:F2} m");
             }
             return string.Join(", ", parts);
+        }
+
+        // Case Y murder (user, session 6): taped body outline on the floor, head towards the blood pool. Decoration only
+        // (no zone, no collider). Spot checked against the Case Y clue/zone positions (nothing within 0.4 m of the tape).
+        private const string BodyTapeMesh = "Y_BodyTape";
+        private static readonly Vector3 BodyTapeAt = new Vector3(-0.90f, 0f, 1.85f);
+
+        private static void BuildBodyTape(Transform parent)
+        {
+            var go = new GameObject("Body tape outline");
+            go.transform.SetParent(parent, false);
+            go.transform.localPosition = BodyTapeAt;
+            PropAssets.AddVisual(go.transform, BodyTapeMesh, Vector3.zero, Quaternion.identity, Vector3.one);
         }
 
         private static void BuildZone(Transform parent, ZoneSpec z, SessionManager session)

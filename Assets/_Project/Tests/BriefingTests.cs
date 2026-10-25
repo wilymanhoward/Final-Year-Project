@@ -32,7 +32,7 @@ namespace FYP.Detective.Tests
             Assert.IsTrue(yb.Any(l => l.File == "work_team") && yb.All(l => l.File != "work_solo"));
             Assert.IsTrue(xa.All(l => !l.File.StartsWith("Y_")) && yb.All(l => !l.File.StartsWith("X_")));
             StringAssert.Contains("award", string.Join(" ", xa.Select(l => l.Text)));
-            StringAssert.Contains("keris", string.Join(" ", yb.Select(l => l.Text)));
+            StringAssert.Contains("Datuk", string.Join(" ", yb.Select(l => l.Text)));
             Assert.AreEqual("outro_01", xa.Last().File);
             foreach (var l in all) Assert.IsTrue(DataTransfer.IsSafeName(l.File), l.File);
         }

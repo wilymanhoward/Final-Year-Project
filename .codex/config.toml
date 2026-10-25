@@ -1,0 +1,7 @@
+[mcp_servers.metavr]
+command = 'C:\Users\Howard Wilyman\.metavr\bin\metavr.exe'
+args = [
+    "mcp",
+    "server",
+    "--update",
+]

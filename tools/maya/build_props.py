@@ -1303,20 +1303,63 @@ def lanyard_clip(sx, sy, sz):
     return p
 
 
-def laser_pointer(sx, sy, sz):
+def body_tent(sx, sy, sz):
+    """Case Y K3: yellow A-frame evidence marker (forensic card about the body: a lying figure icon on both slopes),
+    standing on its base, centred, ridge along x. Digits/icons read right from outside on both faces (viewer's right is
+    -X in front of the -Z slope, +X in front of the +Z slope, see the Unity FBX import note)."""
     p = Part()
-    r = sy / 2
-    x0 = -sx / 2
-    p.frustum(x0, r, 0, r * 0.85, r * 0.92, sx * 0.12, C["charcoal"], sides=10, axis="x")              # end cap
-    p.frustum(x0 + sx * 0.12, r, 0, r * 0.92, r * 0.92, sx * 0.62, C["silver"], sides=10, axis="x")    # body
-    for k in range(3):                                                                                  # grip rings
-        p.frustum(x0 + sx * (0.2 + 0.07 * k), r, 0, r * 0.99, r * 0.99, sx * 0.02, C["charcoal"], sides=10, axis="x")
-    p.frustum(x0 + sx * 0.74, r, 0, r * 0.92, r * 0.7, sx * 0.2, C["charcoal"], sides=10, axis="x")    # nose
-    p.frustum(x0 + sx * 0.94, r, 0, r * 0.45, r * 0.45, sx * 0.06, C["red"], sides=8, axis="x")        # emitter
-    p.bbox(x0 + sx * 0.5, sy * 0.92, -0.003, x0 + sx * 0.58, sy, 0.003, C["red"], b=0.0008)            # button
-    p.bbox(x0 + sx * 0.14, sy * 0.85, -0.0025, x0 + sx * 0.46, sy * 0.95, 0.0025, C["chrome"])        # clip
-    p.bbox(x0 + sx * 0.3, sy * 0.92, sz / 2 - 0.004, x0 + sx * 0.6, sy * 0.96, sz / 2 - 0.002, C["ink"])  # engraving
+    h, zb = sy, sz / 2
+    inside = (0, h / 3, 0)
+    for x in (-sx / 2, sx / 2):
+        p.face_out([(x, 0, -zb), (x, 0, zb), (x, h, 0)], C["yellow_dk"], inside)
+    p.face_out([(-sx / 2, 0, -zb), (sx / 2, 0, -zb), (sx / 2, 0, zb), (-sx / 2, 0, zb)], C["yellow_dk"], inside)
+    for side in (-1, 1):
+        p.face_out([(-sx / 2, 0, side * zb), (sx / 2, 0, side * zb), (sx / 2, h, 0), (-sx / 2, h, 0)], C["yellow"], inside)
+        norm = (0.0, zb, side * h)
+        nl = math.hypot(norm[1], norm[2])
+        ux = -1 if side < 0 else 1
+
+        def lab(u0, u1, v0, v1, col, layer):
+            lift = 0.0007 * layer
+            pts = [(ux * u, v * h + norm[1] / nl * lift, side * zb * (1 - v) + norm[2] / nl * lift)
+                   for u, v in ((u0, v0), (u1, v0), (u1, v1), (u0, v1))]
+            p.face_out(pts, col, inside)
+        lab(-0.04, 0.04, 0.12, 0.88, C["white"], 1)
+        lab(-0.04, 0.04, 0.70, 0.88, C["red"], 2)                       # header stripe
+        lab(-0.034, -0.024, 0.42, 0.55, C["ink"], 2)                    # lying figure: head, torso, arm, two legs
+        lab(-0.022, 0.004, 0.44, 0.53, C["ink"], 2)
+        lab(-0.018, -0.004, 0.55, 0.60, C["ink"], 2)
+        lab(0.006, 0.034, 0.49, 0.53, C["ink"], 2)
+        lab(0.006, 0.030, 0.42, 0.46, C["ink"], 2)
+        lab(-0.03, 0.03, 0.24, 0.29, C["pencil"], 2)
     return p
+
+
+def forensic_report(w, h):
+    """Case Y K1: forensic lab sheet on a clipboard (blood sample: drop icon, time-of-death window, stamp), static,
+    centred, readable side -Z, 2 cm deep (the back touches the display case's glass). Built as if -X were the viewer's
+    left, then mirrored like the keypad."""
+    p = Part()
+    p.bbox(-w / 2, -h / 2, 0.0, w / 2, h / 2, 0.02, C["charcoal"], b=0.004, edge_col=C["grey_dk"])
+    p.bbox(-w / 2 + 0.008, -h / 2 + 0.012, -0.0015, w / 2 - 0.008, h / 2 - 0.02, 0.0, C["paper"])
+    p.bbox(-0.025, h / 2 - 0.028, -0.006, 0.025, h / 2 - 0.004, 0.0, C["silver"], b=0.002)           # clip
+    p.bbox(-w / 2 + 0.008, 0.034, -0.0025, w / 2 - 0.008, 0.056, -0.0015, C["red"])                   # header band
+    p.bbox(-0.04, 0.043, -0.003, 0.03, 0.048, -0.0025, C["white"])
+    drop = [(0.0, 0.022), (0.013, 0.004), (0.014, -0.006), (0.007, -0.014), (-0.007, -0.014), (-0.014, -0.006), (-0.013, 0.004)]
+    p.face_out([(-0.03 + x, 0.001 + y, -0.003) for x, y in drop], C["maroon"], (-0.03, 0.001, 0.05))   # blood drop
+    p.face_out([(-0.034, 0.002, -0.0035), (-0.031, 0.008, -0.0035), (-0.029, 0.002, -0.0035)], C["red"], (-0.03, 0.001, 0.05))
+    for i, y in enumerate((0.014, 0.006, -0.002)):
+        p.bbox(-0.01, y, -0.0025, 0.05 - 0.012 * (i % 2), y + 0.003, -0.002, C["pencil"])
+    p.bbox(-0.045, -0.046, -0.003, 0.045, -0.016, -0.0015, C["charcoal"])                              # time window (LCD style)
+    p.bbox(-0.041, -0.042, -0.0035, 0.041, -0.020, -0.003, C["lcd"])
+    for x in (-0.033, -0.019, 0.007, 0.021):
+        p.bbox(x, -0.040, -0.004, x + 0.011, -0.022, -0.0035, C["ink"])
+    for y in (-0.034, -0.028):
+        p.bbox(-0.0035, y, -0.004, 0.0005, y + 0.003, -0.0035, C["ink"])
+    p.bbox(-0.05, -0.058, -0.0025, 0.02, -0.055, -0.002, C["pencil"])
+    p.bbox(-0.05, -0.065, -0.0025, 0.0, -0.062, -0.002, C["pencil"])
+    p.bbox(0.015, -0.076, -0.003, 0.05, -0.060, -0.002, C["red"])                                      # stamp
+    return mirrored(p, 0)
 
 
 def glove(sx, sy, sz):
@@ -1492,23 +1535,49 @@ def coffee_spill(w, d):
     return p
 
 
-def water_puddle(w, d):
+def blood_pool(w, d):
+    # Case Y zone 2 (murder): flat faceted blood pool, darker rim, a bright facet, drips and a short smear. Palette
+    # maroon/red only, no gloss, so it reads as stylised low-poly (user, session 6).
     p = Part()
-    p.prism(blob_outline(0.0, 0.02, w * 0.38, d * 0.34, 18, 41), 0.001, 0.0025, C["water"])
-    p.prism(blob_outline(0.0, 0.02, w * 0.2, d * 0.18, 12, 43), 0.0025, 0.003, C["water_lt"])
+    p.prism(blob_outline(0.0, 0.02, w * 0.38, d * 0.34, 10, 41), 0.001, 0.0025, C["maroon_dk"])
+    p.prism(blob_outline(0.0, 0.02, w * 0.28, d * 0.25, 8, 42), 0.0025, 0.003, C["maroon"])
+    p.prism(blob_outline(-0.02, 0.0, w * 0.1, d * 0.08, 5, 43), 0.003, 0.0034, C["red"])
+    p.prism([(0.06, 0.06), (w * 0.42, 0.10), (w * 0.45, 0.14), (0.08, 0.10)], 0.001, 0.0025, C["maroon"])   # smear
     rnd = Rand(44)
     for i in range(5):                                                         # drips
         cx, cz = rnd.range(-0.42, 0.42) * w, rnd.range(-0.42, 0.42) * d
-        p.prism(ring_outline(cx, cz, 0.014, 0.012, 7), 0.001, 0.0025, C["water"])
-    for i in range(5):                                                         # flower petals from the vase
-        cx, cz = rnd.range(-0.3, 0.3) * w, rnd.range(-0.3, 0.3) * d
-        a = rnd.next() * 180
-        petal = [(cx + math.cos(math.radians(a + k * 60)) * 0.018 * (1.4 if k % 3 == 0 else 0.6),
-                  cz + math.sin(math.radians(a + k * 60)) * 0.012 * (1.4 if k % 3 == 0 else 0.6)) for k in range(6)]
-        p.prism(petal, 0.003, 0.004, C["pink"] if i % 2 else C["maroon"])
-    for i in range(3):                                                         # vase shards (glazed, batik)
-        cx, cz = rnd.range(-0.35, 0.35) * w, rnd.range(-0.35, 0.35) * d
-        p.prism(ring_outline(cx, cz, 0.03, 0.02, 4, phase=rnd.next()), 0.001, 0.005, C["indigo"], top_col=C["batik_lt"])
+        p.prism(ring_outline(cx, cz, 0.014, 0.012, 5), 0.001, 0.0025, C["maroon_dk"])
+    return p
+
+
+def body_tape(width=0.035):
+    # Case Y: police-style tape outline of a body lying on its back (head at -x, feet at +x), built in Unity
+    # coordinates around the origin (CaseSceneTool puts it beside the blood pool). Decoration only, no zone.
+    p = Part()
+    h = 0.0035
+
+    def strip(a, b):
+        dx, dz = b[0] - a[0], b[1] - a[1]
+        n = math.hypot(dx, dz)
+        ux, uz = dx / n, dz / n
+        e = width / 2
+        ax, az, bx, bz = a[0] - ux * e, a[1] - uz * e, b[0] + ux * e, b[1] + uz * e
+        nx, nz = -uz * e, ux * e
+        p.prism([(ax + nx, az + nz), (bx + nx, bz + nz), (bx - nx, bz - nz), (ax - nx, az - nz)], 0.001, h, C["yellow"],
+                top_col=C["yellow_dk"])
+
+    ring = ring_outline(-0.80, 0.0, 0.11, 0.11, 8, phase=0.5)
+    for i in range(8):
+        strip(ring[i], ring[(i + 1) % 8])
+    left = [(-0.69, 0.07), (-0.60, 0.24), (-0.50, 0.27), (-0.38, 0.40), (-0.20, 0.52), (-0.15, 0.46), (-0.30, 0.34),
+            (-0.42, 0.19), (-0.30, 0.16), (-0.10, 0.18), (-0.02, 0.19), (0.10, 0.22), (0.45, 0.24), (0.78, 0.26),
+            (0.82, 0.20), (0.78, 0.12), (0.16, 0.07), (0.0, 0.0)]
+    right = [(-0.69, -0.07), (-0.60, -0.24), (-0.50, -0.27), (-0.38, -0.38), (-0.18, -0.34), (-0.14, -0.28),
+             (-0.32, -0.24), (-0.42, -0.19), (-0.30, -0.16), (-0.10, -0.18), (-0.02, -0.19), (0.10, -0.20),
+             (0.45, -0.19), (0.74, -0.18), (0.78, -0.12), (0.72, -0.07), (0.16, -0.05), (0.0, 0.0)]
+    for side in (left, right):
+        for i in range(len(side) - 1):
+            strip(side[i], side[i + 1])
     return p
 
 
@@ -1704,11 +1773,11 @@ def build():
 
     # Clues: sizes = CaseSceneTool.ClueSize (keep in sync). Same size range, contrast and detail per slot in both cases.
     export("X_K1", keypad_panel(0.12, 0.18, studio=True), kind="clue")
-    export("Y_K1", keypad_panel(0.12, 0.18, studio=False), kind="clue")
+    export("Y_K1", forensic_report(0.12, 0.18), kind="clue")
     export("X_K2", readable(clipboard_sheet(0.23, 0.015, 0.32)), kind="clue")
     export("Y_K2", readable(logbook(0.21, 0.03, 0.29)), kind="clue")
     export("X_K3", lanyard_clip(0.10, 0.02, 0.07), kind="clue")
-    export("Y_K3", laser_pointer(0.12, 0.022, 0.022), kind="clue")
+    export("Y_K3", body_tent(0.10, 0.05, 0.07), kind="clue")
     export("X_K4", readable(printout(0.21, 0.004, 0.297)), kind="clue")
     export("Y_K4", readable(chat_printout(0.21, 0.004, 0.297)), kind="clue")
     export("X_R1", glove(0.18, 0.04, 0.10), kind="clue")
@@ -1723,9 +1792,10 @@ def build():
     export("X_Z1", glass_shards(*zones["Z1"], seed=11), alpha=outline_border(*zones["Z1"]), kind="zone")
     export("Y_Z1", glass_shards(*zones["Z1"], seed=12), alpha=outline_border(*zones["Z1"]), kind="zone")
     export("X_Z2", coffee_spill(*zones["Z2"]), alpha=outline_border(*zones["Z2"]), kind="zone")
-    export("Y_Z2", water_puddle(*zones["Z2"]), alpha=outline_border(*zones["Z2"]), kind="zone")
+    export("Y_Z2", blood_pool(*zones["Z2"]), alpha=outline_border(*zones["Z2"]), kind="zone")
     export("X_Z3", footprints(*zones["Z3"]), alpha=outline_border(*zones["Z3"]), kind="zone")
     export("Y_Z3", varnish_patch(*zones["Z3"]), alpha=outline_border(*zones["Z3"]), kind="zone")
+    export("Y_BodyTape", to_maya(body_tape()), kind="decor")
 
     total = 0
     print("\n{:6s} {:18s} {:>22s} {:>8s} {:>6s}".format("kind", "name", "size x/y/z (m)", "top (m)", "tris"))
