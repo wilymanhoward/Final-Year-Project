@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Text;
@@ -207,6 +208,7 @@ namespace FYP.Detective
             LogPlacementCheck("session_start");
             LogDepthOcclusion("session_start");
             LogBriefing();
+            LogBoardOrder();
             WriteSnapshot();
             _nextSnapshotTime = now + snapshotIntervalSeconds;
             Debug.Log("[DataLogger] Logging to " + path);
@@ -249,6 +251,18 @@ namespace FYP.Detective
         // logged again 1 s later.
         // The detective's briefing happens before the run (no file open), so it is summarised at session start:
         // when it began and finished (UTC), replays, whether this headset heard it to the end (and the partner, team).
+        // Left-to-right order of the suspect cards on the evidence board (shuffled per pair/case/condition, SuspectOrder), so
+        // card position can be analysed against the culprit and the chosen suspect.
+        private void LogBoardOrder()
+        {
+            var def = session.ActiveCase;
+            if (_writer == null || def == null) return;
+            var order = SuspectOrder.Shuffled(def.Suspects, _config.pairCode, _config.CaseCode, _config.ConditionCode);
+            var ids = new List<string>();
+            foreach (SuspectInfo s in order) if (s != null) ids.Add(s.id);
+            LogEvent(LogEvents.BoardOrder, "left_to_right=" + string.Join("|", ids));
+        }
+
         private void LogBriefing()
         {
             if (_writer == null || !session.BriefingRequired) return;

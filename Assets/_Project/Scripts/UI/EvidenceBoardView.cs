@@ -128,8 +128,9 @@ namespace FYP.Detective
         {
             CaseState s = _session.State;
             CaseDefinition def = _session.ActiveCase;
+            ExperimentConfig c = _session.Config;
             _layout = EvidenceBoardModel.Build(
-                def != null ? def.Suspects : null,
+                def != null ? SuspectOrder.Shuffled(def.Suspects, c.pairCode, c.CaseCode, c.ConditionCode) : null,
                 s.TaggedClues,
                 id => _clueNames.TryGetValue(id, out string name) ? name : id,
                 s.BoardSuspectId,

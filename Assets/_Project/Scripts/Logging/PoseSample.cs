@@ -73,6 +73,7 @@ namespace FYP.Detective
         public const string ClueReset = "clue_reset";
         public const string ClueThrown = "clue_thrown";
         public const string Briefing = "briefing";
+        public const string BoardOrder = "board_order";
         public const string DepthOcclusion = "depth_occlusion";
         // Networking (Week 3). Written only while a run is open, like every event row.
         public const string NetPeerConnected = "net_peer_connected";
