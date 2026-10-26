@@ -25,6 +25,9 @@ namespace FYP.Detective
             X = x; Z = z; Yaw = yaw; AX = ax; AZ = az; BX = bx; BZ = bz;
         }
 
+        /// <summary>The same spot with the detective moved (the players' positions stay).</summary>
+        public BriefingSpot Moved(float x, float z, float yaw) => new BriefingSpot(x, z, yaw, AX, AZ, BX, BZ);
+
         public static BriefingSpot Compute(PlayerPose2D a, PlayerPose2D b, float distance = 1.6f, float halfSize = 2.2f,
             float minDistance = 1.1f)
         {

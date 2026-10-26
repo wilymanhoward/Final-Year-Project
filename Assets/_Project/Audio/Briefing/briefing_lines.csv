@@ -1,15 +1,15 @@
-order,file,case,condition,text
-1,intro_01,*,*,"Good evening, detective. I'm Inspector Hart, and I'm glad you're here."
-2,intro_02,*,*,"We have a case that needs a sharp pair of eyes."
-3,X_story_01,X,*,"Last night, the gold Design of the Year award vanished from the display case at Kite Design Studio, just hours before the company's big exhibition."
-4,X_story_02,X,*,"The case was found open this morning."
-5,X_story_03,X,*,"Four people had a reason to be near the studio last night. One of them took the award."
-3,Y_story_01,Y,*,"Last night, Datuk Hashim Karim, founder of the Heritage Gallery, was found dead in the Melaka Room."
-4,Y_story_02,Y,*,"Someone was secretly swapping real pieces for replicas, and the Datuk was about to expose them."
-5,Y_story_03,Y,*,"Four people had access. Find who was here when he died, and prove it."
-6,task_01,*,*,"Search the room. When you find something important, pick it up or touch it, then tap Tag as evidence."
-7,task_02,*,*,"At the evidence board, choose the suspect who did it, pin the evidence that proves it, and submit. You can only submit once."
-8,work_solo,*,A,"You're working alone on this one."
-8,work_team,*,B,"You're working with a partner. Talk to each other and decide together. Either of you can submit."
-9,rules_01,*,*,"One more thing: don't step into the marked areas on the floor. They're part of the crime scene. And please don't run after anything you drop."
-10,outro_01,*,*,"When you're ready, press Start. Good luck, detective."
+order,file,case,condition,text,cue
+1,intro_01,*,*,"Good evening, detective. I'm Inspector Hart, and I'm glad you're here.",
+2,intro_02,*,*,"We have a case that needs a sharp pair of eyes.",
+3,X_story_01,X,*,"Last night, the gold Design of the Year award vanished from this display case at Kite Design Studio, just hours before the company's big exhibition.",display
+4,X_story_02,X,*,"That blinking outline is where it used to stand. The case was found open this morning.",display
+5,X_story_03,X,*,"Four people had a reason to be near the studio last night. One of them took the award.",
+3,Y_story_01,Y,*,"Last night, Datuk Hashim Karim, founder of the Heritage Gallery, was found stabbed to death in the Melaka Room, with the gallery's own keris.",
+4,Y_story_02,Y,*,"He had found out that real pieces were being swapped for replicas. Bloody footprints lead from the body towards the entrance.",
+5,Y_story_03,Y,*,"Four people had access to the room. Find who killed him, and prove it.",
+6,task_01,*,*,"Search the room. When you find something important, pick it up or touch it, then tap Tag as evidence.",
+7,task_02,*,*,"At the evidence board, choose the suspect who did it, pin the evidence that proves it, and submit. You can only submit once.",
+8,work_solo,*,A,"You're working alone on this one.",
+8,work_team,*,B,"You're working with a partner. Talk to each other and decide together. Either of you can submit.",
+9,rules_01,*,*,"One more thing: don't step into the marked areas on the floor. They're part of the crime scene. And please don't run after anything you drop.",
+10,outro_01,*,*,"When you're ready, press Start. Good luck, detective.",

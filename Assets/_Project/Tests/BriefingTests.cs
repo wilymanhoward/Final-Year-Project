@@ -38,6 +38,19 @@ namespace FYP.Detective.Tests
         }
 
         [Test]
+        public void CueColumn_MarksTheDisplayLinesOfCaseX()
+        {
+            var all = BriefingScript.Parse(RealCsv());
+            var x = BriefingScript.For(all, "X", "A");
+            var y = BriefingScript.For(all, "Y", "A");
+            CollectionAssert.AreEqual(new[] { "X_story_01", "X_story_02" }, x.Where(l => l.Cue == "display").Select(l => l.File).ToArray());
+            Assert.IsTrue(y.All(l => l.Cue == ""));
+            var parsed = BriefingScript.Parse("order,file,case,condition,text,cue\n1,a,*,*,\"Hi\",display\n2,b,*,*,\"Yo\"\n");
+            Assert.AreEqual("display", parsed[0].Cue);
+            Assert.AreEqual("", parsed[1].Cue);
+        }
+
+        [Test]
         public void EstimateForLinesWithoutAudio()
         {
             Assert.AreEqual(1.5f, BriefingScript.EstimateSeconds(""), 1e-4f);
