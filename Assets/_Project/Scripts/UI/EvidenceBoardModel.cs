@@ -40,7 +40,7 @@ namespace FYP.Detective
     public static class EvidenceBoardModel
     {
         public static EvidenceBoardLayout Build(
-            IReadOnlyList<SuspectInfo> suspects,
+            IReadOnlyList<SuspectInfo> suspects,   // already in display order (SuspectOrder)
             IEnumerable<string> taggedClueIds,
             Func<string, string> displayName,
             string selectedSuspectId,
