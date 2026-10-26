@@ -12,20 +12,23 @@ namespace FYP.Detective
         public readonly string Case;        // "X", "Y" or "*"
         public readonly string Condition;   // "A", "B" or "*"
         public readonly string Text;
+        /// <summary>Optional stage cue (column "cue"): "display" = point at the display case while this line is spoken.</summary>
+        public readonly string Cue;
 
-        public BriefingLine(int order, string file, string caseCode, string condition, string text)
+        public BriefingLine(int order, string file, string caseCode, string condition, string text, string cue = "")
         {
             Order = order;
             File = file;
             Case = caseCode;
             Condition = condition;
             Text = text;
+            Cue = cue ?? "";
         }
     }
 
     /// <summary>
     /// The detective's briefing script (session 6), read from Assets/_Project/Audio/Briefing/briefing_lines.csv
-    /// (columns order,file,case,condition,text; text quoted, "" = a quote). The same CSV feeds the placeholder voice
+    /// (columns order,file,case,condition,text[,cue]; text quoted, "" = a quote). The same CSV feeds the placeholder voice
     /// (tools/make_briefing_tts.ps1) and the AI voice files, which keep the same base names. Pure, unit tested.
     /// </summary>
     public static class BriefingScript
@@ -39,7 +42,7 @@ namespace FYP.Detective
             {
                 if (header) { header = false; continue; }
                 if (f.Count < 5 || !int.TryParse(f[0].Trim(), out int order) || f[1].Trim().Length == 0) continue;
-                lines.Add(new BriefingLine(order, f[1].Trim(), f[2].Trim(), f[3].Trim(), f[4].Trim()));
+                lines.Add(new BriefingLine(order, f[1].Trim(), f[2].Trim(), f[3].Trim(), f[4].Trim(), f.Count > 5 ? f[5].Trim() : ""));
             }
             return lines;
         }

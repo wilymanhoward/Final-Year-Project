@@ -32,6 +32,9 @@ namespace FYP.Detective
         [Tooltip("Forearm pivots at the elbows (session 6): gestures bend the elbows.")]
         [SerializeField] private Transform rightForearm;
         [SerializeField] private Transform leftForearm;
+        [Tooltip("Mesh of the right forearm, and the variant with the index finger out used while he points (Case X briefing).")]
+        [SerializeField] private MeshFilter rightForearmFilter;
+        [SerializeField] private Mesh pointForearmMesh;
         [SerializeField] private Transform eyes;
         [SerializeField] private Transform mouth;
         [SerializeField] private AudioSource voice;
@@ -77,6 +80,21 @@ namespace FYP.Detective
         private BriefingSpot _spot;
         private int _gazeLine;
 
+        // Stage cue "display" (user, session 6, Case X): while such a line is spoken one hand points at the display case
+        // (he keeps facing and looking at the player) and the award's silhouette blinks in the empty case (TrophyGhost,
+        // built under the display prop). He stands at one fixed spot, DisplaySideOffset to the right of the display case
+        // (CaseRoot-local, so the same for everyone), facing the player, and points at it with his right hand (the one with the
+        // magnifying glass; from there the display is on his right); the arm is aimed in PointRotation.
+        private bool _pointAtDisplay;
+        private const float DisplaySideOffset = 2.0f;   // user: 1 m was too close
+        // Elbow while pointing (degrees from the modelled rest, where the forearm is bent 90 degrees forward holding the
+        // magnifier up): 90 = fully straight, but the lens faces along the arm and shows edge-on (looked like a stick, user:
+        // "weird"); 55 = nearly straight with the forearm tipped 35 degrees towards the player, so the lens shows.
+        private const float PointElbowDegrees = 55f;   // tools/maya/build_props.py POINT_FINGER_DOWN = 90 - this
+        private Mesh _normalForearmMesh;
+        private Spring _pointBlend = new Spring(1.8f, 0.8f);
+        private TrophyGhost _ghost;
+
         /// <summary>Where the briefing is (the participant card follows it).</summary>
         public BriefingStage Stage { get; private set; } = BriefingStage.NotStarted;
 
@@ -96,6 +114,7 @@ namespace FYP.Detective
             if (moustache != null) _moustacheRest = moustache.localPosition;
             if (leftArm != null) _leftArmRest = leftArm.localRotation;
             if (rightForearm != null) _rForeRest = rightForearm.localRotation;
+            if (rightForearmFilter != null) _normalForearmMesh = rightForearmFilter.sharedMesh;
             if (leftForearm != null) _lForeRest = leftForearm.localRotation;
             if (mouth != null) _mouthScale = mouth.localScale;
             if (eyes != null) _eyesScale = eyes.localScale;
@@ -158,11 +177,19 @@ namespace FYP.Detective
         {
             if (session == null || !session.IsArmed || session.IsRunning || floorReference == null) return;
             _team = true;
-            _spot = spot;
             BuildLines();
+            PropSpec display = DisplayProp();
+            if (display != null && HasDisplayCue())
+            {
+                float sx = Mathf.Clamp(display.X + DisplaySideOffset, -playAreaHalfSize, playAreaHalfSize), sz = display.Z;
+                float mx = (spot.AX + spot.BX) * 0.5f, mz = (spot.AZ + spot.BZ) * 0.5f;
+                spot = spot.Moved(sx, sz, Mathf.Atan2(mx - sx, mz - sz) * Mathf.Rad2Deg);   // fixed place, facing the pair
+            }
+            _spot = spot;
             character.transform.SetPositionAndRotation(floorReference.TransformPoint(new Vector3(spot.X, 0f, spot.Z)),
                 floorReference.rotation * Quaternion.Euler(0f, spot.Yaw, 0f));
             character.SetActive(true);
+            _turnInit = false;
             _playback.Begin(Time.unscaledTimeAsDouble);
             Stage = BriefingStage.Playing;
             session.ReportBriefingStarted();
@@ -179,6 +206,31 @@ namespace FYP.Detective
 
         // Who he looks at: solo = the player; team = player A on even lines, B on odd lines (same order on both
         // headsets). "Self" is the live head; the partner is where they stood when they tapped Begin, at head height.
+        // The display case in the world (the point he looks and points at), from the case spec; CaseRoot-local, so the same on
+        // both headsets.
+        private PropSpec DisplayProp() => session != null ? CaseSpecs.For(session.Config.caseId).Prop("display") : null;
+
+        private bool HasDisplayCue() => _lines.Exists(l => l.Cue == "display");
+
+        private Vector3 DisplayPoint()
+        {
+            PropSpec display = DisplayProp();
+            if (floorReference == null || display == null) return character.transform.position + character.transform.forward * 2f;
+            return floorReference.TransformPoint(new Vector3(display.X, 1.2f, display.Z));
+        }
+
+        // Arm rotation (relative to its rest) that makes a hanging arm point from the shoulder at the display: first swing
+        // forward / back about x (asin of the forward part), then raise sideways about z, so it can reach a point behind him.
+        private Quaternion PointRotation(Transform shoulder)
+        {
+            Vector3 d = character.transform.InverseTransformDirection(DisplayPoint() - shoulder.position);
+            if (d.sqrMagnitude < 1e-4f) return Quaternion.identity;
+            d.Normalize();
+            float swing = -Mathf.Asin(Mathf.Clamp(d.z, -1f, 1f)) * Mathf.Rad2Deg;   // - forward, + back
+            float raise = Mathf.Atan2(d.x, -d.y) * Mathf.Rad2Deg;                    // - left, + right
+            return Quaternion.Euler(0f, 0f, raise) * Quaternion.Euler(swing, 0f, 0f);
+        }
+
         private Vector3 GazeTarget()
         {
             if (head == null) return character.transform.position + character.transform.forward + Vector3.up * 1.6f;
@@ -215,6 +267,7 @@ namespace FYP.Detective
                     ? clip.length
                     : BriefingScript.EstimateSeconds(_lines[i].Text);
             _playback = new BriefingPlayback(durations);
+            _ghost = FindFirstObjectByType<TrophyGhost>();   // only exists in Case X, only the active case is shown
         }
 
         private void Update()
@@ -223,6 +276,8 @@ namespace FYP.Detective
             if (_playback.Tick(Time.unscaledTimeAsDouble)) Say(_playback.CurrentLine);
             if (!_playback.IsFinished) return;
             Stage = BriefingStage.Finished;
+            _pointAtDisplay = false;
+            if (_ghost != null) _ghost.SetBlinking(false);
             session.ReportBriefingFinished();
         }
 
@@ -231,6 +286,8 @@ namespace FYP.Detective
             if (index < 0 || index >= _lines.Count) return;
             BriefingLine line = _lines[index];
             _gazeLine = index;
+            _pointAtDisplay = line.Cue == "display";
+            if (_ghost != null) _ghost.SetBlinking(_pointAtDisplay);
             _fullText = line.Text ?? "";
             _shownChars = -1;
             _sayTime = Time.unscaledTime;
@@ -238,6 +295,11 @@ namespace FYP.Detective
                 ? lineClip.length : BriefingScript.EstimateSeconds(line.Text);
             _typeSeconds = Mathf.Max(0.5f, spoken * 0.8f);   // finish typing a little before the voice ends
             PickGesture(index, spoken);
+            if (_pointAtDisplay)
+            {
+                _gesture = Gesture.PointAtDisplay;
+                _gestureUntil = Time.unscaledTime + spoken + 0.5f;
+            }
             UpdateBubbleText();
             if (voice == null) return;
             voice.Stop();
@@ -254,6 +316,8 @@ namespace FYP.Detective
             if (character != null) character.SetActive(false);
             _fullText = "";
             _shownChars = -1;
+            _pointAtDisplay = false;
+            if (_ghost != null) _ghost.SetBlinking(false);
             if (bubbleText != null) bubbleText.text = "";
         }
 
@@ -305,7 +369,19 @@ namespace FYP.Detective
                 local.y = 0f;
                 position = floorReference.TransformPoint(local);
             }
-            character.transform.SetPositionAndRotation(position, Quaternion.LookRotation(-forward, Vector3.up));
+            Quaternion rotation = Quaternion.LookRotation(-forward, Vector3.up);
+            PropSpec display = DisplayProp();
+            if (floorReference != null && display != null && HasDisplayCue())
+            {
+                // One fixed spot next to the display, facing the player.
+                position = floorReference.TransformPoint(new Vector3(
+                    Mathf.Clamp(display.X + DisplaySideOffset, -playAreaHalfSize, playAreaHalfSize), 0f, display.Z));
+                Vector3 toPlayer = head.position - position;
+                toPlayer.y = 0f;
+                if (toPlayer.sqrMagnitude > 1e-4f) rotation = Quaternion.LookRotation(toPlayer, Vector3.up);
+            }
+            character.transform.SetPositionAndRotation(position, rotation);
+            _turnInit = false;
         }
 
         // Procedural animation while visible: loudness drives the moustache, head nods, arm gestures.
@@ -315,7 +391,7 @@ namespace FYP.Detective
         // nod and a hand beat), one gesture per line held for part of it, gaze towards the participant's head (the head
         // leads, the body turns after it only when needed), breathing and weight shift on the Rig at the feet.
 
-        private enum Gesture { Relaxed, OpenPalm, Explain, Magnifier, Point }
+        private enum Gesture { Relaxed, OpenPalm, Explain, Magnifier, Point, PointAtDisplay }
 
         private struct ArmPose
         {
@@ -363,6 +439,7 @@ namespace FYP.Detective
                 case Gesture.Explain: left = new ArmPose(-30f, -8f, -72f); right = new ArmPose(-10f, 4f, -16f); break;
                 case Gesture.Magnifier: right = new ArmPose(-22f, 6f, -38f); break;
                 case Gesture.Point: left = new ArmPose(-62f, -4f, -22f); break;
+                case Gesture.PointAtDisplay: break;   // both arms at rest; the pointing arm is aimed in LateUpdate
             }
         }
 
@@ -443,16 +520,26 @@ namespace FYP.Detective
             float handBeat = _beat.Step(0f, dt);
             bool leftLeads = _gesture == Gesture.OpenPalm || _gesture == Gesture.Explain || _gesture == Gesture.Point;
             float drift = Noise(t * 0.3f, 7f);
-            if (armPart != null)
-                armPart.localRotation = _armRest * Quaternion.Euler(_rPitch.Step(right.Pitch + 2f * drift, dt), 0f, _rRoll.Step(right.Roll, dt));
-            if (rightForearm != null)
-                rightForearm.localRotation = _rForeRest * Quaternion.Euler(
-                    _rElbow.Step(right.Elbow - (leftLeads ? 0f : 0.25f * handBeat), dt), 0f, 0f);
-            if (leftArm != null)
-                leftArm.localRotation = _leftArmRest * Quaternion.Euler(_lPitch.Step(left.Pitch - 2f * drift, dt), 0f, _lRoll.Step(left.Roll, dt));
-            if (leftForearm != null)
-                leftForearm.localRotation = _lForeRest * Quaternion.Euler(
-                    _lElbow.Step(left.Elbow - (leftLeads ? 0.35f * handBeat : 0f), dt), 0f, 0f);
+            bool pointing = _pointAtDisplay && speaking && t < _gestureUntil;
+            // Only point when the display really is on his right; otherwise the arm would swing across his body.
+            if (pointing && armPart != null)
+                pointing = character.transform.InverseTransformDirection(DisplayPoint() - armPart.position).x > 0.15f;
+            float pointK = _pointBlend.Step(pointing ? 1f : 0f, dt);
+            float rElbowT = right.Elbow - (leftLeads ? 0f : 0.25f * handBeat);
+            float lElbowT = left.Elbow - (leftLeads ? 0.35f * handBeat : 0f);
+            if (pointing) rElbowT = PointElbowDegrees;   // positive = straighter (negative bends the forearm up)
+            Quaternion rArm = Quaternion.Euler(_rPitch.Step(right.Pitch + 2f * drift, dt), 0f, _rRoll.Step(right.Roll, dt));
+            Quaternion lArm = Quaternion.Euler(_lPitch.Step(left.Pitch - 2f * drift, dt), 0f, _lRoll.Step(left.Roll, dt));
+            if (rightForearmFilter != null && pointForearmMesh != null)
+            {
+                Mesh want = pointK > 0.5f ? pointForearmMesh : _normalForearmMesh;   // index finger out only while pointing
+                if (rightForearmFilter.sharedMesh != want) rightForearmFilter.sharedMesh = want;
+            }
+            if (pointK > 0.001f && armPart != null) rArm = Quaternion.Slerp(rArm, PointRotation(armPart), pointK);
+            if (armPart != null) armPart.localRotation = _armRest * rArm;
+            if (rightForearm != null) rightForearm.localRotation = _rForeRest * Quaternion.Euler(_rElbow.Step(rElbowT, dt), 0f, 0f);
+            if (leftArm != null) leftArm.localRotation = _leftArmRest * lArm;
+            if (leftForearm != null) leftForearm.localRotation = _lForeRest * Quaternion.Euler(_lElbow.Step(lElbowT, dt), 0f, 0f);
 
             // Solo: turn towards the participant only when they are clearly off to the side; the head covers the rest.
             // Team: he keeps facing the pair (the spot's yaw), so both players see the same detective.

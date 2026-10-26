@@ -59,10 +59,18 @@ be near the studio last night. Search the room, tag the evidence, and name the p
 
 ## Case Y: "Death in the Melaka Room" (murder; culprit: Farid Rahman)
 
-**Briefing:** Last night, Datuk Hashim Karim, founder of the Heritage Gallery, was found dead on the floor of the
-Melaka Room, beside the reception table. He had found out that real pieces were being swapped for replicas. Four
-people had a reason to be near the room last night. Search the room, tag the evidence, and name the person who
-killed him. (Stylised low-poly blood pool, no body; Case X stays a theft - user decision, session 6.)
+Its own murder-scene layout (user decision, session 6: Case Y doesn't have to mirror Case X; same 5 x 5 m room, 7 clues,
+3 zones, similar mean clue distance). Stylised low-poly blood and a taped body outline, no body model.
+
+**Briefing:** Last night, Datuk Hashim Karim, founder of the Heritage Gallery, was found stabbed to death in the Melaka
+Room with the gallery's own keris. He had found out that real pieces were being swapped for replicas. Bloody
+footprints lead from the body towards the entrance. Four people had access to the room. Search the scene, tag the
+evidence, and name the person who killed him.
+
+**What happened (the scene makes sense):** Farid took the gallery key at 20:05 and met the Datuk in the room at 8
+(his email). They fought: the vase and a chair went over and the wall clock was knocked off and smashed at 8:17. Farid
+took the keris from the plinth and stabbed him. He wiped the hilt but a strand of his green tour-guide scarf stayed
+caught in it, and he left through the entrance, leaving bloody footprints.
 
 ### Suspects
 
@@ -71,25 +79,34 @@ killed him. (Stylised low-poly blood pool, no body; Case X stays a theft - user 
 | **Farid Rahman** (culprit) | Tour guide | "I was alone, preparing tomorrow's tour." (No one can confirm.) |
 | Mr Tan | Security guard | On gate duty 8:00-8:40 pm; the gate camera shows him there. |
 | Dr Sofia Idris | Curator | On a video call with a lender 7:50-8:45 pm; the recording confirms it. |
-| Mr Lim | Private collector | At the hotel restaurant at 8:10 pm; the receipt and staff confirm it. |
+| Mr Lim | Private collector | At the hotel restaurant 8:00-9:00 pm; the receipt and staff confirm it. |
+
+### Layout (CaseRoot-local, metres; start mark at 0, 0 facing the front wall +z)
+
+- Display plinth (empty keris cradle) at the front wall (0.94, 1.94); reception table on the right wall (1.81, 0.56);
+  tour desk on the right wall (1.81, -0.94); noticeboard on the left wall (-2.25, 0.31); entrance in the back wall,
+  back-left (-1.69, -2.31); evidence board at the back (0, -2.19).
+- The body (taped outline) lies in front of the plinth, centre (0, 1.25), head towards -x; the blood pool is under the
+  head; the keris lies beside the body; the fallen chair is by the plinth.
+- Mean clue distance 2.12 m (Case X 2.10 m).
 
 ### Clues
 
 | Id | Object | Inspect text | Height |
 |---|---|---|---|
-| K1 | Forensic report (blood), clipped to the display case | Blood clotted and dry at the edges. Death between 20:15 and 20:30. (Time of death: the three innocents' alibis cover this window, Farid's does not.) | eye |
-| K2 | Key logbook on reception table | "Gallery key out 20:05, F.R." No return time written. | table |
-| K3 | Forensic marker (body): yellow evidence tent near the display plinth | One blow to the back of the head with a narrow, heavy object. No struggle: he knew his attacker. | floor |
-| K4 | Printed chat message on tour desk | To Farid: "He knows about the replicas. If he talks tomorrow I'm finished." | table |
-| R1 (Mr Tan) | Torch beside plinth | A security-issue torch, battery flat. Mr Tan argued with the Datuk this week. | floor |
-| R2 (Mr Lim) | Business card near entrance | Mr Lim's card; on the back: "That keris will be mine." | floor |
-| R3 (Dr Sofia) | Note on noticeboard | "Datuk, I will resign if the keris is sold. - S." | eye |
+| K1 | Smashed wall clock on the front wall (-1.50, 2.35) | Knocked off the wall in the struggle. The hands stopped at 8:17. | eye |
+| K2 | Visitor logbook on the reception table | "Gallery key out 20:05, F.R." No return time written. | table |
+| K3 | The keris (murder weapon) on the floor beside the body (0.35, 0.88) | Blade bloody. The hilt was wiped, but a strand of green tour-guide scarf is caught in it. | floor |
+| K4 | Printed email on the tour desk | From the Datuk to Farid: "I know about the replicas. Meet me in the Melaka Room at 8. - H." | table |
+| R1 (Mr Tan) | Torch beside the plinth | A security-issue torch, battery flat. Mr Tan argued with the Datuk this week. | floor |
+| R2 (Mr Lim) | Business card near the entrance | Mr Lim's card; on the back: "That keris will be mine." | floor |
+| R3 (Dr Sofia) | Note on the noticeboard | "Datuk, I will resign if the keris is sold. - S." | eye |
 
 ### Exclusion zones
 
-1. Shattered display glass around the plinth.
-2. Pool of blood (flat, faceted, dark red) beside the reception table.
-3. Wet floor varnish in the restoration corner.
+1. Pool of blood under the body's head (0.6 x 0.6 m).
+2. Bloody footprints leading from the pool towards the entrance (0.45 x 2.2 m, yaw 13.4).
+3. Broken vase beside the plinth, right of the body (0.45 x 0.45 m).
 
 ---
 
@@ -97,10 +114,10 @@ killed him. (Stylised low-poly blood pool, no body; Case X stays a theft - user 
 
 - The play area is **5 x 5 m** (one constant in code, `PlayArea.HalfSize`); furniture stands near the edges, the middle
   stays open, the start mark is the centre.
-- **Case Y = Case X mirrored/rotated**, so the display, desk and door are in different places.
+- **Case X** is the reference layout. **Case Y** has its own layout (it is not a mirror of X since session 6).
 - The validator checks:
   - matching counts;
   - height bands;
   - similar mean distance from the start;
   - no clue inside a zone;
-  - the mirror rule.
+  - the same height band and grab style per slot in both cases.

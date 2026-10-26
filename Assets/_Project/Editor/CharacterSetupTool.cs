@@ -32,8 +32,15 @@ namespace FYP.Detective.EditorTools
         private static readonly string[] Parts =
         {
             "Detective_Body", "Detective_Head", "Detective_Moustache", "Detective_Arm", "Detective_Forearm", "Detective_ArmL",
-            "Detective_ForearmL", "Detective_Eyes", "Detective_Mouth",
+            "Detective_ForearmL", "Detective_Eyes", "Detective_Mouth", "Detective_ForearmPoint",
         };
+
+        /// <summary>Batch mode: opens Main.unity and runs <see cref="SetUp"/> (dialogs don't block in batch mode).</summary>
+        public static void SetUpBatch()
+        {
+            UnityEditor.SceneManagement.EditorSceneManager.OpenScene("Assets/_Project/Scenes/Main.unity");
+            SetUp();
+        }
 
         [MenuItem("FYP/Set Up Briefing Detective")]
         public static void SetUp()
@@ -82,7 +89,7 @@ namespace FYP.Detective.EditorTools
             Transform arm = Pivot(rigPivot, "Arm", ArmAt);
             PropAssets.AddVisual(arm, "Detective_Arm", Vector3.zero, Quaternion.identity, Vector3.one);
             Transform forearm = Pivot(arm, "Forearm", ElbowRightAt);
-            PropAssets.AddVisual(forearm, "Detective_Forearm", Vector3.zero, Quaternion.identity, Vector3.one);
+            var forearmVisual = PropAssets.AddVisual(forearm, "Detective_Forearm", Vector3.zero, Quaternion.identity, Vector3.one);
             Transform leftArm = Pivot(rigPivot, "ArmL", ArmLeftAt);
             PropAssets.AddVisual(leftArm, "Detective_ArmL", Vector3.zero, Quaternion.identity, Vector3.one);
             Transform leftForearm = Pivot(leftArm, "ForearmL", ElbowLeftAt);
@@ -126,6 +133,8 @@ namespace FYP.Detective.EditorTools
             so.FindProperty("rig").objectReferenceValue = rigPivot;
             so.FindProperty("leftArm").objectReferenceValue = leftArm;
             so.FindProperty("rightForearm").objectReferenceValue = forearm;
+            so.FindProperty("rightForearmFilter").objectReferenceValue = forearmVisual.GetComponent<MeshFilter>();
+            so.FindProperty("pointForearmMesh").objectReferenceValue = PropAssets.Mesh("Detective_ForearmPoint", "_Body");
             so.FindProperty("leftForearm").objectReferenceValue = leftForearm;
             so.FindProperty("eyes").objectReferenceValue = eyes;
             so.FindProperty("mouth").objectReferenceValue = mouth;

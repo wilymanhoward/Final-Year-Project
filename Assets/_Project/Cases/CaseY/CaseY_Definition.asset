@@ -15,10 +15,10 @@ MonoBehaviour:
   caseId: 1
   title: Death in the Melaka Room
   briefing: Last night, Datuk Hashim Karim, founder of the Heritage Gallery, was
-    found dead on the floor of the Melaka Room, beside the reception table. He had
-    found out that real pieces were being swapped for replicas. Four people had a
-    reason to be near the room last night. Search the room, tag the evidence, and
-    name the person who killed him.
+    found stabbed to death in the Melaka Room with the gallery's own keris. He had
+    found out that real pieces were being swapped for replicas. Bloody footprints
+    lead from the body towards the entrance. Four people had access to the room.
+    Search the scene, tag the evidence, and name the person who killed him.
   suspects:
   - id: Y_farid
     displayName: Farid Rahman
@@ -35,7 +35,7 @@ MonoBehaviour:
   - id: Y_lim
     displayName: Mr Lim
     role: Private collector
-    alibi: At the hotel restaurant at 8:10 pm; the receipt and staff confirm it.
+    alibi: At the hotel restaurant 8:00-9:00 pm; the receipt and staff confirm it.
   correctSuspectId: Y_farid
   keyEvidenceIds:
   - Y_K1
@@ -47,21 +47,21 @@ MonoBehaviour:
     Culprit:
     Farid Rahman
 
-    K1 Y_K1 - Forensic report: blood
+    K1 Y_K1 - Smashed wall clock
 
-    K2 Y_K2 - Key logbook
+    K2 Y_K2 - Visitor logbook
 
     K3
-    Y_K3 - Forensic marker: body
+    Y_K3 - The keris
 
-    K4 Y_K4 - Printed chat message
+    K4 Y_K4 - Printed email
 
-    R1 Y_R1
-    - Torch (red herring: Mr Tan)
+    R1 Y_R1 - Torch (red herring:
+    Mr Tan)
 
     R2 Y_R2 - Business card (red herring: Mr Lim)
 
-    R3
-    Y_R3 - Noticeboard note (red herring: Dr Sofia Idris)
+    R3 Y_R3 - Noticeboard
+    note (red herring: Dr Sofia Idris)
 
 '

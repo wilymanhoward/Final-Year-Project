@@ -341,7 +341,7 @@ Data flow:
   experimenter armed) right after `session_start` when the run was armed; meta `startSource`, `armedUtc`. Team runs
   carry the source in TeamMessage `ReqStart|source` / `Start|case|cond|source`.
 - **Phase D cases (session 6):** content in `docs/cases.md` (Case X "The Missing Design Award", culprit Grace Wong;
-  Case Y "Death in the Melaka Room" (murder, user decision: K1 = blood forensic report / time of death 20:15-20:30, K3 = body forensic marker / cause, blood pool = zone 2, taped body outline = decoration; headset-untested), culprit Farid Rahman; 4 suspects, K1-K4 + R1-R3, 3 zones each). Code: `CaseSpec` types +
+  Case Y "Death in the Melaka Room" (murder, own layout, not a mirror of X since the user relaxed it: body outline + blood pool, keris K3 beside the body, smashed clock K1, logbook K2, bloody footprints to the entrance, broken vase; headset-untested), K2 = blood forensic report on the reception table beside the pool / time of death 20:15-20:30 (replaces the key logbook), K3 = body forensic marker / cause, blood pool = zone 2, taped body outline = decoration; headset-untested), culprit Farid Rahman; 4 suspects, K1-K4 + R1-R3, 3 zones each). Code: `CaseSpec` types +
   `PlayArea` constants (HalfSize 1.5 m, heights floor/table 0.75/eye 1.5), `CaseSpecs.X/Y` (Y = X mirrored x -> -x),
   `CaseSpecValidator` (counts, height bands, inside area, no clue within 10 cm of a zone, red herrings -> distinct
   innocents, mean distance diff <= 0.15 m, mirror rule incl. display/desk/door moved). Layout: start mark = CaseRoot at

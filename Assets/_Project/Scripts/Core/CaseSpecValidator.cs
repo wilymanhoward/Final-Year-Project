@@ -6,8 +6,8 @@ namespace FYP.Detective
     /// <summary>
     /// Checks the case specs against the Phase D rules (docs/cases.md): counts, height bands, everything inside the
     /// play area, no clue inside (or within 10 cm of) a zone, every clue reachable without reaching over a zone, red herrings pointing at distinct innocent suspects,
-    /// similar mean clue distance from the start, and the mirror rule (Case Y = Case X mirrored left-right, with the
-    /// display, desk and door on different sides). Pure C#; returns readable errors (empty = valid).
+    /// similar mean clue distance from the start and the same height band / grab style per slot
+    /// (Case Y is its own layout, no mirror rule since session 6). Pure C#; returns readable errors (empty = valid).
     /// </summary>
     public static class CaseSpecValidator
     {
@@ -16,8 +16,6 @@ namespace FYP.Detective
         public const int ZoneCount = 3;
         public const float ZoneMargin = 0.10f;
         public const float MaxMeanDistanceDifference = 0.15f;
-        public const float MirrorTolerance = 0.01f;
-        public const float MovedAtLeast = 0.5f;
         /// <summary>Reach check: where a person stands to read/take a clue (headset test 2: hands sway ~30 cm while crouching).</summary>
         public const float ReachDistance = 0.45f;
         /// <summary>The straight reach from the standing spot to the clue keeps this far from every zone.</summary>
@@ -100,22 +98,6 @@ namespace FYP.Detective
                 if (a == null || b == null) continue;
                 if (a.Height != b.Height) e.Add($"{slot}: height bands differ between X and Y");
                 if (a.Grabbable != b.Grabbable) e.Add($"{slot}: grabbable in one case but not the other");
-                if (!IsMirror(a.X, a.Z, b.X, b.Z)) e.Add($"{slot}: Y position isn't X mirrored");
-            }
-            for (int i = 0; i < Math.Min(x.Zones.Count, y.Zones.Count); i++)
-            {
-                var a = x.Zones[i];
-                var b = y.Zones[i];
-                if (!IsMirror(a.X, a.Z, b.X, b.Z) || Math.Abs(a.Width - b.Width) > MirrorTolerance || Math.Abs(a.Depth - b.Depth) > MirrorTolerance)
-                    e.Add($"Zone {i + 1}: Y isn't X mirrored");
-            }
-            foreach (string role in new[] { "display", "desk", "door" })
-            {
-                var a = x.Prop(role);
-                var b = y.Prop(role);
-                if (a == null || b == null) { e.Add($"Prop '{role}' missing"); continue; }
-                if (!IsMirror(a.X, a.Z, b.X, b.Z)) e.Add($"Prop '{role}': Y isn't X mirrored");
-                if (Distance(a.X, a.Z, b.X, b.Z) < MovedAtLeast) e.Add($"Prop '{role}' is in the same place in X and Y");
             }
             return e;
         }
@@ -186,10 +168,6 @@ namespace FYP.Detective
         }
 
         private static bool Inside(float x, float z) => Math.Abs(x) <= PlayArea.HalfSize && Math.Abs(z) <= PlayArea.HalfSize;
-        private static bool IsMirror(float ax, float az, float bx, float bz) =>
-            Math.Abs(ax + bx) <= MirrorTolerance && Math.Abs(az - bz) <= MirrorTolerance;
-        private static float Distance(float ax, float az, float bx, float bz) =>
-            (float)Math.Sqrt((ax - bx) * (ax - bx) + (az - bz) * (az - bz));
 
         private static void CheckId(List<string> e, string n, HashSet<string> ids, string id)
         {

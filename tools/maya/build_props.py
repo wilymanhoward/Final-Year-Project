@@ -1107,9 +1107,14 @@ def detective_moustache():
     return p
 
 
-def detective_arm(piece="all"):
+POINT_FINGER_DOWN = 35.0   # degrees below the forearm direction; = 90 - DetectiveBriefing.PointElbowDegrees (keep in sync)
+
+
+def detective_arm(piece="all", point=False):
     """Right arm in shoulder space (pivot DETECTIVE_ARM_AT): upper arm down, forearm forward, hand holding a
-    magnifying glass up. piece: "upper", "fore" (elbow DETECTIVE_ELBOW_R_AT = origin) or "all"."""
+    magnifying glass up. piece: "upper", "fore" (elbow DETECTIVE_ELBOW_R_AT = origin) or "all". point=True: the index finger
+    sticks out (towards the display in the Case X briefing; angled POINT_FINGER_DOWN below the forearm so that it lines up
+    with the upper arm when the elbow is at the pointing angle) while the other fingers keep holding the handle."""
     elbow, wrist = DETECTIVE_ELBOW_R_AT, (0.01, -0.29, 0.24)
     upper = Part()
     limb(upper, [((-0.012, 0.045, 0.0), 0.03, 0.03), ((-0.004, 0.022, 0.0), 0.06, 0.058), ((0.0, 0.0, 0.0), 0.068, 0.066),
@@ -1129,6 +1134,12 @@ def detective_arm(piece="all"):
     knuckles = []
     for off in (0.027, 0.009, -0.009, -0.027):
         k = _v_add(palm_end, _v_mul(up, off))
+        if point and off == 0.027:
+            a = math.radians(POINT_FINGER_DOWN)
+            fdir = (0.0, -math.sin(a), math.cos(a))
+            limb(p, [(k, 0.0085, 0.0085), (_v_add(k, _v_mul(fdir, 0.04)), 0.0082, 0.008), (_v_add(k, _v_mul(fdir, 0.085)), 0.0055, 0.0055)],
+                 5, C["skin"], jitter=0.0)
+            continue
         knuckles.append((k, off + 0.003))
     fist_around(p, knuckles, grip, up, (1.0, 0.0, 0.0), (0.0, 0.0, 1.0), 0.011)
     thumb_base = _v_add(_v_add(wrist, _v_mul(hdir, 0.035)), _v_mul(up, 0.036))
@@ -1257,21 +1268,6 @@ def clipboard_sheet(sx, sy, sz):
     return p
 
 
-def logbook(sx, sy, sz):
-    p = Part()
-    c = sy * 0.18
-    p.cbb(0, 0, 0, sx, c, sz, C["maroon"], b=0.003, edge_col=C["maroon_dk"])         # back cover
-    p.cbb(0.004, c, 0, sx - 0.014, sy - 2 * c, sz - 0.012, C["paper_dk"])             # page block
-    for i in range(3):
-        p.cbb(0.004 + sx / 2 - 0.008, c + 0.002 + i * (sy - 2 * c) / 3, 0, 0.0008, 0.001, sz - 0.014, C["paper"])
-    p.cbb(0, sy - c, 0, sx, c, sz, C["maroon"], b=0.003, edge_col=C["maroon_dk"])     # front cover
-    p.cbb(-sx / 2 + 0.011, 0, 0, 0.022, sy, sz, C["maroon_dk"], b=0.004)             # spine
-    p.cbb(0.02, sy, 0.04, sx * 0.5, 0.0008, 0.05, C["batik_lt"])                      # label
-    p.cbb(0.02, sy + 0.0008, 0.04, sx * 0.35, 0.0006, 0.006, C["ink"])
-    p.cbb(0.04, c, -sz / 2 + 0.005, 0.008, sy - 2 * c, 0.01, C["ochre"])             # ribbon
-    return p
-
-
 def mirrored(part, axis):
     """Mirror image of a part across x = 0 (axis 0) or z = 0 (axis 2); winding reversed so faces still point out."""
     q = Part()
@@ -1301,65 +1297,6 @@ def lanyard_clip(sx, sy, sz):
     p.frustum(-sx / 2 + 0.014, sy * 0.25, 0, 0.012, 0.011, sy * 0.5, C["chrome"], sides=8)                       # broken clip
     p.bbox(-sx / 2 + 0.008, sy * 0.6, 0.004, -sx / 2 + 0.03, sy, 0.012, C["silver"], b=0.002)
     return p
-
-
-def body_tent(sx, sy, sz):
-    """Case Y K3: yellow A-frame evidence marker (forensic card about the body: a lying figure icon on both slopes),
-    standing on its base, centred, ridge along x. Digits/icons read right from outside on both faces (viewer's right is
-    -X in front of the -Z slope, +X in front of the +Z slope, see the Unity FBX import note)."""
-    p = Part()
-    h, zb = sy, sz / 2
-    inside = (0, h / 3, 0)
-    for x in (-sx / 2, sx / 2):
-        p.face_out([(x, 0, -zb), (x, 0, zb), (x, h, 0)], C["yellow_dk"], inside)
-    p.face_out([(-sx / 2, 0, -zb), (sx / 2, 0, -zb), (sx / 2, 0, zb), (-sx / 2, 0, zb)], C["yellow_dk"], inside)
-    for side in (-1, 1):
-        p.face_out([(-sx / 2, 0, side * zb), (sx / 2, 0, side * zb), (sx / 2, h, 0), (-sx / 2, h, 0)], C["yellow"], inside)
-        norm = (0.0, zb, side * h)
-        nl = math.hypot(norm[1], norm[2])
-        ux = -1 if side < 0 else 1
-
-        def lab(u0, u1, v0, v1, col, layer):
-            lift = 0.0007 * layer
-            pts = [(ux * u, v * h + norm[1] / nl * lift, side * zb * (1 - v) + norm[2] / nl * lift)
-                   for u, v in ((u0, v0), (u1, v0), (u1, v1), (u0, v1))]
-            p.face_out(pts, col, inside)
-        lab(-0.04, 0.04, 0.12, 0.88, C["white"], 1)
-        lab(-0.04, 0.04, 0.70, 0.88, C["red"], 2)                       # header stripe
-        lab(-0.034, -0.024, 0.42, 0.55, C["ink"], 2)                    # lying figure: head, torso, arm, two legs
-        lab(-0.022, 0.004, 0.44, 0.53, C["ink"], 2)
-        lab(-0.018, -0.004, 0.55, 0.60, C["ink"], 2)
-        lab(0.006, 0.034, 0.49, 0.53, C["ink"], 2)
-        lab(0.006, 0.030, 0.42, 0.46, C["ink"], 2)
-        lab(-0.03, 0.03, 0.24, 0.29, C["pencil"], 2)
-    return p
-
-
-def forensic_report(w, h):
-    """Case Y K1: forensic lab sheet on a clipboard (blood sample: drop icon, time-of-death window, stamp), static,
-    centred, readable side -Z, 2 cm deep (the back touches the display case's glass). Built as if -X were the viewer's
-    left, then mirrored like the keypad."""
-    p = Part()
-    p.bbox(-w / 2, -h / 2, 0.0, w / 2, h / 2, 0.02, C["charcoal"], b=0.004, edge_col=C["grey_dk"])
-    p.bbox(-w / 2 + 0.008, -h / 2 + 0.012, -0.0015, w / 2 - 0.008, h / 2 - 0.02, 0.0, C["paper"])
-    p.bbox(-0.025, h / 2 - 0.028, -0.006, 0.025, h / 2 - 0.004, 0.0, C["silver"], b=0.002)           # clip
-    p.bbox(-w / 2 + 0.008, 0.034, -0.0025, w / 2 - 0.008, 0.056, -0.0015, C["red"])                   # header band
-    p.bbox(-0.04, 0.043, -0.003, 0.03, 0.048, -0.0025, C["white"])
-    drop = [(0.0, 0.022), (0.013, 0.004), (0.014, -0.006), (0.007, -0.014), (-0.007, -0.014), (-0.014, -0.006), (-0.013, 0.004)]
-    p.face_out([(-0.03 + x, 0.001 + y, -0.003) for x, y in drop], C["maroon"], (-0.03, 0.001, 0.05))   # blood drop
-    p.face_out([(-0.034, 0.002, -0.0035), (-0.031, 0.008, -0.0035), (-0.029, 0.002, -0.0035)], C["red"], (-0.03, 0.001, 0.05))
-    for i, y in enumerate((0.014, 0.006, -0.002)):
-        p.bbox(-0.01, y, -0.0025, 0.05 - 0.012 * (i % 2), y + 0.003, -0.002, C["pencil"])
-    p.bbox(-0.045, -0.046, -0.003, 0.045, -0.016, -0.0015, C["charcoal"])                              # time window (LCD style)
-    p.bbox(-0.041, -0.042, -0.0035, 0.041, -0.020, -0.003, C["lcd"])
-    for x in (-0.033, -0.019, 0.007, 0.021):
-        p.bbox(x, -0.040, -0.004, x + 0.011, -0.022, -0.0035, C["ink"])
-    for y in (-0.034, -0.028):
-        p.bbox(-0.0035, y, -0.004, 0.0005, y + 0.003, -0.0035, C["ink"])
-    p.bbox(-0.05, -0.058, -0.0025, 0.02, -0.055, -0.002, C["pencil"])
-    p.bbox(-0.05, -0.065, -0.0025, 0.0, -0.062, -0.002, C["pencil"])
-    p.bbox(0.015, -0.076, -0.003, 0.05, -0.060, -0.002, C["red"])                                      # stamp
-    return mirrored(p, 0)
 
 
 def glove(sx, sy, sz):
@@ -1554,7 +1491,7 @@ def body_tape(width=0.035):
     # Case Y: police-style tape outline of a body lying on its back (head at -x, feet at +x), built in Unity
     # coordinates around the origin (CaseSceneTool puts it beside the blood pool). Decoration only, no zone.
     p = Part()
-    h = 0.0035
+    h = 0.0055   # above the blood pool decal (0.0034)
 
     def strip(a, b):
         dx, dz = b[0] - a[0], b[1] - a[1]
@@ -1578,6 +1515,157 @@ def body_tape(width=0.035):
     for side in (left, right):
         for i in range(len(side) - 1):
             strip(side[i], side[i + 1])
+    return p
+
+
+def logbook(sx, sy, sz):
+    p = Part()
+    c = sy * 0.18
+    p.cbb(0, 0, 0, sx, c, sz, C["maroon"], b=0.003, edge_col=C["maroon_dk"])         # back cover
+    p.cbb(0.004, c, 0, sx - 0.014, sy - 2 * c, sz - 0.012, C["paper_dk"])             # page block
+    for i in range(3):
+        p.cbb(0.004 + sx / 2 - 0.008, c + 0.002 + i * (sy - 2 * c) / 3, 0, 0.0008, 0.001, sz - 0.014, C["paper"])
+    p.cbb(0, sy - c, 0, sx, c, sz, C["maroon"], b=0.003, edge_col=C["maroon_dk"])     # front cover
+    p.cbb(-sx / 2 + 0.011, 0, 0, 0.022, sy, sz, C["maroon_dk"], b=0.004)             # spine
+    p.cbb(0.02, sy, 0.04, sx * 0.5, 0.0008, 0.05, C["batik_lt"])                      # label
+    p.cbb(0.02, sy + 0.0008, 0.04, sx * 0.35, 0.0006, 0.006, C["ink"])
+    p.cbb(0.04, c, -sz / 2 + 0.005, 0.008, sy - 2 * c, 0.01, C["ochre"])             # ribbon
+    return p
+
+
+def keris(sx, sy, sz):
+    """Case Y K3, the murder weapon: a wavy-bladed keris lying on the floor, bloody blade, carved wooden hilt with a
+    curved pommel, brass guard and a strand of green tour-guide scarf caught at the hilt. Handle at -x, tip at +x."""
+    p = Part()
+    x0 = -sx / 2
+    p.frustum(x0 + 0.03, 0.017, 0, 0.010, 0.0145, 0.06, C["wood_dk"], sides=8, axis="x")      # hilt
+    p.bbox(x0, 0.012, -0.012, x0 + 0.032, 0.034, 0.012, C["walnut"], b=0.003)                  # curved pommel
+    p.bbox(x0 + 0.09, 0.004, -0.026, x0 + 0.106, 0.030, 0.026, C["brass"], b=0.002)           # guard
+    xb, length = x0 + 0.106, sx / 2 - (x0 + 0.106)
+
+    def blade(t0, grow):
+        top, bot = [], []
+        for i in range(8):
+            t = t0 + (1.0 - t0) * i / 7.0
+            wave = 0.010 * math.sin(t * math.pi * 3)
+            half = (0.016 * (1.0 - 0.85 * t) + 0.002) * grow
+            top.append((xb + length * t, wave + half))
+            bot.append((xb + length * t, wave - half))
+        return top + list(reversed(bot))
+    p.prism(blade(0.0, 1.0), 0.003, 0.011, C["silver"], top_col=C["chrome"])                    # blade
+    p.prism(blade(0.3, 0.8), 0.011, 0.0118, C["maroon"])                                        # blood on the blade
+    p.prism([(x0 + 0.050, 0.012), (x0 + 0.058, 0.012), (x0 + 0.066, 0.034), (x0 + 0.058, 0.034)], 0.001, 0.0035, C["green"])   # scarf
+    p.prism([(x0 + 0.060, 0.012), (x0 + 0.066, 0.012), (x0 + 0.082, 0.030), (x0 + 0.076, 0.032)], 0.001, 0.0035, C["green_dk"])
+    return p
+
+
+def wall_clock(w):
+    """Case Y K1: round wall clock smashed in the struggle, hands stopped at 8:17, cracked glass. Static clue, centred,
+    readable side -Z, 3 cm deep behind. Built as if -X were the viewer's left, then mirrored like the keypad."""
+    p = Part()
+    r = w / 2
+    p.frustum(0, 0, 0, r, r, 0.03, C["walnut"], sides=12, axis="z")                              # case
+    p.frustum(0, 0, -0.002, r * 0.88, r * 0.88, 0.002, C["cream"], sides=12, axis="z")           # face
+    for k in range(12):
+        a = math.radians(k * 30.0)
+        p.frustum(r * 0.74 * math.sin(a), r * 0.74 * math.cos(a), -0.0035, 0.004, 0.004, 0.0015, C["ink"], sides=5, axis="z")
+
+    def hand(deg, length, width, z, col):
+        a = math.radians(deg)
+        dx, dy = math.sin(a), math.cos(a)
+        nx, ny = dy, -dx
+        pts = [(-dx * 0.012 + nx * width / 2, -dy * 0.012 + ny * width / 2, z),
+               (dx * length * 0.3 + nx * width / 2, dy * length * 0.3 + ny * width / 2, z),
+               (dx * length, dy * length, z),
+               (dx * length * 0.3 - nx * width / 2, dy * length * 0.3 - ny * width / 2, z),
+               (-dx * 0.012 - nx * width / 2, -dy * 0.012 - ny * width / 2, z)]
+        p.face_out(pts, col, (0, 0, 0.05))
+    hand(8 * 30.0 + 17 * 0.5, r * 0.5, 0.012, -0.0038, C["ink"])    # hour hand, 8:17
+    hand(17 * 6.0, r * 0.74, 0.008, -0.0044, C["ink"])               # minute hand
+    p.frustum(0, 0, -0.005, 0.006, 0.006, 0.002, C["brass"], sides=6, axis="z")
+    for (x0, y0, x1, y1) in ((0.012, 0.018, 0.058, 0.062), (-0.01, -0.012, -0.05, -0.058), (0.03, -0.03, 0.07, -0.02)):   # cracks
+        dx, dy = x1 - x0, y1 - y0
+        n = math.hypot(dx, dy)
+        nx, ny = -dy / n * 0.0015, dx / n * 0.0015
+        p.face_out([(x0 + nx, y0 + ny, -0.0047), (x1 + nx, y1 + ny, -0.0047), (x1 - nx, y1 - ny, -0.0047), (x0 - nx, y0 - ny, -0.0047)],
+                   C["charcoal"], (0, 0, 0.05))
+    return mirrored(p, 0)
+
+
+def fallen_chair():
+    """Case Y: a wooden chair knocked over in the struggle, lying on its back. Decoration."""
+    base = Part()
+    wooden_chair(base, 0, 0, C["wood"], C["wood_dk"], C["indigo"], 0.0)
+    faces = [([(x, z, -y) for x, y, z in verts], col) for verts, col in base.faces]   # roll 90 degrees onto its back
+    low = min(v[1] for verts, _ in faces for v in verts)
+    q = Part()
+    for verts, col in faces:
+        q.face([(x, y - low + 0.001, z) for x, y, z in verts], col)
+    return q
+
+
+def bloody_footprints(w, d):
+    """Case Y zone 2: bloody shoe prints leading from the pool (+z end) towards the entrance (-z), toes pointing -z,
+    fading as the blood runs out, a few drops between them."""
+    p = Part()
+    steps = 9
+    sole0 = [(-0.034, -0.04), (0.032, -0.04), (0.044, 0.0), (0.04, 0.045), (0.012, 0.068), (-0.02, 0.064), (-0.04, 0.035), (-0.044, -0.005)]
+    rnd = Rand(91)
+    for i in range(steps):
+        z = d / 2 - 0.14 - i * (d - 0.28) / (steps - 1)
+        side = -1 if i % 2 == 0 else 1
+        x = side * w * 0.2 + rnd.range(-0.02, 0.02)
+        col = C["maroon"] if i < 5 else C["maroon_dk"]
+        sole = [(x + dx * side, z - dz) for dx, dz in sole0]                 # toe towards -z
+        p.prism(sole, 0.001, 0.0028, col)
+        p.prism(ring_outline(x, z + 0.085, 0.032, 0.03, 8), 0.001, 0.0028, col)   # heel
+        if i < steps - 1:
+            for k in range(2):
+                cx, cz = x + rnd.range(-0.1, 0.1), z - 0.12 + rnd.range(-0.05, 0.05)
+                p.prism(ring_outline(cx, cz, 0.009, 0.008, 5), 0.001, 0.0026, C["maroon_dk"])
+    return p
+
+
+def vase_shards(w, d):
+    """Case Y zone 3: a batik vase knocked off its stand: sharp indigo/ochre shards and the broken base."""
+    p = Part()
+    rnd = Rand(81)
+    for i in range(14):
+        r = rnd.range(0.02, 0.055)
+        cx = rnd.range(-1, 1) * (w / 2 - r - 0.02)
+        cz = rnd.range(-1, 1) * (d / 2 - r - 0.02)
+        a = rnd.next() * 2 * math.pi
+        n = 3 if rnd.next() < 0.7 else 4
+        pts = [(cx + math.cos(a + k * 2 * math.pi / n + rnd.range(-0.4, 0.4)) * r * rnd.range(0.6, 1.0),
+                cz + math.sin(a + k * 2 * math.pi / n + rnd.range(-0.4, 0.4)) * r * rnd.range(0.6, 1.0)) for k in range(n)]
+        p.prism(pts, 0.001, 0.003 + 0.003 * rnd.next(), C["indigo"] if i % 3 else C["ochre"], top_col=C["batik_lt"])
+    p.prism(ring_outline(0.0, 0.0, 0.06, 0.06, 8), 0.001, 0.014, C["indigo_dk"], top_col=C["ochre"])   # broken base
+    return p
+
+
+def trophy_ghost(k=1.7):
+    """Case X: silhouette of the missing award (a gold cup with handles and a star), standing on the display case's empty
+    stand (stand top y = 0.95 + 0.03 + 0.08 = 1.06, z = -0.02). Built in the display's frame, flat light colour (unlit
+    ghost material, alpha animated in Unity). k = size factor (user: bigger; 1.7 -> about 0.45 m tall, case interior 0.66 m)."""
+    p = Part()
+    col = C["lamp"]
+    cz, y0 = -0.02, 1.06
+
+    def y(v):
+        return y0 + (v - y0) * k
+    p.frustum(0, y0, cz, 0.045 * k, 0.04 * k, 0.016 * k, col, sides=8)                   # base
+    p.frustum(0, y(1.076), cz, 0.014 * k, 0.012 * k, 0.05 * k, col, sides=8)             # stem
+    p.frustum(0, y(1.126), cz, 0.02 * k, 0.05 * k, 0.10 * k, col, sides=8)               # cup
+    for sx in (-1, 1):
+        p.bbox(sx * 0.062 * k - 0.007 * k, y(1.17), cz - 0.006 * k, sx * 0.062 * k + 0.007 * k, y(1.22), cz + 0.006 * k, col)   # handles
+        p.bbox(sx * 0.045 * k, y(1.17), cz - 0.006 * k, sx * 0.065 * k, y(1.182), cz + 0.006 * k, col)
+    star = []
+    for i in range(10):
+        r = (0.04 if i % 2 == 0 else 0.017) * k
+        a = math.radians(90 + i * 36)
+        star.append((r * math.cos(a), y(1.285) + r * math.sin(a), cz))
+    p.face_out(star, col, (0, y(1.285), cz + 0.2))
+    p.face_out(star, col, (0, y(1.285), cz - 0.2))
     return p
 
 
@@ -1611,7 +1699,6 @@ def footprints(w, d):
 # ---------------------------------------------------------------------------------------------------------------
 FLOOR_HALF = 2.5            # PlayArea.HalfSize (5 x 5 m)
 FLOOR_Y = -0.001            # just under the decals (>= 1 mm) and the physics floor (y 0)
-Y_Z3_POSE = (-1.36, -1.78, 32.0)   # CaseSpecs Case Y zone 3 (wet varnish): x, z, yaw (keep in sync)
 
 
 def to_maya(part):
@@ -1661,73 +1748,6 @@ def floor_planks():
     return p
 
 
-def clip_rect(poly, x0, x1, z0, z1):
-    """Sutherland-Hodgman: convex (x, z) polygon clipped to an axis-aligned rectangle."""
-    for axis, limit, keep_below in ((0, x0, False), (0, x1, True), (1, z0, False), (1, z1, True)):
-        out = []
-        for i in range(len(poly)):
-            a, b = poly[i], poly[(i + 1) % len(poly)]
-            ina = a[axis] <= limit if keep_below else a[axis] >= limit
-            inb = b[axis] <= limit if keep_below else b[axis] >= limit
-            if ina:
-                out.append(a)
-            if ina != inb:
-                t = (limit - a[axis]) / (b[axis] - a[axis])
-                out.append((a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t))
-        poly = out
-        if len(poly) < 3:
-            return []
-    return poly
-
-
-def to_zone(x, z, pose):
-    """Case-frame point -> zone-local (Unity yaw, like FloorFootprint)."""
-    zx, zz, yaw = pose
-    a = math.radians(yaw)
-    dx, dz = x - zx, z - zz
-    return (dx * math.cos(a) - dz * math.sin(a), dx * math.sin(a) + dz * math.cos(a))
-
-
-def varnish_patch(w, d, pose=Y_Z3_POSE):
-    """Case Y zone 3, joined to the floor: the floor's own boards inside the zone carry a glossy wet coat (with light
-    reflections along each board) up to a ragged brushed edge; beyond it the boards are still bare (the floor itself).
-    An open varnish tin (lid off, drip) and a loaded brush mark where the work stopped. Built in Unity coordinates."""
-    p = Part()
-    rnd = Rand(51)
-    inset = 0.02
-    wet_end = d / 2 - 0.26
-    for x0, x1, z0, z1, col in plank_layout():
-        board = [to_zone(x, z, pose) for x, z in ((x0, z0), (x1, z0), (x1, z1), (x0, z1))]
-        edge = wet_end + rnd.range(-0.05, 0.05)                                # ragged brushed edge
-        wet = clip_rect(board, -w / 2 + inset, w / 2 - inset, -d / 2 + inset, edge)
-        if not wet:
-            continue
-        # Wet varnish darkens the wood (stands out from the bare boards around it) and shines.
-        p.prism(wet, 0.001, 0.0024, C["walnut"] if col == C["wood_dk"] else C["varnish_dk"])
-        for k, (half, tone) in enumerate(((0.005, C["shard"]), (0.002, C["shard_dk"]))):   # reflections along the board
-            cx = x0 + (x1 - x0) * (0.3 + 0.4 * k) + (x1 - x0) * rnd.range(-0.08, 0.08)
-            streak = [to_zone(x, z, pose) for x, z in ((cx - half, z0), (cx + half, z0), (cx + half, z1), (cx - half, z1))]
-            sheen = clip_rect(streak, -w / 2 + inset + 0.015, w / 2 - inset - 0.015,
-                              -d / 2 + inset + 0.04 + 0.05 * k, edge - 0.06 - 0.04 * k)
-            if sheen:
-                p.prism(sheen, 0.0024, 0.0028, tone)
-    # Open varnish tin on the bare end: rim, label band, varnish inside, a drip running down, a puddle.
-    tx, tz, r = w / 2 - 0.07, d / 2 - 0.09, 0.045
-    p.frustum(tx, 0.0, tz, r, r, 0.085, C["silver"], sides=10, cap_col=C["varnish_dk"])
-    p.frustum(tx, 0.02, tz, r + 0.0015, r + 0.0015, 0.045, C["maroon"], sides=10, cap=False)   # label
-    p.frustum(tx, 0.083, tz, r + 0.002, r + 0.002, 0.005, C["chrome"], sides=10, cap_col=C["varnish_dk"])  # rim
-    p.bbox(tx - r - 0.003, 0.03, tz - 0.006, tx - r + 0.001, 0.087, tz + 0.006, C["varnish"])          # drip
-    p.prism(blob_outline(tx - r - 0.02, tz, 0.03, 0.025, 9, 52), 0.001, 0.0028, C["varnish"])         # drip puddle
-    p.frustum(tx - 0.03, 0.001, tz - 0.12, 0.045, 0.045, 0.006, C["chrome"], sides=10, cap_col=C["varnish_dk"])  # lid
-    brush = Part()
-    brush.cbb(0.0, 0.0, 0.0, 0.03, 0.012, 0.11, C["wood_dk"], b=0.003)                 # handle
-    brush.cbb(0.0, 0.0, -0.07, 0.045, 0.014, 0.03, C["chrome"], b=0.002)               # ferrule
-    brush.cbb(0.0, 0.0, -0.11, 0.045, 0.012, 0.05, C["varnish_dk"], b=0.003)           # wet bristles
-    for verts, col in brush.faces:
-        p.face([(x - 0.03, y + 0.003, z + wet_end + 0.06) for x, y, z in rot_y(verts, 25.0)], col)
-    return to_maya(p)
-
-
 # ---------------------------------------------------------------------------------------------------------------
 # Build everything
 # ---------------------------------------------------------------------------------------------------------------
@@ -1762,6 +1782,7 @@ def build():
     export("Detective_Moustache", to_maya(detective_moustache()))
     export("Detective_Arm", to_maya(detective_arm("upper")))
     export("Detective_Forearm", to_maya(detective_arm("fore")))
+    export("Detective_ForearmPoint", to_maya(detective_arm("fore", point=True)))
     export("Detective_ArmL", to_maya(detective_arm_left("upper")))
     export("Detective_ForearmL", to_maya(detective_arm_left("fore")))
     export("Detective_Eyes", to_maya(detective_eyes()))
@@ -1773,11 +1794,11 @@ def build():
 
     # Clues: sizes = CaseSceneTool.ClueSize (keep in sync). Same size range, contrast and detail per slot in both cases.
     export("X_K1", keypad_panel(0.12, 0.18, studio=True), kind="clue")
-    export("Y_K1", forensic_report(0.12, 0.18), kind="clue")
+    export("Y_K1", wall_clock(0.20), kind="clue")
     export("X_K2", readable(clipboard_sheet(0.23, 0.015, 0.32)), kind="clue")
     export("Y_K2", readable(logbook(0.21, 0.03, 0.29)), kind="clue")
     export("X_K3", lanyard_clip(0.10, 0.02, 0.07), kind="clue")
-    export("Y_K3", body_tent(0.10, 0.05, 0.07), kind="clue")
+    export("Y_K3", keris(0.30, 0.035, 0.07), kind="clue")
     export("X_K4", readable(printout(0.21, 0.004, 0.297)), kind="clue")
     export("Y_K4", readable(chat_printout(0.21, 0.004, 0.297)), kind="clue")
     export("X_R1", glove(0.18, 0.04, 0.10), kind="clue")
@@ -1787,15 +1808,18 @@ def build():
     export("X_R3", sticky_note(0.10, 0.10), kind="clue")
     export("Y_R3", pinned_note(0.12, 0.12), kind="clue")
 
-    # Zone decals: sizes = CaseSpecs zones (Z1 0.36 x 0.4, Z2 0.40 x 0.5, Z3 0.35 x 0.9).
+    # Zone decals: sizes = CaseSpecs zones (X: Z1 0.36 x 0.4, Z2 0.40 x 0.5, Z3 0.35 x 0.9; Y: pool 0.6 x 0.6,
+    # footprints 0.45 x 2.2, vase 0.45 x 0.45).
     zones = {"Z1": (0.36, 0.40), "Z2": (0.40, 0.50), "Z3": (0.35, 0.90)}
     export("X_Z1", glass_shards(*zones["Z1"], seed=11), alpha=outline_border(*zones["Z1"]), kind="zone")
-    export("Y_Z1", glass_shards(*zones["Z1"], seed=12), alpha=outline_border(*zones["Z1"]), kind="zone")
     export("X_Z2", coffee_spill(*zones["Z2"]), alpha=outline_border(*zones["Z2"]), kind="zone")
-    export("Y_Z2", blood_pool(*zones["Z2"]), alpha=outline_border(*zones["Z2"]), kind="zone")
     export("X_Z3", footprints(*zones["Z3"]), alpha=outline_border(*zones["Z3"]), kind="zone")
-    export("Y_Z3", varnish_patch(*zones["Z3"]), alpha=outline_border(*zones["Z3"]), kind="zone")
+    export("Y_Z1", blood_pool(0.6, 0.6), alpha=outline_border(0.6, 0.6), kind="zone")
+    export("Y_Z2", bloody_footprints(0.45, 2.2), alpha=outline_border(0.45, 2.2), kind="zone")
+    export("Y_Z3", vase_shards(0.45, 0.45), alpha=outline_border(0.45, 0.45), kind="zone")
     export("Y_BodyTape", to_maya(body_tape()), kind="decor")
+    export("X_TrophyGhost", trophy_ghost(), kind="decor")
+    export("Y_FallenChair", fallen_chair(), kind="decor")
 
     total = 0
     print("\n{:6s} {:18s} {:>22s} {:>8s} {:>6s}".format("kind", "name", "size x/y/z (m)", "top (m)", "tris"))

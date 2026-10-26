@@ -21,7 +21,9 @@ namespace FYP.Detective.Tests
             Assert.AreEqual("The Missing Design Award", CaseSpecs.X.Title);
             Assert.AreEqual("Death in the Melaka Room", CaseSpecs.Y.Title);
             StringAssert.Contains("21:42", CaseSpecs.X.Clue(ClueSlot.K1).InspectText);
-            StringAssert.Contains("20:15", CaseSpecs.Y.Clue(ClueSlot.K1).InspectText);
+            StringAssert.Contains("8:17", CaseSpecs.Y.Clue(ClueSlot.K1).InspectText);
+            StringAssert.Contains("F.R.", CaseSpecs.Y.Clue(ClueSlot.K2).InspectText);
+            StringAssert.Contains("scarf", CaseSpecs.Y.Clue(ClueSlot.K3).InspectText);
             Assert.AreEqual("X_kumar", CaseSpecs.X.Clue(ClueSlot.R1).PointsAtSuspectId);
             Assert.AreEqual("Y_sofia", CaseSpecs.Y.Clue(ClueSlot.R3).PointsAtSuspectId);
         }
@@ -29,7 +31,8 @@ namespace FYP.Detective.Tests
         [Test]
         public void MeanDistancesAreEqual()
         {
-            Assert.AreEqual(CaseSpecValidator.MeanDistance(CaseSpecs.X), CaseSpecValidator.MeanDistance(CaseSpecs.Y), 0.001f);
+            Assert.AreEqual(CaseSpecValidator.MeanDistance(CaseSpecs.X), CaseSpecValidator.MeanDistance(CaseSpecs.Y),
+                CaseSpecValidator.MaxMeanDistanceDifference);
             Assert.AreEqual(2.10f, CaseSpecValidator.MeanDistance(CaseSpecs.X), 0.01f);
         }
 
@@ -72,7 +75,6 @@ namespace FYP.Detective.Tests
                 string all = string.Join("\n", errors);
                 StringAssert.Contains("R2 is inside", all);
                 StringAssert.Contains("K1 is at Floor", all);
-                StringAssert.Contains("R2: Y position isn't X mirrored", all);
             }
             finally
             {
@@ -131,22 +133,6 @@ namespace FYP.Detective.Tests
         }
 
         [Test]
-        public void MayaVarnishDecalUsesTheZonePose()
-        {
-            // tools/maya/build_props.py cuts the Case Y varnish decal from the floorboards at this pose; if the zone
-            // moves in CaseSpecs, update Y_Z3_POSE there and rerun mayapy, or the decal won't line up with the boards.
-            string path = System.IO.Path.Combine(Application.dataPath, "..", "tools", "maya", "build_props.py");
-            var m = System.Text.RegularExpressions.Regex.Match(System.IO.File.ReadAllText(path),
-                @"Y_Z3_POSE = \(([-\d.]+), ([-\d.]+), ([-\d.]+)\)");
-            Assert.IsTrue(m.Success, "Y_Z3_POSE not found in build_props.py");
-            var zone = CaseSpecs.Y.Zones[2];
-            var inv = System.Globalization.CultureInfo.InvariantCulture;
-            Assert.AreEqual(zone.X, float.Parse(m.Groups[1].Value, inv), 1e-3f);
-            Assert.AreEqual(zone.Z, float.Parse(m.Groups[2].Value, inv), 1e-3f);
-            Assert.AreEqual(zone.Yaw, float.Parse(m.Groups[3].Value, inv), 1e-3f);
-        }
-
-        [Test]
         public void ZoneTestUsesYaw()
         {
             var strip = new ZoneSpec { X = 0f, Z = 0f, Width = 0.2f, Depth = 2f, Yaw = 90f };   // turned to lie along x
@@ -155,14 +141,24 @@ namespace FYP.Detective.Tests
         }
 
         [Test]
-        public void MirrorFlipsTheLayout()
+        public void CaseYMurderSceneMakesSense()
         {
-            foreach (ClueSlot slot in Enum.GetValues(typeof(ClueSlot)))
-            {
-                Assert.AreEqual(-CaseSpecs.X.Clue(slot).X, CaseSpecs.Y.Clue(slot).X, 1e-4f, slot.ToString());
-                Assert.AreEqual(CaseSpecs.X.Clue(slot).Z, CaseSpecs.Y.Clue(slot).Z, 1e-4f, slot.ToString());
-            }
-            Assert.Less(CaseSpecs.X.Prop("door").X * CaseSpecs.Y.Prop("door").X, 0f, "door switches sides");
+            var y = CaseSpecs.Y;
+            float headX = CaseSpecs.YBodyX + CaseSpecs.YBodyHeadOffsetX;
+            Assert.IsTrue(CaseSpecValidator.InZone(headX, CaseSpecs.YBodyZ, y.Zones[0]), "the blood pool is under the head");
+            var keris = y.Clue(ClueSlot.K3);
+            Assert.Less(Mathf.Abs(keris.X - CaseSpecs.YBodyX), 0.8f, "the weapon lies beside the body");
+            Assert.Less(Mathf.Abs(keris.Z - CaseSpecs.YBodyZ), 0.6f);
+            var trail = y.Zones[1];
+            var door = y.Prop("door");
+            // The trail runs from the pool towards the entrance: its far end is nearer the door than its near end.
+            float a = Mathf.Deg2Rad * trail.Yaw;
+            var dir = new Vector2(Mathf.Sin(a), Mathf.Cos(a));
+            var far = new Vector2(trail.X, trail.Z) - dir * (trail.Depth / 2f);
+            var near = new Vector2(trail.X, trail.Z) + dir * (trail.Depth / 2f);
+            var d = new Vector2(door.X, door.Z);
+            Assert.Less((far - d).magnitude, (near - d).magnitude);
+            Assert.Less((near - new Vector2(CaseSpecs.YBodyX + CaseSpecs.YBodyHeadOffsetX, CaseSpecs.YBodyZ)).magnitude, 0.8f, "the trail starts at the pool");
         }
     }
 }

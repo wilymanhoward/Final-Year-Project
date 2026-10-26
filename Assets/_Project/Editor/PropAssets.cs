@@ -68,10 +68,12 @@ namespace FYP.Detective.EditorTools
         public static Material Outline => Prop("Props_ZoneOutline", Tex(PalettePath), new Color(1f, 1f, 1f, 0.55f), false, true, FloorDepthBias);
         public static Material Highlight => Prop("Props_ClueHighlight", null, new Color(1f, 0.93f, 0.55f, 1f), false, false, PropDepthBias,
             cull: CullMode.Front);
+        /// <summary>The missing award's silhouette (Case X briefing): unlit, transparent, alpha animated by TrophyGhost.</summary>
+        public static Material TrophyGhost => Prop("Props_TrophyGhost", Tex(PalettePath), new Color(1f, 1f, 1f, 0.6f), false, true, PropDepthBias);
         public static Material Blob => Prop("Props_BlobShadow", Tex(BlobPath), new Color(1f, 1f, 1f, 0.55f), false, true, FloorDepthBias);
 
         /// <summary>All prop materials (created / updated on access); FYP > Set Up Occlusion refreshes them.</summary>
-        public static Material[] All => new[] { Palette, Glass, Floor, Outline, Highlight, Blob };
+        public static Material[] All => new[] { Palette, Glass, Floor, Outline, Highlight, TrophyGhost, Blob };
 
         private static Texture2D Tex(string path) => AssetDatabase.LoadAssetAtPath<Texture2D>(path);
 

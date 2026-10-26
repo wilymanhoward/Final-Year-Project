@@ -5,8 +5,7 @@ namespace FYP.Detective
     /// <summary>
     /// The two study cases, transcribed from docs/cases.md (keep them in sync). Case X has the reference layout
     /// (start mark = CaseRoot at the centre of the play area, facing the front wall; everything within the central
-    /// 3 x 3 m of the 4 x 4 m area); Case Y uses the same layout
-    /// mirrored left-right (x -> -x), so the display, desk and door are on the other side.
+    /// 3 x 3 m of the 4 x 4 m area); Case Y has its own murder-scene layout (session 6).
     /// </summary>
     public static class CaseSpecs
     {
@@ -17,7 +16,7 @@ namespace FYP.Detective
 
         public static CaseSpec For(CaseId id) => id == CaseId.X ? X : Y;
 
-        // ---- Reference layout (Case X positions; Case Y = mirrored) ----
+        // ---- Case X layout ----
 
         private struct Spot
         {
@@ -66,7 +65,7 @@ namespace FYP.Detective
 
         private static ClueSpec Clue(string prefix, ClueSlot slot, string obj, string text, string pointsAt = null)
         {
-            Spot s = Layout[slot];
+            Spot s = (prefix == "Y_" ? LayoutY : Layout)[slot];
             return new ClueSpec
             {
                 Slot = slot, Id = prefix + slot, ObjectName = obj, InspectText = text, Height = s.Band,
@@ -108,16 +107,34 @@ namespace FYP.Detective
             return c;
         }
 
+        // Case Y "Death in the Melaka Room" (user decision, session 6): its own layout, no longer a mirror of X. The scene
+        // tells the story: Datuk Hashim lies in front of the plinth, stabbed with the gallery's keris (K3, beside him);
+        // blood pool under his head (zone 1), bloody footprints lead from it towards the entrance (zone 2), the vase
+        // knocked off its stand (zone 3), the wall clock smashed in the struggle (K1). Position of the body tape: below.
+        /// <summary>Case Y: where the body lies (centre of the taped outline, head towards -x), CaseRoot-local.</summary>
+        public const float YBodyX = 0f, YBodyZ = 1.25f, YBodyHeadOffsetX = -0.80f;
+
+        private static readonly Dictionary<ClueSlot, Spot> LayoutY = new Dictionary<ClueSlot, Spot>
+        {
+            { ClueSlot.K1, new Spot(-1.50f, 2.35f, HeightBand.Eye, 180f, false) },   // smashed wall clock, front wall left of the plinth
+            { ClueSlot.K2, new Spot(1.81f, 0.56f, HeightBand.Table, -90f, true) },   // visitor logbook on the reception table (right wall)
+            { ClueSlot.K3, new Spot(0.35f, 0.88f, HeightBand.Floor, 180f, true) },   // the keris, on the floor beside the body
+            { ClueSlot.K4, new Spot(1.81f, -0.94f, HeightBand.Table, -90f, true) },  // the Datuk's email on the tour desk
+            { ClueSlot.R1, new Spot(0.45f, 2.15f, HeightBand.Floor, -90f, true) },   // torch beside the plinth
+            { ClueSlot.R2, new Spot(-2.00f, -1.85f, HeightBand.Floor, 0f, true) },   // card just inside the entrance
+            { ClueSlot.R3, new Spot(-2.20f, 0.31f, HeightBand.Eye, 90f, false) },    // note on the noticeboard (left wall)
+        };
+
         private static CaseSpec BuildY()
         {
             var c = new CaseSpec
             {
                 Case = CaseId.Y,
                 Title = "Death in the Melaka Room",
-                Briefing = "Last night, Datuk Hashim Karim, founder of the Heritage Gallery, was found dead on the floor of the " +
-                           "Melaka Room, beside the reception table. He had found out that real pieces were being swapped for replicas. " +
-                           "Four people had a reason to be near the room last night. Search the room, tag the evidence, and name " +
-                           "the person who killed him.",
+                Briefing = "Last night, Datuk Hashim Karim, founder of the Heritage Gallery, was found stabbed to death in the " +
+                           "Melaka Room with the gallery's own keris. He had found out that real pieces were being swapped for " +
+                           "replicas. Bloody footprints lead from the body towards the entrance. Four people had access to the " +
+                           "room. Search the scene, tag the evidence, and name the person who killed him.",
                 BoardX = 0f, BoardZ = -2.19f, BoardYaw = 0f,
             };
             c.Suspects.Add(new SuspectSpec { Id = "Y_farid", Name = "Farid Rahman", Role = "Tour guide", IsCulprit = true,
@@ -127,30 +144,27 @@ namespace FYP.Detective
             c.Suspects.Add(new SuspectSpec { Id = "Y_sofia", Name = "Dr Sofia Idris", Role = "Curator",
                 Alibi = "On a video call with a lender 7:50-8:45 pm; the recording confirms it." });
             c.Suspects.Add(new SuspectSpec { Id = "Y_lim", Name = "Mr Lim", Role = "Private collector",
-                Alibi = "At the hotel restaurant at 8:10 pm; the receipt and staff confirm it." });
+                Alibi = "At the hotel restaurant 8:00-9:00 pm; the receipt and staff confirm it." });
 
-            c.Clues.Add(Clue("Y_", ClueSlot.K1, "Forensic report: blood", "Blood sample: clotted and dry at the edges. Death between 20:15 and 20:30."));
-            c.Clues.Add(Clue("Y_", ClueSlot.K2, "Key logbook", "\"Gallery key out 20:05, F.R.\" No return time written."));
-            c.Clues.Add(Clue("Y_", ClueSlot.K3, "Forensic marker: body", "One blow to the back of the head with a narrow, heavy object. No struggle: he knew his attacker."));
-            c.Clues.Add(Clue("Y_", ClueSlot.K4, "Printed chat message", "To Farid: \"He knows about the replicas. If he talks tomorrow I'm finished.\""));
+            c.Clues.Add(Clue("Y_", ClueSlot.K1, "Smashed wall clock", "Knocked off the wall in the struggle. The hands stopped at 8:17."));
+            c.Clues.Add(Clue("Y_", ClueSlot.K2, "Visitor logbook", "\"Gallery key out 20:05, F.R.\" No return time written."));
+            c.Clues.Add(Clue("Y_", ClueSlot.K3, "The keris", "The murder weapon, blade bloody. The hilt was wiped, but a strand of green tour-guide scarf is caught in it."));
+            c.Clues.Add(Clue("Y_", ClueSlot.K4, "Printed email", "From the Datuk to Farid: \"I know about the replicas. Meet me in the Melaka Room at 8. - H.\""));
             c.Clues.Add(Clue("Y_", ClueSlot.R1, "Torch", "A security-issue torch, battery flat. Mr Tan argued with the Datuk this week.", "Y_tan"));
             c.Clues.Add(Clue("Y_", ClueSlot.R2, "Business card", "Mr Lim's card; on the back: \"That keris will be mine.\"", "Y_lim"));
             c.Clues.Add(Clue("Y_", ClueSlot.R3, "Noticeboard note", "\"Datuk, I will resign if the keris is sold. - S.\"", "Y_sofia"));
 
-            c.Zones.AddRange(Zones("Y_", "Shattered display glass", "Pool of blood", "Wet floor varnish"));
-            c.Props.AddRange(Props("Display plinth", "Reception table", "Tour desk", "Noticeboard", "Entrance"));
-            Mirror(c);
-            return c;
-        }
+            c.Zones.Add(new ZoneSpec { Id = "Y_Z1", Name = "Pool of blood", X = YBodyX + YBodyHeadOffsetX - 0.10f, Z = YBodyZ, Width = 0.6f, Depth = 0.6f, Yaw = 0f });
+            c.Zones.Add(new ZoneSpec { Id = "Y_Z2", Name = "Bloody footprints", X = -1.25f, Z = -0.25f, Width = 0.45f, Depth = 2.2f, Yaw = 13.4f });
+            c.Zones.Add(new ZoneSpec { Id = "Y_Z3", Name = "Broken vase", X = 1.55f, Z = 1.45f, Width = 0.45f, Depth = 0.45f, Yaw = 0f });
 
-        /// <summary>Case Y layout = Case X mirrored left-right (x -> -x, yaw -> -yaw).</summary>
-        private static void Mirror(CaseSpec c)
-        {
-            foreach (var cl in c.Clues) { cl.X = -cl.X; cl.FacingYaw = -cl.FacingYaw; }
-            foreach (var z in c.Zones) { z.X = -z.X; z.Yaw = -z.Yaw; }
-            foreach (var p in c.Props) { p.X = -p.X; p.Yaw = -p.Yaw; }
-            c.BoardX = -c.BoardX;
-            c.BoardYaw = -c.BoardYaw;
+            // Footprints are axis-aligned after turning (desks and the door are turned 90 degrees, so width/depth swap).
+            c.Props.Add(new PropSpec { Role = "display", Name = "Display plinth", X = 0.94f, Z = 1.94f, Width = 0.6f, Depth = 0.5f, Height = 1.63f, Yaw = 180f });
+            c.Props.Add(new PropSpec { Role = "desk", Name = "Reception table", X = 1.81f, Z = 0.56f, Width = 0.5f, Depth = 0.9f, Height = PlayArea.TableHeight, Yaw = -90f });
+            c.Props.Add(new PropSpec { Role = "office", Name = "Tour desk", X = 1.81f, Z = -0.94f, Width = 0.5f, Depth = 0.9f, Height = PlayArea.TableHeight, Yaw = -90f });
+            c.Props.Add(new PropSpec { Role = "stand", Name = "Noticeboard", X = -2.25f, Z = 0.31f, Width = 0.1f, Depth = 0.4f, Height = 1.6f, Yaw = 90f });
+            c.Props.Add(new PropSpec { Role = "door", Name = "Entrance", X = -1.69f, Z = -2.31f, Width = 0.8f, Depth = 0.1f, Height = 2.0f, Yaw = 0f });
+            return c;
         }
     }
 }
