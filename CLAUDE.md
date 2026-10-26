@@ -498,15 +498,16 @@ Data flow:
 
 ## Current status
 
-_Last updated: session 6 (2026-10-17). All planned phases are done (Week 2 A–E, Week 3 Phases 1–3) plus the visual pass,
+_Last updated: session 6 (2026-10-26). All planned phases are done (Week 2 A–E, Week 3 Phases 1–3) plus the visual pass,
 clue gravity, floors, depth occlusion, data upload, the new evidence board look, the setup panel / case-file card /
 status label redesign, capped toss, the briefing detective (ElevenLabs voice, natural motion, team-synchronised
-briefing), the shared-anchor floor fix, the clue sync fix and the occlusion toggle. Work in phases,
+briefing), the shared-anchor floor fix, the clue sync fix, the occlusion toggle, the Case Y murder scene and the Case X
+trophy briefing. Work in phases,
 stop after each for the user's headset test, commit only after the user confirms it works._
 
 **Where we are (start here)**
-- `main` = the "Setup panel v2, occlusion off by default" commit (after `e60c0bd`; everything committed at the user's
-  request **before** a headset test - the user tests it all next). EditMode tests **256/256** (batch). Occlusion is OFF by
+- `main` = `f5b3404` "Case Y murder-scene redesign, Case X trophy briefing, pointing detective" (everything committed at
+  the user's request **before** a headset test - the user tests it all next). EditMode tests **256/256** (batch). Occlusion is OFF by
   default (`ExperimentConfig.occlusionEnabled`; scene set by Set Up Occlusion) - turn it on with the setup panel button. Packages: + `com.unity.xr.meta-openxr` 2.5.1 (AR Foundation
   6.5.0, XR Composition Layers 2.6.0). Setup order in Unity: Build Case Scenes -> Set Up Networking -> Set Up Evidence
   Board -> Set Up Headset UI -> Set Up Occlusion (Depth API) -> Set Up Briefing Detective -> Prepare Study Build.
@@ -515,11 +516,23 @@ stop after each for the user's headset test, commit only after the user confirms
   only the fallback).
 - Untracked in the repo root (the user's, not Claude's): `.agents/`, `.codex/`, `AGENTS.md`. `Assets/Resources/
   DevAgentSettings.asset` changes by itself (a dev tool's `serverAddress`); never commit it unless asked.
+- **Case Y is a murder (user, session 6):** "Death in the Melaka Room", its own layout (no mirror rule any more; the validator
+  keeps counts, bands, grab style, reachability, mean clue distance within 0.15 m of X). Body taped outline + blood pool
+  (zone 1) at (0, 1.25), keris = K3 beside the body (green scarf strand), smashed wall clock = K1 (8:17), visitor logbook = K2,
+  bloody footprints towards the entrance (zone 2), broken vase (zone 3), fallen chair; answer Farid Rahman. Full text:
+  docs/cases.md. Case X stays the theft (user: the cases don't have to be near-identical).
+- **Case X briefing (user, session 6):** `briefing_lines.csv` has an optional `cue` column; `display` on `X_story_01/02` makes the
+  detective stand at one fixed spot 2 m right of the display (`DetectiveBriefing.DisplaySideOffset`), keep looking at the
+  player and point with his right arm (aimed in `PointRotation`, elbow `PointElbowDegrees` 55 = Maya `POINT_FINGER_DOWN` 35
+  below 90; the forearm mesh swaps to `Detective_ForearmPoint` with the index finger out) while `TrophyGhost` (under the X
+  display, built by Build Case Scenes) blinks a gold trophy silhouette in the empty case. Case Y has no cue. Headset-untested
+  (arm aim, finger direction, silhouette size). Voice clips needed: X_story_01/02 and Y_story_01..03 (supplied, attached).
+- Batch entries exist for `CaseSceneTool.BuildBatch` and `CharacterSetupTool.SetUpBatch` (Unity must be closed).
 - Main.unity has the study setting (status-label debug messages off). For development: `FYP > Restore Debug Settings`.
 
 **Next (in this order)**
 1. **One full team session on both headsets** following `docs/device_test_checklist.md` (rebuild both first). It
-   covers everything not yet headset-tested: Case Y (mirrored room); shared evidence board in a team run; a fully
+   covers everything not yet headset-tested: Case Y (the new murder scene, read the clues once: logbook, clock, keris, email); shared evidence board in a team run; a fully
    correct submission (culprit + K1–K4 → `answer_correct 1`, evidence score 4); taking a clue from the partner's hand
    (`clue_grab_taken`); ARM/Start across two headsets; the floor guard ("Floor looks wrong…"); `head_m` in
    `placement_check`. New since then, also headset-untested: the visual pass (props, K1 keypad, desks, hanging
