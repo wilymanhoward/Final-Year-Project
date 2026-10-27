@@ -114,6 +114,9 @@ namespace FYP.Detective
         /// <summary>Case Y: where the body lies (centre of the taped outline, head towards -x), CaseRoot-local.</summary>
         public const float YBodyX = 0f, YBodyZ = 1.25f, YBodyHeadOffsetX = -0.80f;
 
+        /// <summary>Where the briefing detective stands in Case Y: open floor between the start and the tour desk, clear of every zone.</summary>
+        public const float YBriefingX = 0.9f, YBriefingZ = -0.5f;
+
         private static readonly Dictionary<ClueSlot, Spot> LayoutY = new Dictionary<ClueSlot, Spot>
         {
             { ClueSlot.K1, new Spot(-1.50f, 2.35f, HeightBand.Eye, 180f, false) },   // smashed wall clock, front wall left of the plinth

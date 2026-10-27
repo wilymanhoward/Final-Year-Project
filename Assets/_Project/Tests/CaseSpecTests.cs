@@ -160,5 +160,16 @@ namespace FYP.Detective.Tests
             Assert.Less((far - d).magnitude, (near - d).magnitude);
             Assert.Less((near - new Vector2(CaseSpecs.YBodyX + CaseSpecs.YBodyHeadOffsetX, CaseSpecs.YBodyZ)).magnitude, 0.8f, "the trail starts at the pool");
         }
+
+        [Test]
+        public void CaseYDetectiveStandsClearOfEveryZone()
+        {
+            foreach (var zone in CaseSpecs.Y.Zones)
+            {
+                // Margin of 0.5 m beyond the zone's half-diagonal (ignores its yaw, so it is conservative).
+                float reach = Mathf.Sqrt(zone.Width * zone.Width + zone.Depth * zone.Depth) / 2f + 0.5f;
+                Assert.Greater(new Vector2(CaseSpecs.YBriefingX - zone.X, CaseSpecs.YBriefingZ - zone.Z).magnitude, reach, zone.Id);
+            }
+        }
     }
 }

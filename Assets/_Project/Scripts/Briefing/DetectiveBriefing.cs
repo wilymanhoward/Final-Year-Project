@@ -178,10 +178,8 @@ namespace FYP.Detective
             if (session == null || !session.IsArmed || session.IsRunning || floorReference == null) return;
             _team = true;
             BuildLines();
-            PropSpec display = DisplayProp();
-            if (display != null && HasDisplayCue())
+            if (TryFixedSpot(out float sx, out float sz))
             {
-                float sx = Mathf.Clamp(display.X + DisplaySideOffset, -playAreaHalfSize, playAreaHalfSize), sz = display.Z;
                 float mx = (spot.AX + spot.BX) * 0.5f, mz = (spot.AZ + spot.BZ) * 0.5f;
                 spot = spot.Moved(sx, sz, Mathf.Atan2(mx - sx, mz - sz) * Mathf.Rad2Deg);   // fixed place, facing the pair
             }
@@ -211,6 +209,23 @@ namespace FYP.Detective
         private PropSpec DisplayProp() => session != null ? CaseSpecs.For(session.Config.caseId).Prop("display") : null;
 
         private bool HasDisplayCue() => _lines.Exists(l => l.Cue == "display");
+
+        // Fixed stand spot (CaseRoot-local) so he never appears on a zone: beside the display case in X, open floor in Y.
+        private bool TryFixedSpot(out float x, out float z)
+        {
+            PropSpec display = DisplayProp();
+            x = z = 0f;
+            if (display != null && HasDisplayCue())
+            {
+                x = Mathf.Clamp(display.X + DisplaySideOffset, -playAreaHalfSize, playAreaHalfSize);
+                z = display.Z;
+                return true;
+            }
+            if (session == null || session.Config.caseId != CaseId.Y) return false;
+            x = CaseSpecs.YBriefingX;
+            z = CaseSpecs.YBriefingZ;
+            return true;
+        }
 
         private Vector3 DisplayPoint()
         {
@@ -370,12 +385,10 @@ namespace FYP.Detective
                 position = floorReference.TransformPoint(local);
             }
             Quaternion rotation = Quaternion.LookRotation(-forward, Vector3.up);
-            PropSpec display = DisplayProp();
-            if (floorReference != null && display != null && HasDisplayCue())
+            if (floorReference != null && TryFixedSpot(out float sx, out float sz))
             {
-                // One fixed spot next to the display, facing the player.
-                position = floorReference.TransformPoint(new Vector3(
-                    Mathf.Clamp(display.X + DisplaySideOffset, -playAreaHalfSize, playAreaHalfSize), 0f, display.Z));
+                // One fixed spot, facing the player.
+                position = floorReference.TransformPoint(new Vector3(sx, 0f, sz));
                 Vector3 toPlayer = head.position - position;
                 toPlayer.y = 0f;
                 if (toPlayer.sqrMagnitude > 1e-4f) rotation = Quaternion.LookRotation(toPlayer, Vector3.up);
