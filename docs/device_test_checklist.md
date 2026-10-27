@@ -91,6 +91,32 @@ are for the experimenter only; participants use their hands.
 - Clue gravity: a clue let go in the air drops onto the desk / floor and stays put; one dropped into a zone goes back
   home and logs `clue_reset` with `reason=in_zone`. Team runs: the partner sees it fall too.
 
+- `board_order` row at session start: `left_to_right=` lists the 4 suspects; the culprit is not always first. The same
+  pair/case/condition gives the same order on both headsets of a team.
+- `hand_tracking_lost` rows: expect a few per run; dozens per minute means poor lighting or hands too fast/too close.
+- Merge everything for analysis: `python -I tools/analyze_runs.py StudyData` -> `StudyData/all_runs.csv` plus a means table.
+
+## First test after the Case Y / briefing changes (headset-untested)
+
+Do these once, solo (Condition A) first, then once as a team:
+
+- [ ] **Room-scale boundary** drawn on both headsets (Settings > Physical space). This is the best guess for the grey
+      screen; if the grey screen still appears, tell me and I'll add a switch to turn boundary suppression off.
+- [ ] **Case Y scene**: body outline with the blood pool at the head end, keris beside the body, smashed clock, logbook on
+      the reception table, bloody footprints from the pool to the door (nothing sitting under furniture), broken vase.
+- [ ] **Case X briefing**: the detective stands about 2 m right of the display case, points at it with the finger out,
+      and a gold trophy outline blinks in the empty case. Is it large enough to see from the start mark?
+- [ ] **Case Y briefing**: the detective stands on open floor about 1 m right of the start mark, not on the blood, the
+      footprints, the body outline or the desk. Team: same spot in both headsets.
+- [ ] **Red edge flash**: step into a zone (blood pool, footprints, vase / glass, coffee ...); the edges of the view
+      flash red for about 1 s. It also fires when a hand enters. Both eyes, no flicker. `error_contamination` row logged.
+      Partner's entry should NOT flash your view.
+- [ ] **Suspect cards** are in a different order for different pair/case/condition combinations.
+- [ ] **Hand tracking**: decide High (current, Fast Motion) vs Low; compare `hand_tracking_lost` counts per run.
+- [ ] Full correct submission in each case: culprit + K1-K4 -> `answer_correct=1`, `perfect_submission=1`, evidence
+      score 4 (Case Y keys: clock K1, logbook K2, keris K3, email K4).
+- [ ] Team: taking a clue from the partner's hand (`clue_grab_taken`), a picked-up clue moves in the partner's view.
+
 ## Troubleshooting
 
 | Symptom | Fix |
