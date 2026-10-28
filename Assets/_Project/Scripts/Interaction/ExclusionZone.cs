@@ -93,8 +93,11 @@ namespace FYP.Detective
         private bool IsPointInside(BodyPart part, TrackedPointGate gate)
         {
             bool tracked = rig.IsAvailable(part);
-            bool rawInside = tracked
-                && FloorFootprint.Contains(rig.Get(part).position, transform.position, transform.eulerAngles.y, size);
+            Transform t = tracked ? rig.Get(part) : null;
+            // Head = the estimated feet (lean-corrected), so leaning over a zone isn't stepping in; hands as tracked.
+            Vector3 point = t == null ? Vector3.zero
+                : part == BodyPart.Head ? FootEstimate.FromHead(t.position, t.rotation) : t.position;
+            bool rawInside = tracked && FloorFootprint.Contains(point, transform.position, transform.eulerAngles.y, size);
             return gate.Update(tracked, rawInside);
         }
 
