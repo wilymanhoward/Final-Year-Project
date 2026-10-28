@@ -203,7 +203,10 @@ Data flow:
   cyan `FYP/PartnerMarker` (ZTest Always, over the props), smoothed, hidden after 1 s without data or when the hand is
   untracked. **Floating hand fix (user):** a lost hand kept being sent as its frozen last pose; the sender now counts a
   hand only if `PlayerRig.IsTracked` + ISDK `IsTrackedDataValid` + `IsHighConfidence`, and the receiver also hides a hand
-  whose wrist pose hasn't changed at all for 0.4 s (`PartnerHands.FrozenSeconds`). Not logged. Same in every team run. Headset-untested.
+  whose wrist pose hasn't changed at all for 0.4 s (`PartnerHands.FrozenSeconds`). **Bent-finger fix (user):** the
+  copy is built from the hand visual this headset is showing for that side (hand tracking, same model as the sender's),
+  not the first one found (the rig also has controller-driven visuals with other bone axes), and only when the joint
+  counts match. Not logged. Same in every team run. Headset-untested.
 - **Feet estimate (user, session 6, trial):** the "head" point of the zone check is now the estimated feet,
   `FootEstimate.FromHead` (8 cm behind the head's floor point, + 25 cm x sin(look-down), max 30 cm), so leaning over a
   zone isn't an entry; hands unchanged; logged positions unchanged (still the head). Revert = `git revert` the
@@ -576,7 +579,8 @@ stop after each for the user's headset test, commit only after the user confirms
 - `docs/device_test_checklist.md` has a "First test after the Case Y / briefing changes" section (boundary, Case Y scene,
   both detective spots, red flash, card order, hand tracking, perfect submission, team steal).
 - **Partner head + hands (user, session 6):** see the design note "Partner marker". Seen on the headset by the user
-  (hands followed, but a lost hand floated -> fixed, rebuild both). One-headset test: `FYP > Debug: Show Me As Partner
+  (hands followed, but a lost hand floated -> fixed, rebuild both; fingers verified in the one-headset self-test
+  after the bent-finger fix, 2026-10-29). One-headset test: `FYP > Debug: Show Me As Partner
   (toggle)` (TeamSessionSync.showSelfAsPartner; with no partner you see yourself 1.5 m ahead, facing you; Prepare Study
   Build switches it off). Markers use a stencil (bit 128) so overlapping fingers are one layer.
 - **Feet estimate (trial):** zone check uses `FootEstimate` (design note); every run logs `zone_point=feet_v1` in
