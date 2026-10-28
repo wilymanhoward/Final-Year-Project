@@ -318,11 +318,6 @@ namespace FYP.Detective
         }
 
         /// <summary>
-        /// Reports that a loose clue was put back at its start position (fell through the floor / too far away /
-        /// came to rest in an exclusion zone; <paramref name="reason"/>, see <see cref="LastResetReason"/>).
-        /// Not game state; raised for logging. Only while running.
-        /// </summary>
-        /// <summary>
         /// Reports that a clue was tossed (released faster than the toss threshold, user decision session 6: capped toss
         /// with logging). <paramref name="speed"/> is the measured release speed, <paramref name="capped"/> whether it
         /// was limited to the cap. Not game state; raised for logging. Only while running.
@@ -337,6 +332,11 @@ namespace FYP.Detective
             return true;
         }
 
+        /// <summary>
+        /// Reports that a loose clue was put back at its start position (fell through the floor / too far away /
+        /// came to rest in an exclusion zone; <paramref name="reason"/>, see <see cref="LastResetReason"/>).
+        /// Not game state; raised for logging. Only while running.
+        /// </summary>
         public bool RecordClueReset(string clueId, string by = null, string reason = null)
         {
             if (!IsRunning || string.IsNullOrEmpty(clueId)) return false;

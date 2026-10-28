@@ -88,6 +88,8 @@ namespace FYP.Detective
         public string startSource;
         /// <summary>When the experimenter armed this run ("" = started without arming).</summary>
         public string armedUtc;
+        /// <summary>Body point of the zone check (FootEstimate.RuleCode, e.g. feet_v1; absent in older runs = head).</summary>
+        public string zonePoint;
     }
 
     /// <summary>Build and device facts for <see cref="SessionMeta"/>, gathered by the caller from Unity.</summary>
