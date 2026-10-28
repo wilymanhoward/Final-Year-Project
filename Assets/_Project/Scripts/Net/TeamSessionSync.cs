@@ -179,7 +179,8 @@ namespace FYP.Detective.Net
                 Debug.LogWarning("[Team] Ignored a malformed message: " + text);
                 return;
             }
-            if (m.By != null) _partnerId = m.By;
+            // The host relays our own actions back to us (by = our id); only the other id is the partner.
+            if (m.By != null && m.By != session.SelfId) _partnerId = m.By;
             if (IsHost) HandleOnHost(sender, m); else HandleOnClient(m);
         }
 
@@ -217,7 +218,10 @@ namespace FYP.Detective.Net
             {
                 case TeamMessageKind.Start:
                     if (!session.ApplyTeamStart(m.CaseCode, m.ConditionCode, m.Source))
+                    {
                         SetStatus("Host started the team run, but this headset couldn't: " + session.LastStartError);
+                        SendToHost(TeamMessage.ReqEnd(SessionEndReason.Aborted));   // no one-sided team runs on the host
+                    }
                     break;
                 case TeamMessageKind.Arm:
                     if (m.Armed) session.AdoptTeamSetup(m.CaseCode);   // the host armed a team run: its case, condition B

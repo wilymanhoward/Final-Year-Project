@@ -330,7 +330,7 @@ namespace FYP.Detective
                     _writer != null ? Path.GetFileName(_writer.FilePath) : "");
                 meta.startSource = SessionManager.StartSourceCode(session.LastStartSource);
                 meta.armedUtc = PlacementRecord.FormatUtc(session.RunArmedUtc);
-                File.WriteAllText(_metaPath, JsonUtility.ToJson(meta, true));
+                CsvLogWriter.WriteAllTextSafely(_metaPath, JsonUtility.ToJson(meta, true));
             }
             catch (Exception e)
             {
@@ -358,7 +358,7 @@ namespace FYP.Detective
             try
             {
                 var caseDef = session.ActiveCase;
-                File.WriteAllText(summaryPath,
+                CsvLogWriter.WriteAllTextSafely(summaryPath,
                     CsvFormatter.SummaryHeader + "\n" +
                     CsvFormatter.FormatSummary(session.State, _config, caseDef != null ? caseDef.Title : "", session.StartUtc,
                         endReasonOverride) + "\n");

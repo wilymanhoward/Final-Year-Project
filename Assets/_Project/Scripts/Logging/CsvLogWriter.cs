@@ -55,6 +55,19 @@ namespace FYP.Detective
         }
 
         /// <summary>
+        /// Replaces a whole small file (summary, meta) via a temp file, so a crash or dead battery mid-write never
+        /// leaves it empty or cut off.
+        /// </summary>
+        public static void WriteAllTextSafely(string path, string text)
+        {
+            string tmp = path + ".tmp";
+            File.WriteAllText(tmp, text);
+            if (!File.Exists(path)) { File.Move(tmp, path); return; }
+            try { File.Replace(tmp, path, null); }
+            catch (PlatformNotSupportedException) { File.Copy(tmp, path, true); File.Delete(tmp); }
+        }
+
+        /// <summary>
         /// Returns directory/fileName, or directory/name_2.csv, name_3.csv ... if it already exists.
         /// </summary>
         public static string GetUniquePath(string directory, string fileName)

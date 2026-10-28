@@ -61,6 +61,17 @@ def load(path):
     return row
 
 
+def one_per_run(rows):
+    """Rows with the two headset rows of a team run (same pair, condition, case) reduced to the first one."""
+    seen, out = set(), []
+    for r in rows:
+        run = (r["pair_code"], r["condition"], r["case"]) if r.get("team_run") == "1" else id(r)
+        if run not in seen:
+            seen.add(run)
+            out.append(r)
+    return out
+
+
 def num(v):
     try:
         return float(v)
@@ -86,18 +97,43 @@ def main():
         w.writerows(rows)
     print(f"{len(rows)} runs ({sum(int(r['valid']) for r in rows)} valid) -> {out}")
 
-    groups = defaultdict(list)
-    for r in rows:
-        if r["valid"]:
-            groups[(r["condition"], r["case"])].append(r)
-    print("\ncondition case    n  active_s  contam  reason  evidence  correct")
-    for (cond, case), rs in sorted(groups.items()):
-        def m(key):
-            vals = [num(r.get(key)) for r in rs if num(r.get(key)) is not None]
+    # Contamination is per person (one row per headset). Time, answer and evidence are shared by a team, so a team
+    # run counts once (the first of its two headset rows), otherwise condition B would be double-weighted.
+    people, teams = defaultdict(list), defaultdict(list)
+    valid = [r for r in rows if r["valid"]]
+    for r in valid:
+        people[(r["condition"], r["case"])].append(r)
+    for r in one_per_run(valid):
+        teams[(r["condition"], r["case"])].append(r)
+    print("\nper run (a team run counts once); contamination per person")
+    print("condition case runs people  active_s  reason  evidence  correct  contam")
+    for key in sorted(people):
+        def m(rs, col):
+            vals = [num(r.get(col)) for r in rs if num(r.get(col)) is not None]
             return f"{mean(vals):8.1f}" if vals else "       -"
-        print(f"{cond:>9} {case:>4} {len(rs):4d} {m('active_s')} {m('contamination_errors')} "
-              f"{m('reasoning_errors')} {m('evidence_score')} {m('answer_correct')}")
+        rs = teams[key]
+        print(f"{key[0]:>9} {key[1]:>4} {len(rs):4d} {len(people[key]):6d} {m(rs, 'active_s')} {m(rs, 'reasoning_errors')} "
+              f"{m(rs, 'evidence_score')} {m(rs, 'answer_correct')} {m(people[key], 'contamination_errors')}")
+
+
+def self_check():
+    """Two headset rows of one team run count once for team measures, twice for contamination."""
+    import tempfile
+    head = "pair_code,participant_id,condition,case,end_reason,team_run,active_s,contamination_errors\n"
+    with tempfile.TemporaryDirectory() as d:
+        for pid, contam in (("P01", 2), ("P02", 4)):
+            with open(os.path.join(d, f"G01_{pid}_B_X_1_summary.csv"), "w", encoding="utf-8") as fh:
+                fh.write(head + f"G01,{pid},B,X,Submitted,1,100,{contam}\n")
+        rows = [load(p) for p in find_runs(d)]
+        assert len(rows) == 2 and all(r["valid"] for r in rows)
+        assert len(one_per_run(rows)) == 1
+        solo = dict(rows[0], team_run="0")
+        assert len(one_per_run([solo, dict(solo)])) == 2   # solo runs are never merged
 
 
 if __name__ == "__main__":
-    main()
+    if sys.argv[1:] == ["--self-check"]:
+        self_check()
+        print("self-check ok")
+    else:
+        main()

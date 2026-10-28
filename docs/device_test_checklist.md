@@ -18,7 +18,10 @@ are for the experimenter only; participants use their hands.
 
 ## Before the session (both headsets)
 
-- [ ] Laptop on the **same Wi-Fi / hotspot** as the headsets; start the data receiver and leave its window open:
+- [ ] Laptop on the **same network** as the headsets, preferably your **own phone hotspot** with a password: the
+      receiver accepts uploads from any device on the network, so on open campus Wi-Fi a stranger's file could land in
+      StudyData. Every upload is listed in `StudyData/receiver_log.csv` with the sender's IP; check that only the two
+      headsets appear. Start the data receiver and leave its window open:
       `python tools/receive_data.py` (first time: allow Python through the Windows firewall on private networks).
       The setup panel's last line shows "Data: laptop <ip> ..." once a headset has found it.
 
