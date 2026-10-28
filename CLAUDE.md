@@ -340,13 +340,13 @@ Data flow:
   (participant card Start vs. setup panel Start now / right stick / desktop); `run_armed` row (`at_utc` = when the
   experimenter armed) right after `session_start` when the run was armed; meta `startSource`, `armedUtc`. Team runs
   carry the source in TeamMessage `ReqStart|source` / `Start|case|cond|source`.
-- **Phase D cases (session 6):** content in `docs/cases.md` (Case X "The Missing Design Award", culprit Grace Wong;
-  Case Y "Death in the Melaka Room" (murder, own layout, not a mirror of X since the user relaxed it: body outline + blood pool, keris K3 beside the body, smashed clock K1, logbook K2, bloody footprints to the entrance, broken vase; headset-untested), K2 = blood forensic report on the reception table beside the pool / time of death 20:15-20:30 (replaces the key logbook), K3 = body forensic marker / cause, blood pool = zone 2, taped body outline = decoration; headset-untested), culprit Farid Rahman; 4 suspects, K1-K4 + R1-R3, 3 zones each). Code: `CaseSpec` types +
-  `PlayArea` constants (HalfSize 1.5 m, heights floor/table 0.75/eye 1.5), `CaseSpecs.X/Y` (Y = X mirrored x -> -x),
-  `CaseSpecValidator` (counts, height bands, inside area, no clue within 10 cm of a zone, red herrings -> distinct
-  innocents, mean distance diff <= 0.15 m, mirror rule incl. display/desk/door moved). Layout: start mark = CaseRoot at
-  the centre of the 3 x 3 m area facing the front wall; board at (0, -1.45) facing the start (mean clue distance: see the
-  headset-test note below, now 1.22 m).
+- **Phase D cases (session 6):** the case content lives in `docs/cases.md` (source of truth) and
+  `Assets/_Project/Scripts/Core/CaseSpecs.cs` (positions; 5 x 5 m area, `PlayArea`). Case X "The Missing Design Award"
+  (theft, culprit Grace Wong); Case Y "Death in the Melaka Room" (murder with its own layout, not a mirror of X; culprit
+  Farid Rahman); 4 suspects, K1-K4 + R1-R3, 3 zones each. `CaseSpecValidator` checks counts, height bands, inside area,
+  clue-zone margins, reachability, red herrings -> distinct innocents and mean clue distance within 0.15 m of the other
+  case (no mirror rule since session 6). Earlier numbers in these notes (3 x 3 / 4 x 4 m, mirrored Y, forensic report K2,
+  varnish zone) are history - read CaseSpecs, not these notes, for positions.
   `FYP > Build Case Scenes (X + Y)` builds Case_X/Case_Y (`CaseContent`: only the active case is shown; grabbable clues
   are soft-hidden because Netcode needs in-scene network objects active), updates the CaseDefinition assets (title,
   briefing, suspects with role/alibi, culprit, K1-K4), places the board, deactivates TestCube + Quad. Clue inspect text
@@ -365,19 +365,12 @@ Data flow:
   floor (press again within 5 s to override), loads warn, `placement_check` logs `head_m`. Test 4 (floor re-set in the Quest):
   head 1.56 m above the scene, ARM + participant Start logged, K1/K2/K4 taken with no glass/coffee entries; 7 entries were
   real steps onto the footprints. The floor guard itself wasn't in that build (headset-untested).
-- **Room layout v2 (session 6, user: props weren't placed properly; then scaled to 5 x 5 m: furniture centres x1.25,
-  clue/zone offsets kept):** numbers below are the 4 x 4 m version, see CaseSpecs for the 5 x 5 m ones; furniture against the edges,
-  middle open. Case X: display case centrepiece at the front (-0.75, 1.55) facing the start; reception desk (K2) on the
-  right (1.45, 0.45) facing the room; entrance in the back wall, back-right corner (1.35, -1.85, facing in; moved off the
-  right edge because it looked like it opened onto the desk); office desk (K4) on the left (-1.45, -0.75);
-  monitor (R3) on the left edge (-1.80, 0.25); evidence board at the back (0, -1.75). Clues/zones moved with their
-  furniture (K1 -0.55/1.28, K3 -0.50/1.22, R1 -0.32/1.60, R2 1.70/-1.45; glass -1.05/1.08, coffee beside the desk's
-  front end 1.45/1.22, footprints from the entrance towards the display 1.02/-1.32 yaw -32). Case Y mirrored. Mean clue
-  distance 1.64 m. `PropSpec.Yaw` (front direction) replaces CaseSceneTool's role yaw table. Desk chairs removed.
+- **Room layout v2 (session 6, user: props weren't placed properly):** furniture against the edges, middle open, then
+  scaled to 5 x 5 m. Case X: display case at the front, reception desk (K2) right, entrance back-right, office desk (K4)
+  left, monitor (R3) left edge, evidence board at the back. `PropSpec.Yaw` = front direction. Exact positions: CaseSpecs.
 - **Visual pass (user spec, session 6):** MR props only (no walls/ceilings). **Floors (user, session 6):** a semi-transparent (alpha 0.7,
-  `Props_Floor`, queue 2950) 5 x 5 m floor per case, just under y 0: Case X 0.5 m concrete tiles, Case Y floorboards; the
-  Case Y varnish zone decal is the same boards clipped to the zone (`Y_Z3_POSE` in build_props.py = CaseSpecs Y zone 3,
-  keep in sync). Floors and the varnish decal are built in Unity coordinates and mirrored on export (`to_maya`). Maya path (mayapy 2027 available):
+  `Props_Floor`, queue 2950) 5 x 5 m floor per case, just under y 0: Case X 0.5 m concrete tiles, Case Y floorboards;  floors
+  are built in Unity coordinates and mirrored on export (`to_maya`). Maya path (mayapy 2027 available):
   `tools/maya/build_props.py` builds every mesh in code (metres, Y-up, one shared 32 x 32 (64-colour) palette texture via per-face
   UVs, all edges hard) and exports one FBX each (`<name>_Body`, optional `_Glass`, zone `_Alpha` outline). Conventions:
   props pivot on the floor, front +Z (**Unity's FBX import negates X** but keeps the look: in the script's Maya
@@ -394,7 +387,7 @@ Data flow:
   LCD with the time, 4 x 4 round light-blue keys, LED, cover flap open on the left) mounted on the display case's side glass
   at the front corner, lock side opposite the door hinge (X (-0.65, 1.81) facing +x; no post, nothing in the door's way). Clue collider boxes were resized so each slot
   has the same size range in both cases (e.g. R2 17 x 13 cm sketch vs 13 x 8 cm card). Greybox name labels removed.
-  `Art/Materials/Greybox` is unused after a rebuild.
+  The old `Art/Materials/Greybox` materials were deleted (unused, audit session 6).
 - **Data upload to the laptop (user, session 6):** `DataUploader` (next to DataLogger) sends every study file (`*.csv`,
   `*_meta.json`) to `tools/receive_data.py` on the laptop: the receiver broadcasts UDP `FYPDATA1|<port>` to 8766 every
   2 s (fallback `ExperimentConfig.dataReceiverAddress/dataReceiverPort`), headset PUTs

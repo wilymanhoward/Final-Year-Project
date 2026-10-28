@@ -38,6 +38,16 @@ namespace FYP.Detective.Tests
         }
 
         [Test]
+        public void WriteAllTextSafely_CreatesThenReplacesWithoutLeavingTemp()
+        {
+            string path = Path.Combine(_dir, "run_summary.csv");
+            CsvLogWriter.WriteAllTextSafely(path, "first");
+            CsvLogWriter.WriteAllTextSafely(path, "second");
+            Assert.AreEqual("second", File.ReadAllText(path));
+            Assert.IsFalse(File.Exists(path + ".tmp"));
+        }
+
+        [Test]
         public void NeverOverwrites_UniquePathAddsSuffix()
         {
             string first = CsvLogWriter.GetUniquePath(_dir, "x.csv");
