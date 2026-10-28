@@ -193,6 +193,10 @@ Data flow:
 - **One submission per run**: submitting stops the timer and ends the session.
 - **Reasoning errors** = 1 for a wrong suspect + 1 per submitted evidence item that isn't key evidence.
   Missing key evidence is logged (`missing_evidence`) but not counted as a reasoning error.
+- **Feet estimate (user, session 6, trial):** the "head" point of the zone check is now the estimated feet,
+  `FootEstimate.FromHead` (8 cm behind the head's floor point, + 25 cm x sin(look-down), max 30 cm), so leaning over a
+  zone isn't an entry; hands unchanged; logged positions unchanged (still the head). Revert = `git revert` the
+  "Feet estimate" commit (checkpoint before it: `9ec94f7`). Headset-untested.
 - **Contamination:** head and hands are both floor-projected (height ignored). A zone is "occupied" if any
   tracked point is inside. The cooldown is per zone and measured from the last *counted* entry. The body
   part that triggered it is logged. Only counted while a session is running.
