@@ -498,17 +498,18 @@ Data flow:
 
 ## Current status
 
-_Last updated: session 6 (2026-10-27). All planned phases are done (Week 2 A–E, Week 3 Phases 1–3) plus the visual pass,
+_Last updated: session 6 (2026-10-28). All planned phases are done (Week 2 A–E, Week 3 Phases 1–3) plus the visual pass,
 clue gravity, floors, depth occlusion, data upload, the new evidence board look, the setup panel / case-file card /
 status label redesign, capped toss, the briefing detective (ElevenLabs voice, natural motion, team-synchronised
 briefing), the shared-anchor floor fix, the clue sync fix, the occlusion toggle, the Case Y murder scene, the Case X
-trophy briefing and the shuffled suspect cards. Work in phases,
+trophy briefing, the shuffled suspect cards, the Case Y detective spot, the red contamination flash and the analysis
+script. Work in phases,
 stop after each for the user's headset test, commit only after the user confirms it works._
 
 **Where we are (start here)**
-- `main` = `adb6baf` "Shuffle suspect cards on the evidence board, hand tracking Fast Motion tool" (after `f5b3404` Case Y murder
-  scene / Case X trophy briefing; everything committed at the user's request **before** a full headset test). EditMode tests
-  **259/259** (batch). Occlusion is OFF by
+- `main` = `dcb6c5b` "Analysis script merging all runs, checklist..." (after `d77703c` Case Y detective spot + red flash,
+  `adb6baf` suspect shuffle, `f5b3404` Case Y murder scene / Case X trophy briefing; everything committed at the user's
+  request **before** a full headset test). EditMode tests **260/260** (batch). Occlusion is OFF by
   default (`ExperimentConfig.occlusionEnabled`; scene set by Set Up Occlusion) - turn it on with the setup panel button. Packages: + `com.unity.xr.meta-openxr` 2.5.1 (AR Foundation
   6.5.0, XR Composition Layers 2.6.0). Setup order in Unity: Build Case Scenes -> Set Up Networking -> Set Up Evidence
   Board -> Set Up Headset UI -> Set Up Occlusion (Depth API) -> Set Up Briefing Detective -> Prepare Study Build.
@@ -537,6 +538,22 @@ stop after each for the user's headset test, commit only after the user confirms
   guess: the Quest safety system. Remedy: draw a room-scale boundary on both headsets; if it still appears, A/B with boundary
   suppression off. Rarer after that (user). `FYP > Set Hand Tracking to Fast Motion (High)` was added and the config is at High (not
   proven to help; revert to Low if unwanted).
+- **Case Y detective spot (user, session 6: he appeared on restricted areas):** in Case Y he always stands at
+  `CaseSpecs.YBriefingX/Z` = (0.9, -0.5), open floor right of the start mark, facing the player (team: the pair's middle);
+  `DetectiveBriefing.TryFixedSpot` (X = beside the display, Y = this spot, else in front of the player). Test: >= 0.5 m clear
+  of every Case Y zone. Headset-untested.
+- **Red contamination flash (user, session 6):** `ContaminationFlash` (UI, creates itself at startup via
+  `RuntimeInitializeOnLoadMethod`, no scene setup) flashes a red edge vignette for 0.9 s (`PeakIntensity` 0.75) on every
+  counted own `ContaminationRecorded` (head or hand; not the partner's). Shader `FYP/ScreenFlash` in
+  `Assets/_Project/Resources/FYP_ScreenFlash.shader` (clip-space quad, ZTest Always, Overlay queue, loaded with
+  `Resources.Load`). Same in both conditions; it is feedback on a measured error (method section; user may want it off
+  for real runs - not decided). Headset-untested (stereo / both eyes).
+- **Analysis:** `python -I tools/analyze_runs.py StudyData` -> `StudyData/all_runs.csv` (one row per run, newest copy of a
+  duplicated run wins, + evidence score from meta, `board_order`, `culprit_position`, `valid` = Submitted/TimeCap) and a
+  means table per condition x case. No within-participant pairing yet (needs a counterbalancing sheet). The old
+  StudyData test runs (placeholder titles, mostly Aborted) must be moved out before real data.
+- `docs/device_test_checklist.md` has a "First test after the Case Y / briefing changes" section (boundary, Case Y scene,
+  both detective spots, red flash, card order, hand tracking, perfect submission, team steal).
 - Batch entries exist for `CaseSceneTool.BuildBatch` and `CharacterSetupTool.SetUpBatch` (Unity must be closed).
 - Main.unity has the study setting (status-label debug messages off). For development: `FYP > Restore Debug Settings`.
 
@@ -583,5 +600,7 @@ stop after each for the user's headset test, commit only after the user confirms
   turn into real line breaks.
 
 **Open questions for the user**
-- None open (session 6: lab 4 x 4 m playable, template content deleted, grading split into answer_correct /
-  perfect_submission).
+- Hand tracking frequency: keep High (Fast Motion, current config + `HandTrackingSetupTool`) or revert to Low?
+- Red contamination flash: on in every study run, or practice only (would need a config switch)?
+- (Settled session 6: lab 5 x 5 m playable, template content deleted, grading split into answer_correct /
+  perfect_submission.)
