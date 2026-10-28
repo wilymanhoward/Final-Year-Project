@@ -72,6 +72,18 @@ def one_per_run(rows):
     return out
 
 
+def add_run_order(rows):
+    """run_order = 1, 2, ... per participant (pair + participant id) by start time; valid runs only, else empty."""
+    by_person = defaultdict(list)
+    for r in rows:
+        r["run_order"] = ""
+        if r["valid"]:
+            by_person[(r["pair_code"], r["participant_id"])].append(r)
+    for runs in by_person.values():
+        for i, r in enumerate(sorted(runs, key=lambda r: r["start_utc"]), 1):   # ISO UTC strings sort by time
+            r["run_order"] = i
+
+
 def num(v):
     try:
         return float(v)
@@ -86,6 +98,7 @@ def main():
     if not rows:
         print("no summary files under", root)
         return
+    add_run_order(rows)
     fields = list(rows[0].keys())
     for r in rows:
         for k in r:
@@ -129,6 +142,10 @@ def self_check():
         assert len(one_per_run(rows)) == 1
         solo = dict(rows[0], team_run="0")
         assert len(one_per_run([solo, dict(solo)])) == 2   # solo runs are never merged
+    late = dict(rows[0], start_utc="2026-11-02T10:00:00.000Z")
+    early = dict(rows[0], start_utc="2026-11-02T09:00:00.000Z")
+    add_run_order([late, early])
+    assert (early["run_order"], late["run_order"]) == (1, 2)
 
 
 if __name__ == "__main__":

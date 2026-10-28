@@ -17,7 +17,7 @@ Conventions (the Unity side, CaseSceneTool, relies on them):
   along local X, depth along local Z; the stand is turned 90 degrees in Unity, so its width is the spec depth). Set
   dressing stays clear of the clue spots (desk centres, screen/board centre, the display's front-right foot).
 - Grabbable clues: pivot at the bottom centre, mesh fills exactly the clue's collider box (CaseSceneTool.ClueSize).
-- Static clues (K1, R3): centred on the origin, readable side towards -Z (like a Unity Quad), depth behind it (+Z).
+- Flat clues (K1 static, R3 grabbable since session 6): centred on the origin, readable side towards -Z (like a Unity Quad), depth behind it (+Z).
 - Zone decals: zone-local, centred, at most a few millimetres high, filling the zone rectangle; outline in "_Alpha".
 - Child meshes: "<name>_Body" (opaque palette), optional "<name>_Glass" (transparent), "<name>_Alpha" (outline).
 Prints every object's size and triangle count; fails if the total is over the 50k budget.

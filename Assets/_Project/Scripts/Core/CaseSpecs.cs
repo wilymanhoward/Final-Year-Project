@@ -39,7 +39,7 @@ namespace FYP.Detective
             { ClueSlot.K4, new Spot(-1.81f, -0.94f, HeightBand.Table, 90f, true) },  // on the office desk (faces the room)
             { ClueSlot.R1, new Spot(-0.51f, 1.99f, HeightBand.Floor, 90f, true) },   // beside the display (right side)
             { ClueSlot.R2, new Spot(2.04f, -1.91f, HeightBand.Floor, 0f, true) },    // just inside the entrance
-            { ClueSlot.R3, new Spot(-2.20f, 0.31f, HeightBand.Eye, 90f, false) },    // on the monitor / noticeboard
+            { ClueSlot.R3, new Spot(-2.20f, 0.31f, HeightBand.Eye, 90f, true) },     // on the monitor / noticeboard (grabbable, snaps back home)
         };
 
         // Footprints are axis-aligned after turning (desks and the door are turned 90 degrees, so width/depth swap).
@@ -125,7 +125,7 @@ namespace FYP.Detective
             { ClueSlot.K4, new Spot(1.81f, -0.94f, HeightBand.Table, -90f, true) },  // the Datuk's email on the tour desk
             { ClueSlot.R1, new Spot(0.45f, 2.15f, HeightBand.Floor, -90f, true) },   // torch beside the plinth
             { ClueSlot.R2, new Spot(-2.00f, -1.85f, HeightBand.Floor, 0f, true) },   // card just inside the entrance
-            { ClueSlot.R3, new Spot(-2.20f, 0.31f, HeightBand.Eye, 90f, false) },    // note on the noticeboard (left wall)
+            { ClueSlot.R3, new Spot(-2.20f, 0.31f, HeightBand.Eye, 90f, true) },     // note on the noticeboard (left wall; grabbable, snaps back home)
         };
 
         private static CaseSpec BuildY()

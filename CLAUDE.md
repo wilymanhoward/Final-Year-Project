@@ -272,6 +272,17 @@ Data flow:
   NetworkTransform's writes, so the clue looked frozen. `ClueGravity.Update` now sets interpolation only where the clue is
   controlled (`Clue.HasLocalAuthority`), None on the partner's copy - Netcode's own NetworkRigidbody rule
   (NetworkRigidBodyBase.cs). NetworkRigidbody itself is NOT used (it would fight ClueGravity / ISDK over isKinematic).
+  **Placement fix (user: "the book floats after I place the scene"):** interpolation is now on only while the clue is
+  actually simulated (non-kinematic, controlled here); a still clue interpolating kept its old world pose when CaseRoot
+  or its anchor moved. Headset-untested.
+- **No grabbing outside a run (user, session 6):** `Clue.ApplyGrabbable` enables the grab interactables only while a session
+  runs (and the clue's case is shown); setup, briefing and the end screen can't move evidence. Uses `Clue.grabInteractables`
+  (filled by Set Up Networking). Headset-untested.
+- **R3 notes grabbable (user, session 6):** X_R3 sticky note and Y_R3 noticeboard note are grabbable (both, so the
+  validator's same-style-per-slot rule holds); built as flat thin boxes (`CaseSceneTool.IsFlat`: K1 + R3, depth 1 cm,
+  readable side -Z, centred mesh). Let go within 15 cm of their spot they snap back home and stay still
+  (`ClueResetter.snapHomeDistance`, `TrySnapHome` called from `ClueGravity.HandleHoldEnded`; not logged); else they fall
+  like any clue. K1 stays static. Needs Build Case Scenes + the setup chain. Headset-untested.
 - **Capped toss (user, session 6):** clues can be tossed, not flung: `ClueGravity` samples the held clue's position
   (`TossEstimator`, last 0.1 s) and on release gives it that velocity capped at 2 m/s, no spin (the ISDK's own throw stays
   off). Releases >= 0.6 m/s log `clue_thrown` (`<id>;speed=<raw m/s>;capped=0|1;by=`, logging only, never networked).

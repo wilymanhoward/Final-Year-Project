@@ -18,6 +18,8 @@ namespace FYP.Detective
         [SerializeField, Min(0.5f)] private float maxDistanceFromRoot = ClueBounds.DefaultMaxDistance;
         [SerializeField, Min(0f)] private float belowFloorMargin = ClueBounds.DefaultBelowFloorMargin;
         [SerializeField, Min(0.05f)] private float checkIntervalSeconds = 0.25f;
+        [Tooltip("Let go within this distance (m) of its start position, it snaps back there (0 = off). Notes on a board.")]
+        [SerializeField, Min(0f)] private float snapHomeDistance;
         [Tooltip("Put the clue back at its start position whenever a session starts.")]
         [SerializeField] private bool resetOnSessionStart = true;
 
@@ -62,6 +64,19 @@ namespace FYP.Detective
             _homeLocalPosition = root.InverseTransformPoint(transform.position);
             _homeLocalRotation = Quaternion.Inverse(root.rotation) * transform.rotation;
             _hasHome = true;
+        }
+
+        /// <summary>
+        /// Called on release (ClueGravity): puts the clue exactly back home if it was let go near it. True if it snapped
+        /// (it then stays still instead of falling).
+        /// </summary>
+        public bool TrySnapHome()
+        {
+            if (snapHomeDistance <= 0f || !_hasHome || caseRoot == null) return false;
+            Vector3 local = caseRoot.transform.InverseTransformPoint(transform.position);
+            if ((local - _homeLocalPosition).sqrMagnitude > snapHomeDistance * snapHomeDistance) return false;
+            ResetToHome();
+            return true;
         }
 
         private void HandleSessionStarted()
