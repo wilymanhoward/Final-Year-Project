@@ -12,8 +12,13 @@ are for the experimenter only; participants use their hands.
    4. **FYP > Set Up Headset UI**
    5. **FYP > Set Up Occlusion (Depth API)**
    6. **FYP > Set Up Briefing Detective** (after any new voice files)
-2. Run **FYP > Prepare Study Build**. Every line must say OK, and it switches the debug messages off.
-   **FYP > Restore Debug Settings** switches them back on for development.
+   7. **Ctrl+S** (save the scene)
+
+   After Build Case Scenes always run the whole list again: it rebuilds the clues, and Set Up Networking adds their
+   network parts back (otherwise Prepare Study Build says "X_K2 isn't networked").
+2. Run **FYP > Prepare Study Build**. Every line must say OK, and it switches the debug settings off (status-label
+   messages, zone debug visuals, **Show Me As Partner**). **FYP > Restore Debug Settings** switches the messages back on
+   for development. Never build for participants without running Prepare Study Build last.
 3. Build And Run to **both** headsets: `…4M00Z6` = P01 (host), `…970B12` = P02 (client).
 
 ## Before the session (both headsets)
@@ -97,6 +102,7 @@ are for the experimenter only; participants use their hands.
 - `board_order` row at session start: `left_to_right=` lists the 4 suspects; the culprit is not always first. The same
   pair/case/condition gives the same order on both headsets of a team.
 - `hand_tracking_lost` rows: expect a few per run; dozens per minute means poor lighting or hands too fast/too close.
+- `session_start` has `zone_point=feet_v1` (the contamination rule of this build; runs without it used the head).
 - Merge everything for analysis: `python -I tools/analyze_runs.py StudyData` -> `StudyData/all_runs.csv` plus a means table.
 
 ## First test after the Case Y / briefing changes (headset-untested)
@@ -120,6 +126,39 @@ Do these once, solo (Condition A) first, then once as a team:
       score 4 (Case Y keys: clock K1, logbook K2, keris K3, email K4).
 - [ ] Team: taking a clue from the partner's hand (`clue_grab_taken`), a picked-up clue moves in the partner's view.
 
+## First test after the partner / grab / zone changes (session 6)
+
+**One headset first (no partner needed).** In Unity: **FYP > Debug: Show Me As Partner (toggle)** until it says ON, save,
+**do not** run Prepare Study Build, Build And Run. Don't press Host or Join.
+
+- [x] **Partner fingers**: your cyan double 1.5 m ahead copies open hand, fist and pointing on both hands (verified
+      2026-10-29 after the bent-finger fix).
+- [ ] **Partner head**: the cyan head is at your height, faces you, and nods / turns with you.
+- [ ] **Lost hand**: hide one hand behind your back; the double's hand disappears within about half a second and comes
+      back in place without streaking across.
+- [ ] **Overlap**: where the double's fingers overlap the palm it looks like one even layer, not brighter patches.
+- [ ] Switch it off again (toggle until it says OFF, or run Prepare Study Build) before anything else.
+
+**Then on a normal build (Prepare Study Build run), solo:**
+
+- [ ] **No grabbing before Start**: during placement, ARM and the detective's briefing, clues can't be picked up (no hover
+      outline either). After Start they can; after the run ends they can't.
+- [ ] **Placed clues stay put**: place the scene (A) a few times and walk around; the book and the other clues stay on their
+      furniture, never float.
+- [ ] **R3 notes** (sticky note on the monitor in X, noticeboard note in Y): can be taken off and read; let go within
+      about 15 cm of their spot they snap back exactly; let go elsewhere they fall like other clues.
+- [ ] **Feet estimate**: lean over a zone without stepping in - no red flash, no `error_contamination`; step one foot
+      clearly inside - flash + `error_contamination` (`part=Head` = the estimated feet). Hands still count as before.
+- [ ] `session_start` shows `zone_point=feet_v1`; the meta JSON has `"zonePoint": "feet_v1"`.
+
+**Then as a team (two headsets, Host / Join):**
+
+- [ ] Each of you sees the other's cyan head + hands where the real person is (check with occlusion off), also behind a
+      desk or the display case. Your own body is never drawn.
+- [ ] Partner's fingers move as theirs; a hand they hide disappears; when they leave (Stop on one headset) both their head
+      and hands disappear within about a second.
+- [ ] Nothing stutters (72 fps: `frame_dt_ms` about 14 in the log) with the markers on.
+
 ## Troubleshooting
 
 | Symptom | Fix |
@@ -131,3 +170,6 @@ Do these once, solo (Condition A) first, then once as a team:
 | "…'Share Point Cloud Data' is off" | Settings > Privacy > turn it on, then Host again |
 | Panel doesn't open | ☰ is on the **left** controller; the panel is hidden during a run |
 | ARM refused | Read the reason on the panel (condition vs. partner, placement, floor height) |
+| "X_K2 isn't networked" in Prepare Study Build | Run the whole menu list again after Build Case Scenes (Set Up Networking...) |
+| Your own cyan double appears in a study build | Show Me As Partner is still ON: run Prepare Study Build, rebuild |
+| Partner's hand floats / fingers bent wrong | Rebuild **both** headsets (the fixes are on both sides); send a screenshot if it stays |

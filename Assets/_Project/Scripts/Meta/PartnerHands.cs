@@ -138,12 +138,15 @@ namespace FYP.Detective.Meta
         // the mesh and bones, and maps the joints by their path so they line up with the sender's joint order.
         private void Build(Copy c)
         {
+            // Fix (user: "the fingers of the right hand look weird"): the rig has hand-tracking AND controller-driven hand
+            // visuals with different bone axes; copying the wrong one bent the fingers. Copy the visual this headset is
+            // showing for that side now - the hand-tracking one, the same model the sender's joints come from - and
+            // only if its joint count matches; otherwise try again on a later frame.
+            HandVisual template = Visible(c.Side);
+            if (template == null || template.Root == null || template.Joints.Count != c.Target.Joints.Count) return;
             c.Built = true;
-            HandVisual template = null;
-            foreach (HandVisual v in _visuals)
-                if (v != null && v.Hand != null && v.Hand.Handedness == c.Side && v.Root != null && v.Joints.Count > 0) { template = v; break; }
             var marker = FindFirstObjectByType<PartnerMarker>();
-            if (template == null || marker == null || marker.Material == null) return;
+            if (marker == null || marker.Material == null) return;
 
             var holder = new GameObject("PartnerHand" + c.Side);
             holder.SetActive(false);
