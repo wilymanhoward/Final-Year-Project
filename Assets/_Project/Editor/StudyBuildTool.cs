@@ -148,6 +148,11 @@ namespace FYP.Detective.EditorTools
                 Fail("Plain HTTP not allowed, the data upload would fail (run FYP > Set Up Networking)");
             else Ok("Data upload to the laptop set up (run tools/receive_data.py during sessions)");
 
+            // Same hand tracking for every participant (user decision, session 6: Low, Meta's default).
+            var handFrequency = OVRProjectConfig.CachedProjectConfig.handTrackingFrequency;
+            if (handFrequency == HandTrackingSetupTool.StudyFrequency) Ok("Hand tracking frequency Low (default)");
+            else Fail($"Hand tracking frequency is {handFrequency}, the study uses Low (run FYP > Set Hand Tracking to Low (default))");
+
             if (PlayerSettings.Android.forceInternetPermission) Ok("Android INTERNET permission forced");
             else Fail("INTERNET permission not forced (run FYP > Set Up Networking)");
 

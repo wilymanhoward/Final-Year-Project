@@ -3,30 +3,36 @@ using UnityEditor;
 namespace FYP.Detective.EditorTools
 {
     /// <summary>
-    /// Hand tracking in Fast Motion Mode (user, session 6: the headset lost the hands 33 times in an 8 minute run and the Quest
-    /// then showed its grey tracking-lost screen). Meta's own tooltip for HIGH: enable it when you see tracking loss from fast
-    /// hand motion; the setting becomes the AndroidManifest meta-data com.oculus.handtracking.frequency at build time
-    /// (com.meta.xr.sdk.core Editor/OVRProjectConfig.cs HandTrackingFrequency, Editor/OVRManifestPreprocessor.cs). Costs some
-    /// battery. Idempotent; rebuild both headsets afterwards.
+    /// Hand tracking frequency = Low, Meta's default (user decision, session 6, replacing the earlier Fast Motion / High
+    /// trial). The study's hand use is slow (reach, grab, read, poke), which Meta's tooltip says Low is made for; High is
+    /// meant for tracking loss from fast motion and costs extra processing. The setting becomes the AndroidManifest
+    /// meta-data com.oculus.handtracking.frequency at build time (com.meta.xr.sdk.core Editor/OVRProjectConfig.cs
+    /// HandTrackingFrequency, Editor/OVRManifestPreprocessor.cs:727). FYP > Prepare Study Build checks it. Idempotent;
+    /// rebuild both headsets afterwards.
     /// </summary>
     public static class HandTrackingSetupTool
     {
-        [MenuItem("FYP/Set Hand Tracking to Fast Motion (High)")]
+        public const OVRProjectConfig.HandTrackingFrequency StudyFrequency = OVRProjectConfig.HandTrackingFrequency.LOW;
+
+        [MenuItem("FYP/Set Hand Tracking to Low (default)")]
         public static void SetUp()
         {
-            var config = OVRProjectConfig.CachedProjectConfig;
-            bool changed = config.handTrackingFrequency != OVRProjectConfig.HandTrackingFrequency.HIGH;
-            if (changed)
-            {
-                config.handTrackingFrequency = OVRProjectConfig.HandTrackingFrequency.HIGH;
-                OVRProjectConfig.CommitProjectConfig(config);
-            }
+            bool changed = Apply();
             EditorUtility.DisplayDialog("Hand tracking",
-                "Hand tracking frequency = High (Fast Motion Mode)" + (changed ? " (was Low)." : " (already set).") +
+                "Hand tracking frequency = Low (default)" + (changed ? " (was Fast Motion / High)." : " (already set).") +
                 "\nRebuild and install on both headsets to apply.", "OK");
         }
 
         /// <summary>Batch mode (Unity closed): the same, without the dialog blocking.</summary>
-        public static void SetUpBatch() => SetUp();
+        public static void SetUpBatch() => Apply();
+
+        private static bool Apply()
+        {
+            var config = OVRProjectConfig.CachedProjectConfig;
+            if (config.handTrackingFrequency == StudyFrequency) return false;
+            config.handTrackingFrequency = StudyFrequency;
+            OVRProjectConfig.CommitProjectConfig(config);
+            return true;
+        }
     }
 }

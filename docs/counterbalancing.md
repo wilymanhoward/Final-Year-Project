@@ -50,6 +50,6 @@ B), **Case** and **Condition** from the table. The codes go into every file name
 
 Pilot pairs use codes outside this list (e.g. PIL1, PIL2) and are moved out of StudyData before the analysis.
 
-**Open (decide before the pilot):** in condition A, do the two partners play one after the other (the other waits
-outside the room), or at the same time? At the same time they would see each other through passthrough, which is
-not "solo".
+**Condition A (decided 2026-10-29):** the two partners play their solo runs one after the other; the one not playing
+waits outside the room, so nobody else is in view during a solo run. Both use the same case (the table's A case);
+the order of the two partners within A (P01 first or P02 first) can alternate per pair.
