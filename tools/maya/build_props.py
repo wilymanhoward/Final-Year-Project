@@ -42,6 +42,7 @@ import maya.mel as mel  # noqa: E402
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.normpath(os.path.join(HERE, "..", ".."))
 OUT = os.path.join(REPO, "Assets", "_Project", "Art", "Props")
+RESOURCES = os.path.join(REPO, "Assets", "_Project", "Resources")   # meshes loaded at runtime (PartnerMarker)
 SCENES = os.path.join(HERE, "scenes")
 TRIANGLE_BUDGET = 50000
 
@@ -352,7 +353,7 @@ def save_maya_scene(name):
     cmds.file(save=True, type="mayaAscii", force=True)
 
 
-def export(name, body, glass=None, alpha=None, kind="prop"):
+def export(name, body, glass=None, alpha=None, kind="prop", out=None):
     """Builds the group <name> with <name>_Body (+ _Glass / _Alpha), exports <name>.fbx, records size + triangles."""
     cmds.file(new=True, force=True)
     MATERIALS.clear()
@@ -372,7 +373,7 @@ def export(name, body, glass=None, alpha=None, kind="prop"):
                 for k in range(3):
                     lo[k] = min(lo[k], p[k]); hi[k] = max(hi[k], p[k])
     cmds.select(group, replace=True)
-    path = os.path.join(OUT, name + ".fbx").replace("\\", "/")
+    path = os.path.join(out or OUT, name + ".fbx").replace("\\", "/")
     for cmd in ("FBXResetExport", "FBXExportSmoothingGroups -v true", "FBXExportTriangulate -v true",
                 "FBXExportSmoothMesh -v false", "FBXExportCameras -v false", "FBXExportLights -v false",
                 "FBXExportAnimationOnly -v false", "FBXExportBakeComplexAnimation -v false",
@@ -1055,6 +1056,37 @@ def translated(part, offset):
     for verts, col in part.faces:
         q.face([_v_add(v, offset) for v in verts], col)
     return q
+
+
+def partner_head():
+    """Team partner marker (PartnerMarker): a neutral faceted head - skull, jaw, wedge nose, ears; no face details, hair
+    or hat. Origin = between the eyes (the headset's centre eye), front +Z, so Unity places it straight at the partner's
+    head pose."""
+    p = Part()
+    rnd = Rand(43)
+
+    def face_shape(y):
+        def f(a):
+            front = max(0.0, math.sin(a))
+            side = abs(math.cos(a))
+            return 1.0 - 0.1 * side * (1.0 if y < 0.08 else 0.0) + 0.04 * front
+        return f
+    rings = []
+    for y, rx, rz, cz in ((0.0, 0.03, 0.03, 0.06), (0.02, 0.055, 0.05, 0.05), (0.05, 0.078, 0.078, 0.03), (0.09, 0.088, 0.096, 0.02),
+                          (0.135, 0.092, 0.1, 0.018), (0.18, 0.09, 0.098, 0.012), (0.22, 0.078, 0.086, 0.006), (0.25, 0.05, 0.055, 0.004),
+                          (0.265, 0.02, 0.022, 0.004)):
+        rings.append(ring_y(y, rx, rz, 12, cz=cz, shape=face_shape(y), jitter=0.02 if 0.03 < y < 0.24 else 0.0, rnd=rnd))
+    loft(p, rings, C["skin"])
+    zf = 0.118
+    p.face_out([(0.0, 0.16, zf - 0.006), (0.0, 0.105, zf + 0.035), (0.018, 0.098, zf + 0.004)], C["skin_dk"], (0.03, 0.12, 0.0))
+    p.face_out([(0.0, 0.16, zf - 0.006), (-0.018, 0.098, zf + 0.004), (0.0, 0.105, zf + 0.035)], C["skin_dk"], (-0.03, 0.12, 0.0))
+    p.face_out([(0.0, 0.105, zf + 0.035), (-0.018, 0.098, zf + 0.004), (0.018, 0.098, zf + 0.004)], C["skin_dk"], (0.0, 0.14, 0.0))
+    for sx in (-1, 1):
+        ear = [ring_at((sx * 0.075, 0.13, 0.026), (1.0, 0.0, 0.0), 0.016, 0.024, 6, up=(0.0, 1.0, 0.0)),
+               ring_at((sx * 0.098, 0.13, 0.03), (1.0, 0.0, 0.0), 0.018, 0.028, 6, up=(0.0, 1.0, 0.0)),
+               ring_at((sx * 0.107, 0.131, 0.028), (1.0, 0.0, 0.0), 0.012, 0.022, 6, up=(0.0, 1.0, 0.0))]
+        loft(p, ear, C["skin_dk"])
+    return translated(p, (0.0, -0.165, -0.095))   # eyes (y 0.165, ~2 cm behind the face) -> origin
 
 
 def detective_arm_left(piece="all"):
@@ -1787,6 +1819,9 @@ def build():
     export("Detective_ForearmL", to_maya(detective_arm_left("fore")))
     export("Detective_Eyes", to_maya(detective_eyes()))
     export("Detective_Mouth", to_maya(detective_mouth()))
+
+    # Team partner marker head (loaded with Resources.Load by PartnerMarker).
+    export("PartnerHead", to_maya(partner_head()), out=RESOURCES)
 
     # Room floors (semi-transparent in Unity).
     export("X_Floor", to_maya(floor_tiles()), kind="floor")

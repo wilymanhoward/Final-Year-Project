@@ -4,7 +4,8 @@
     "references": [
         "FYP.Detective",
         "Oculus.VR",
-        "Meta.XR.EnvironmentDepth"
+        "Meta.XR.EnvironmentDepth",
+        "Oculus.Interaction"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

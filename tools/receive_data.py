@@ -146,7 +146,7 @@ def make_handler(out_dir):
             dest = os.path.join(folder, name)
             result = "saved"
             if os.path.exists(dest):   # same name, different content: keep the old one
-                os.replace(dest, dest + ".old-" + time.strftime("%H%M%S"))
+                os.replace(dest, dest + ".old-" + datetime.datetime.now().strftime("%H%M%S%f"))   # microseconds: never clash
                 result = "saved_replaced"
             tmp = dest + ".part"
             with open(tmp, "wb") as f:

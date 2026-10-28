@@ -193,6 +193,17 @@ Data flow:
 - **One submission per run**: submitting stops the timer and ends the session.
 - **Reasoning errors** = 1 for a wrong suspect + 1 per submitted evidence item that isn't key evidence.
   Missing key evidence is logged (`missing_evidence`) but not counted as a reasoning error.
+- **Partner marker (user, session 6: partner hard to see without occlusion):** `TeamSessionSync.Update` sends a
+  `BodyPoseFrame` (Core, binary ~0.5 KB: head pose + per hand wrist pose, scale and every `HandVisual.Joints` local
+  rotation, CaseRoot-local) ~15 Hz as named message `fyp.pose`, `NetworkDelivery.UnreliableSequenced`, while a partner
+  is connected. Receiver: `PartnerMarker` (UI, self-installs) draws the neutral Maya head `Resources/PartnerHead.fbx`
+  (`partner_head()` in build_props.py, origin between the eyes); `PartnerHands` (Meta asm, now refs
+  `Oculus.Interaction`; added by TeamSessionSync) clones this headset's own ISDK hand visual per side (inactive, all
+  scripts destroyed/disabled, joints mapped by sibling path) and poses it from the partner's joints. All in translucent
+  cyan `FYP/PartnerMarker` (ZTest Always, over the props), smoothed, hidden after 1 s without data or when the hand is
+  untracked. **Floating hand fix (user):** a lost hand kept being sent as its frozen last pose; the sender now counts a
+  hand only if `PlayerRig.IsTracked` + ISDK `IsTrackedDataValid` + `IsHighConfidence`, and the receiver also hides a hand
+  whose wrist pose hasn't changed at all for 0.4 s (`PartnerHands.FrozenSeconds`). Not logged. Same in every team run. Headset-untested.
 - **Feet estimate (user, session 6, trial):** the "head" point of the zone check is now the estimated feet,
   `FootEstimate.FromHead` (8 cm behind the head's floor point, + 25 cm x sin(look-down), max 30 cm), so leaning over a
   zone isn't an entry; hands unchanged; logged positions unchanged (still the head). Revert = `git revert` the
@@ -506,18 +517,20 @@ Data flow:
 
 ## Current status
 
-_Last updated: session 6 (2026-10-28). All planned phases are done (Week 2 A–E, Week 3 Phases 1–3) plus the visual pass,
+_Last updated: session 6 (2026-10-29). All planned phases are done (Week 2 A–E, Week 3 Phases 1–3) plus the visual pass,
 clue gravity, floors, depth occlusion, data upload, the new evidence board look, the setup panel / case-file card /
 status label redesign, capped toss, the briefing detective (ElevenLabs voice, natural motion, team-synchronised
 briefing), the shared-anchor floor fix, the clue sync fix, the occlusion toggle, the Case Y murder scene, the Case X
-trophy briefing, the shuffled suspect cards, the Case Y detective spot, the red contamination flash and the analysis
-script. Work in phases,
+trophy briefing, the shuffled suspect cards, the Case Y detective spot, the red contamination flash, the analysis
+script, two audits, the floating-clue fix, no grabbing outside a run, grabbable R3 notes, the feet estimate and the
+partner head + hands. Work in phases,
 stop after each for the user's headset test, commit only after the user confirms it works._
 
 **Where we are (start here)**
-- `main` = `dcb6c5b` "Analysis script merging all runs, checklist..." (after `d77703c` Case Y detective spot + red flash,
-  `adb6baf` suspect shuffle, `f5b3404` Case Y murder scene / Case X trophy briefing; everything committed at the user's
-  request **before** a full headset test). EditMode tests **260/260** (batch). Occlusion is OFF by
+- `main` = the "Partner head + hands, audit 2 fixes" commit (after `4cc4be4` feet estimate, `9ec94f7` checkpoint:
+  floating-clue fix / no grabbing outside a run / grabbable R3 / counterbalancing, `d274af7` audit 1 fixes). Everything
+  committed at the user's request **before** a full headset test. EditMode tests last run **261/261** at `d274af7`;
+  everything after that was written with Unity open and is **not yet batch-tested** (first thing when Unity is closed). Occlusion is OFF by
   default (`ExperimentConfig.occlusionEnabled`; scene set by Set Up Occlusion) - turn it on with the setup panel button. Packages: + `com.unity.xr.meta-openxr` 2.5.1 (AR Foundation
   6.5.0, XR Composition Layers 2.6.0). Setup order in Unity: Build Case Scenes -> Set Up Networking -> Set Up Evidence
   Board -> Set Up Headset UI -> Set Up Occlusion (Depth API) -> Set Up Briefing Detective -> Prepare Study Build.
@@ -562,6 +575,14 @@ stop after each for the user's headset test, commit only after the user confirms
   StudyData test runs (placeholder titles, mostly Aborted) must be moved out before real data.
 - `docs/device_test_checklist.md` has a "First test after the Case Y / briefing changes" section (boundary, Case Y scene,
   both detective spots, red flash, card order, hand tracking, perfect submission, team steal).
+- **Partner head + hands (user, session 6):** see the design note "Partner marker". Seen on the headset by the user
+  (hands followed, but a lost hand floated -> fixed, rebuild both). One-headset test: `FYP > Debug: Show Me As Partner
+  (toggle)` (TeamSessionSync.showSelfAsPartner; with no partner you see yourself 1.5 m ahead, facing you; Prepare Study
+  Build switches it off). Markers use a stencil (bit 128) so overlapping fingers are one layer.
+- **Feet estimate (trial):** zone check uses `FootEstimate` (design note); every run logs `zone_point=feet_v1` in
+  `session_start` and `zonePoint` in the meta JSON (older runs: none = head). Revert = `git revert 4cc4be4`.
+- **Audit 2 (session 6):** no crash/data-loss bugs found; fixed: zone rule logged, partner hand jumps (not streaks) back
+  after being hidden, self-as-partner switch, stencil, misplaced doc comments, receiver `.old-<HHMMSSffffff>` names.
 - Batch entries exist for `CaseSceneTool.BuildBatch` and `CharacterSetupTool.SetUpBatch` (Unity must be closed).
 - Main.unity has the study setting (status-label debug messages off). For development: `FYP > Restore Debug Settings`.
 
@@ -579,6 +600,9 @@ stop after each for the user's headset test, commit only after the user confirms
    partner's view), joining no longer says "height wrong" (status shows the cm correction), capped toss
    (`clue_thrown`), the new setup panel / case-file card / status label.
    Pull with `bash tools/pull_data.sh` (or the receiver) and check the rows listed in the checklist.
+   Also new: partner head + hands (incl. the floating-hand fix), feet estimate (lean over a zone = no entry, step in =
+   entry), no grabbing before Start, R3 notes grabbable + snap home, red flash in both eyes, `zone_point` in the log.
+   Before the team session, try `FYP > Debug: Show Me As Partner` on one headset.
 2. Answer the open questions below, then a pilot with real participants.
 3. Later (not built, don't start without the user): interpersonal distance and shared head-gaze attention analysis.
 
@@ -610,5 +634,6 @@ stop after each for the user's headset test, commit only after the user confirms
 **Open questions for the user**
 - Hand tracking frequency: keep High (Fast Motion, current config + `HandTrackingSetupTool`) or revert to Low?
 - Red contamination flash: on in every study run, or practice only (would need a config switch)?
+- Partner markers are a visual aid only in condition B (method section). Hide them when the partner is closer than ~1 m?
 - (Settled session 6: lab 5 x 5 m playable, template content deleted, grading split into answer_correct /
   perfect_submission.)

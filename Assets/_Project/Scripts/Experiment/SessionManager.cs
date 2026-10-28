@@ -445,11 +445,11 @@ namespace FYP.Detective
             if (State.RecordContamination(zoneId, part) && IsTeamMode) Authority.ReportContamination(zoneId, part, SelfId);
         }
 
-        /// <summary>A clue this headset controls was put back home (logging only, never networked).</summary>
         /// <summary>A clue this headset controls was tossed (logging only, never networked).</summary>
         public void RequestClueThrown(string clueId, float speed, bool capped) =>
             State.RecordClueThrown(clueId, LocalActor, speed, capped);
 
+        /// <summary>A clue this headset controls was put back home (logging only, never networked).</summary>
         public void RequestClueReset(string clueId, ClueResetReason reason = ClueResetReason.OutOfBounds) =>
             State.RecordClueReset(clueId, LocalActor, ClueBounds.ReasonText(reason));
 

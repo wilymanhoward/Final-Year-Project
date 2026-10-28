@@ -13,6 +13,12 @@ namespace FYP.Detective
     /// Meta body tracking (hips) if pilots show false entries.</remarks>
     public static class FootEstimate
     {
+        /// <summary>
+        /// Which point the zone check used for the body, written to every run (session_start zone_point=, meta zonePoint)
+        /// so runs of builds with different rules can be told apart. Change it whenever the rule or its numbers change.
+        /// </summary>
+        public const string RuleCode = "feet_v1";
+
         public const float BaseBack = 0.08f;
         public const float LeanBack = 0.25f;
         public const float MaxBack = 0.30f;

@@ -197,6 +197,7 @@ namespace FYP.Detective
             LogEvent(LogEvents.SessionStart, FormattableString.Invariant(
                 $"time_cap_s={_config.TimeCapSeconds:F0};case_title={(caseDef != null ? caseDef.Title : "")};frame={PositionFrame};placement={placement.MethodCode}")
                 + ";start_source=" + SessionManager.StartSourceCode(session.LastStartSource)
+                + ";zone_point=" + FootEstimate.RuleCode
                 + (session.State.IsTeamRun ? ";team=1;self=" + session.State.SelfId : ""));
             // Arming happens before the file is open (like placement), so it is recorded here with its own time.
             if (session.RunArmedUtc != DateTime.MinValue)
@@ -247,10 +248,6 @@ namespace FYP.Detective
             WriteSnapshot();
         }
 
-        // A recenter changes the tracking space; the anchor pose settles over the next frames, so the height is
-        // logged again 1 s later.
-        // The detective's briefing happens before the run (no file open), so it is summarised at session start:
-        // when it began and finished (UTC), replays, whether this headset heard it to the end (and the partner, team).
         // Left-to-right order of the suspect cards on the evidence board (shuffled per pair/case/condition, SuspectOrder), so
         // card position can be analysed against the culprit and the chosen suspect.
         private void LogBoardOrder()
@@ -263,6 +260,8 @@ namespace FYP.Detective
             LogEvent(LogEvents.BoardOrder, "left_to_right=" + string.Join("|", ids));
         }
 
+        // The detective's briefing happens before the run (no file open), so it is summarised at session start:
+        // when it began and finished (UTC), replays, whether this headset heard it to the end (and the partner, team).
         private void LogBriefing()
         {
             if (_writer == null || !session.BriefingRequired) return;
@@ -282,6 +281,8 @@ namespace FYP.Detective
             LogEvent(LogEvents.DepthOcclusion, "when=" + when + ";status=" + SessionManager.DepthOcclusionCode(session.DepthOcclusion));
         }
 
+        // A recenter changes the tracking space; the anchor pose settles over the next frames, so the height is
+        // logged again 1 s later.
         private void HandleTrackingRecentered()
         {
             if (_writer == null) return;
@@ -330,6 +331,7 @@ namespace FYP.Detective
                     _writer != null ? Path.GetFileName(_writer.FilePath) : "");
                 meta.startSource = SessionManager.StartSourceCode(session.LastStartSource);
                 meta.armedUtc = PlacementRecord.FormatUtc(session.RunArmedUtc);
+                meta.zonePoint = FootEstimate.RuleCode;
                 CsvLogWriter.WriteAllTextSafely(_metaPath, JsonUtility.ToJson(meta, true));
             }
             catch (Exception e)

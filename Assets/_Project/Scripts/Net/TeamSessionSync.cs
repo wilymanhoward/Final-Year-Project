@@ -17,12 +17,16 @@ namespace FYP.Detective.Net
     /// <remarks>
     /// Netcode 2.13.3: <c>NetworkManager.OnServerStarted/OnClientStarted</c> (Runtime/Core/NetworkManager.cs:903/908),
     /// <c>CustomMessagingManager.RegisterNamedMessageHandler/SendNamedMessage</c>, <c>NetworkObject.ChangeOwnership</c>
-    /// (server only, Runtime/Core/NetworkObject.cs:2279).
+    /// (server only, Runtime/Core/NetworkObject.cs:2279), <c>SendNamedMessage(..., NetworkDelivery)</c> (Runtime/Messaging/CustomMessageManager.cs:300).
     /// </remarks>
     public class TeamSessionSync : MonoBehaviour, ICaseAuthority
     {
         [SerializeField] private NetworkSessionLauncher launcher;
         [SerializeField] private SessionManager session;
+
+        [Tooltip("Debug (one headset): with no partner connected, show this headset's own head and hands as the partner, " +
+                 "turned to face you 1.5 m ahead. Toggle with FYP > Debug: Show Me As Partner; Prepare Study Build turns it off.")]
+        [SerializeField] private bool showSelfAsPartner;
 
         [Tooltip("Team-run status for the experimenter (e.g. partner refused to start), wire to StatusLabel.Show.")]
         public UnityEvent<string> onStatusChanged = new UnityEvent<string>();
@@ -32,6 +36,16 @@ namespace FYP.Detective.Net
         // Team briefing (host): who has tapped Begin, with their pose; both -> BriefingGo to both headsets.
         private PlayerPose2D? _hostReady, _clientReady;
         private bool _applyingRemoteEnd;
+        private PlayerRig _rig;
+        private CaseRoot _caseRoot;
+        private PartnerMarker _marker;
+        private FYP.Detective.Meta.PartnerHands _hands;
+        private float _nextPoseSend;
+        private const float PoseInterval = 1f / 15f;
+        private const string PoseMessageName = "fyp.pose";
+        private readonly BodyPoseFrame _sendFrame = new BodyPoseFrame();
+        private readonly BodyPoseFrame _receiveFrame = new BodyPoseFrame();
+        private readonly byte[] _receiveBuffer = new byte[BodyPoseFrame.MaxBytes];
 
         private NetworkManager Nm => launcher != null ? launcher.Manager : null;
         private bool IsHost => Nm != null && Nm.IsListening && Nm.IsServer;
@@ -39,10 +53,91 @@ namespace FYP.Detective.Net
         /// <inheritdoc/>
         public bool IsActive => launcher != null && launcher.HasPeer;
 
+        /// <summary>Debug switch (see the field's tooltip); set by the Editor menu.</summary>
+        public bool ShowSelfAsPartner { get => showSelfAsPartner; set => showSelfAsPartner = value; }
+
         private void Awake()
         {
             if (launcher == null) launcher = GetComponent<NetworkSessionLauncher>();
             if (session == null) session = FindFirstObjectByType<SessionManager>();
+            _rig = FindFirstObjectByType<PlayerRig>();
+            _caseRoot = FindFirstObjectByType<CaseRoot>();
+            _hands = FindFirstObjectByType<FYP.Detective.Meta.PartnerHands>();
+            if (_hands == null) _hands = gameObject.AddComponent<FYP.Detective.Meta.PartnerHands>();
+        }
+
+        // Partner marker (user, session 6): send our head + hands (wrist + finger joints), CaseRoot-local so both headsets
+        // agree, about 15 times a second while a partner is connected; binary, unreliable-sequenced (a lost frame is just
+        // replaced by the next one, an old one is never shown after a newer one).
+        private void Update()
+        {
+            bool selfTest = showSelfAsPartner && !IsActive;   // a real partner always wins
+            if ((!IsActive && !selfTest) || _rig == null || _caseRoot == null || Time.unscaledTime < _nextPoseSend) return;
+            _nextPoseSend = Time.unscaledTime + PoseInterval;
+            Transform head = _rig.Head, root = _caseRoot.transform;
+            _sendFrame.HasHead = _rig.IsAvailable(BodyPart.Head);
+            if (_sendFrame.HasHead)
+            {
+                _sendFrame.HeadPosition = root.InverseTransformPoint(head.position);
+                _sendFrame.HeadRotation = Quaternion.Inverse(root.rotation) * head.rotation;
+            }
+            _hands.Capture(_sendFrame, _rig);
+            byte[] bytes = _sendFrame.Write(out int length);
+            if (selfTest) { ShowSelf(bytes, length); return; }
+            NetworkManager nm = Nm;
+            if (nm == null || nm.CustomMessagingManager == null) return;
+            if (IsHost)
+            {
+                foreach (ulong id in nm.ConnectedClientsIds) if (id != nm.LocalClientId) SendPose(nm, id, bytes, length);
+            }
+            else if (nm.IsConnectedClient) SendPose(nm, NetworkManager.ServerClientId, bytes, length);
+        }
+
+        private static void SendPose(NetworkManager nm, ulong clientId, byte[] bytes, int length)
+        {
+            using (var writer = new FastBufferWriter(length + 8, Allocator.Temp))
+            {
+                writer.WriteValueSafe(length);
+                writer.WriteBytesSafe(bytes, length);
+                nm.CustomMessagingManager.SendNamedMessage(PoseMessageName, clientId, writer, NetworkDelivery.UnreliableSequenced);
+            }
+        }
+
+        // Debug: decode our own frame (so the codec is exercised too), turn it to face us 1.5 m ahead, show it.
+        private void ShowSelf(byte[] bytes, int length)
+        {
+            if (!_sendFrame.HasHead || length > _receiveBuffer.Length) return;
+            System.Array.Copy(bytes, _receiveBuffer, length);
+            if (!_receiveFrame.TryRead(_receiveBuffer, length)) return;
+            Vector3 ahead = _sendFrame.HeadRotation * Vector3.forward;
+            ahead.y = 0f;
+            if (ahead.sqrMagnitude < 1e-4f) ahead = Vector3.forward;
+            Vector3 pivot = _sendFrame.HeadPosition + ahead.normalized * 0.75f;
+            _receiveFrame.TurnAround(new Vector3(pivot.x, 0f, pivot.z));
+            ShowReceived();
+        }
+
+        private void ShowReceived()
+        {
+            if (_marker == null) _marker = FindFirstObjectByType<PartnerMarker>();
+            if (_marker != null && _receiveFrame.HasHead) _marker.Show(_receiveFrame.HeadPosition, _receiveFrame.HeadRotation);
+            _hands.Show(_receiveFrame);
+        }
+
+        // Partner's pose frame -> head marker + hand copies. Malformed or oversized frames are dropped.
+        private void HandlePoseMessage(ulong sender, FastBufferReader reader)
+        {
+            byte[] buffer = _receiveBuffer;
+            int length;
+            try
+            {
+                reader.ReadValueSafe(out length);
+                if (length <= 0 || length > _receiveBuffer.Length) return;
+                reader.ReadBytesSafe(ref buffer, length);
+            }
+            catch (System.OverflowException) { return; }   // shorter than it claims
+            if (!_receiveFrame.TryRead(buffer, length)) return;
+            ShowReceived();
         }
 
         private void OnEnable()
@@ -168,7 +263,10 @@ namespace FYP.Detective.Net
         private void RegisterHandler()
         {
             if (Nm != null && Nm.CustomMessagingManager != null)
+            {
                 Nm.CustomMessagingManager.RegisterNamedMessageHandler(TeamMessage.Name, HandleMessage);
+                Nm.CustomMessagingManager.RegisterNamedMessageHandler(PoseMessageName, HandlePoseMessage);
+            }
         }
 
         private void HandleMessage(ulong sender, FastBufferReader reader)

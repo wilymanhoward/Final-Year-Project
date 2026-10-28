@@ -51,7 +51,9 @@ namespace FYP.Detective.EditorTools
                 EditorUtility.SetDirty(z);
                 zoneVisuals++;
             }
-            Ok($"Debug messages off on {labels} status label(s); {zoneVisuals} zone debug visual(s) switched off");
+            int selfPartner = SetSelfAsPartner(false);
+            Ok($"Debug messages off on {labels} status label(s); {zoneVisuals} zone debug visual(s) switched off" +
+               (selfPartner > 0 ? "; 'Show Me As Partner' switched off" : ""));
 
             // 2. Case content.
             var specErrors = CaseSpecValidator.ValidatePair(CaseSpecs.X, CaseSpecs.Y);
@@ -175,6 +177,36 @@ namespace FYP.Detective.EditorTools
                 EditorSceneManager.SaveScene(session.gameObject.scene);
             }
             EditorUtility.DisplayDialog("Debug settings", $"Debug messages on for {labels} status label(s). Scene saved.", "OK");
+        }
+
+        /// <summary>One-headset test of the partner markers: your own head and hands as the partner, facing you.</summary>
+        [MenuItem("FYP/Debug: Show Me As Partner (toggle)")]
+        public static void ToggleSelfAsPartner()
+        {
+            var sync = Object.FindFirstObjectByType<TeamSessionSync>(FindObjectsInactive.Include);
+            if (sync == null) { EditorUtility.DisplayDialog("Show Me As Partner", "No TeamSessionSync (run FYP > Set Up Networking).", "OK"); return; }
+            bool on = !sync.ShowSelfAsPartner;
+            SetSelfAsPartner(on);
+            EditorSceneManager.MarkSceneDirty(sync.gameObject.scene);
+            EditorSceneManager.SaveScene(sync.gameObject.scene);
+            EditorUtility.DisplayDialog("Show Me As Partner", on
+                ? "ON. Build and run: with no partner connected you see your own head and hands 1.5 m in front of you, " +
+                  "facing you. FYP > Prepare Study Build turns it off."
+                : "OFF. Scene saved.", "OK");
+        }
+
+        private static int SetSelfAsPartner(bool on)
+        {
+            int n = 0;
+            foreach (var sync in Object.FindObjectsByType<TeamSessionSync>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            {
+                if (sync.ShowSelfAsPartner == on) continue;
+                Undo.RecordObject(sync, "Show me as partner");
+                sync.ShowSelfAsPartner = on;
+                EditorUtility.SetDirty(sync);
+                n++;
+            }
+            return n;
         }
 
         private static int SetDebugMessages(bool on)
