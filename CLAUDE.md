@@ -529,8 +529,8 @@ stop after each for the user's headset test, commit only after the user confirms
 **Where we are (start here)**
 - `main` = the "Partner head + hands, audit 2 fixes" commit (after `4cc4be4` feet estimate, `9ec94f7` checkpoint:
   floating-clue fix / no grabbing outside a run / grabbable R3 / counterbalancing, `d274af7` audit 1 fixes). Everything
-  committed at the user's request **before** a full headset test. EditMode tests last run **261/261** at `d274af7`;
-  everything after that was written with Unity open and is **not yet batch-tested** (first thing when Unity is closed). Occlusion is OFF by
+  committed at the user's request **before** a full headset test. EditMode tests **266/266** (batch, at `c176c73`, no compile
+  or shader errors). Occlusion is OFF by
   default (`ExperimentConfig.occlusionEnabled`; scene set by Set Up Occlusion) - turn it on with the setup panel button. Packages: + `com.unity.xr.meta-openxr` 2.5.1 (AR Foundation
   6.5.0, XR Composition Layers 2.6.0). Setup order in Unity: Build Case Scenes -> Set Up Networking -> Set Up Evidence
   Board -> Set Up Headset UI -> Set Up Occlusion (Depth API) -> Set Up Briefing Detective -> Prepare Study Build.

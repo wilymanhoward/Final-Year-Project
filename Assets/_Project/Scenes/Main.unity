@@ -12779,6 +12779,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: FYP.Detective.Net::FYP.Detective.Net.TeamSessionSync
   launcher: {fileID: 511874951}
   session: {fileID: 366736357}
+  showSelfAsPartner: 0
   onStatusChanged:
     m_PersistentCalls:
       m_Calls:
