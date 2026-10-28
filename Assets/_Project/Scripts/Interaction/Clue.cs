@@ -63,6 +63,7 @@ namespace FYP.Detective
         public bool HasLocalAuthority { get; set; } = true;
 
         private int _holdCount;
+        private bool _shown = true;
 
         /// <summary>True while at least one interactor holds this clue (it is never reset while held).</summary>
         public bool IsHeld => _holdCount > 0;
@@ -85,11 +86,22 @@ namespace FYP.Detective
         /// <summary>True for a grabbable clue whose grab interactables are known (networked in team runs).</summary>
         public bool IsNetworkedGrabbable => grabInteractables.Length > 0;
 
-        /// <summary>Enables/disables grabbing (used to hide the inactive case's clues).</summary>
+        /// <summary>Shows/hides the clue for grabbing (used to hide the inactive case's clues).</summary>
         public void SetInteractable(bool interactable)
         {
-            foreach (Behaviour b in grabInteractables) if (b != null) b.enabled = interactable;
+            _shown = interactable;
+            ApplyGrabbable();
         }
+
+        // User decision (session 6): clues can only be grabbed while a run is going, not during setup or the briefing.
+        private void ApplyGrabbable()
+        {
+            bool on = _shown && IsSessionRunning;
+            foreach (Behaviour b in grabInteractables) if (b != null && b.enabled != on) b.enabled = on;
+        }
+
+        private void HandleSessionStarted() => ApplyGrabbable();
+        private void HandleSessionEnded(SessionEndReason reason) => ApplyGrabbable();
 
         /// <summary>Makes the Interaction SDK let go of the clue (disables its grab interactables for one frame).</summary>
         public void ForceRelease()
@@ -102,8 +114,8 @@ namespace FYP.Detective
         {
             foreach (Behaviour b in grabInteractables) if (b != null) b.enabled = false;
             yield return null;
-            foreach (Behaviour b in grabInteractables) if (b != null) b.enabled = true;
             _holdCount = 0;
+            ApplyGrabbable();
         }
 
         private void Awake()
@@ -114,6 +126,9 @@ namespace FYP.Detective
         private void OnEnable()
         {
             if (session == null) return;
+            session.SessionStarted += HandleSessionStarted;
+            session.SessionEnded += HandleSessionEnded;
+            ApplyGrabbable();
             session.State.ClueFound += HandleFound;
             session.State.ClueTagged += HandleTagged;
             session.State.ClueUntagged += HandleUntagged;
@@ -122,6 +137,8 @@ namespace FYP.Detective
         private void OnDisable()
         {
             if (session == null) return;
+            session.SessionStarted -= HandleSessionStarted;
+            session.SessionEnded -= HandleSessionEnded;
             session.State.ClueFound -= HandleFound;
             session.State.ClueTagged -= HandleTagged;
             session.State.ClueUntagged -= HandleUntagged;

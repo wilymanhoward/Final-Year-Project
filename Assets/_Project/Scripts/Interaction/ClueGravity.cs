@@ -20,6 +20,7 @@ namespace FYP.Detective
 
         private Clue _clue;
         private Rigidbody _body;
+        private ClueResetter _resetter;
         private bool _loose;
         private readonly TossEstimator _toss = new TossEstimator();
         private Vector3 _pendingVelocity;
@@ -38,6 +39,7 @@ namespace FYP.Detective
         {
             _clue = GetComponent<Clue>();
             _body = GetComponent<Rigidbody>();
+            _resetter = GetComponent<ClueResetter>();
             if (session == null) session = FindFirstObjectByType<SessionManager>();
         }
 
@@ -51,6 +53,12 @@ namespace FYP.Detective
 
         private void HandleHoldEnded(Clue clue)
         {
+            // A note let go near its spot goes back on the board instead of falling (decided here, before it is loose).
+            if (_resetter != null && _clue.HasLocalAuthority && _resetter.TrySnapHome())
+            {
+                _toss.Clear();
+                return;
+            }
             _loose = true;
             _pendingVelocity = _toss.Release(out float rawSpeed, out bool isToss, out bool capped);
             _hasPendingVelocity = true;
@@ -77,10 +85,14 @@ namespace FYP.Detective
         // the headset that controls the clue. On the partner's copy the NetworkTransform writes the pose; with
         // interpolation on, the physics engine kept redrawing the old interpolated pose over it, so the clue looked frozen.
         // Same rule as Netcode's own NetworkRigidbody (NetworkRigidBodyBase.cs: non-authority -> interpolation None).
-        private void Update()
+        // Placement fix (user: "the book floats after placing the scene"): a still (kinematic) clue must not interpolate
+        // either, or the physics engine redraws its old pose over the move it gets from CaseRoot / the anchor.
+        private void Update() => SyncInterpolation();
+
+        private void SyncInterpolation()
         {
             if (_body == null) return;
-            var wanted = _clue.HasLocalAuthority ? RigidbodyInterpolation.Interpolate : RigidbodyInterpolation.None;
+            var wanted = !_body.isKinematic && _clue.HasLocalAuthority ? RigidbodyInterpolation.Interpolate : RigidbodyInterpolation.None;
             if (_body.interpolation != wanted) _body.interpolation = wanted;
         }
 
@@ -108,6 +120,7 @@ namespace FYP.Detective
             }
             _body.useGravity = true;
             _body.isKinematic = !simulate;
+            SyncInterpolation();   // at once, so a reset teleport right after MakeStill isn't interpolated back
         }
     }
 }

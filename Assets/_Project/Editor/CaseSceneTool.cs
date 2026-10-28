@@ -120,6 +120,12 @@ namespace FYP.Detective.EditorTools
         }
 
         /// <summary>Rotation whose readable side (local -Z, like a Quad / a world canvas seen from the front) faces <paramref name="yaw"/>.</summary>
+        private const float FlatGrabDepth = 0.01f;     // collider thickness of a grabbable note
+        private const float SnapHomeDistance = 0.15f;  // let go this close to its spot -> back on the board/monitor
+
+        /// <summary>K1 (keypad / wall clock) and R3 (sticky note / noticeboard note) are flat panels.</summary>
+        private static bool IsFlat(ClueSlot slot) => slot == ClueSlot.K1 || slot == ClueSlot.R3;
+
         public static Quaternion FacingRotation(float yaw)
         {
             Vector3 face = Quaternion.Euler(0f, yaw, 0f) * Vector3.forward;
@@ -267,8 +273,18 @@ namespace FYP.Detective.EditorTools
         private static void BuildClue(Transform parent, CaseSpec spec, ClueSpec c, SessionManager session, CaseRoot caseRoot, Transform head)
         {
             Vector3 size = ClueSize.TryGetValue(c.Id, out var s) ? s : new Vector3(0.1f, 0.05f, 0.1f);
+            bool flat = IsFlat(c.Slot);   // panel-shaped (keypad/clock, note): centred, readable side local -Z
             GameObject go;
-            if (c.Grabbable)
+            if (flat && c.Grabbable)
+            {
+                // Grabbable note (user, session 6): flat like the static panels, but a thin box so it can be held.
+                go = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                go.transform.SetParent(parent, false);
+                go.transform.localScale = new Vector3(size.x, size.y, FlatGrabDepth);
+                go.transform.localPosition = new Vector3(c.X, PlayArea.Height(c.Height), c.Z);
+                go.transform.localRotation = FacingRotation(c.FacingYaw);
+            }
+            else if (c.Grabbable)
             {
                 go = GameObject.CreatePrimitive(PrimitiveType.Cube);
                 go.transform.SetParent(parent, false);
@@ -299,6 +315,10 @@ namespace FYP.Detective.EditorTools
                 QuickActionsAPI.AddGrabInteraction(go);
                 ClueWiring.WireGrabInteractables(clue);
                 ClueWiring.EnsureResetter(clue, caseRoot, session);
+                // Notes taken off their board/monitor snap back when let go near their spot (user, session 6).
+                var rso = new SerializedObject(clue.GetComponent<ClueResetter>());
+                rso.FindProperty("snapHomeDistance").floatValue = flat ? SnapHomeDistance : 0f;
+                rso.ApplyModifiedPropertiesWithoutUndo();
                 // Grab interactables for CaseContent hiding / ForceRelease (Set Up Networking fills the same list).
                 var grabs = new List<Behaviour>();
                 grabs.AddRange(go.GetComponentsInChildren<HandGrabInteractable>(true));
@@ -318,9 +338,10 @@ namespace FYP.Detective.EditorTools
             // components; the Visual is counter-scaled so the mesh shows at its real size (it fills the collider box).
             Object.DestroyImmediate(go.GetComponent<MeshRenderer>());
             if (c.Grabbable) Object.DestroyImmediate(go.GetComponent<MeshFilter>());   // static: MeshFilter feeds the MeshCollider
-            var inverse = new Vector3(1f / size.x, 1f / size.y, c.Grabbable ? 1f / size.z : 1f);
+            Vector3 scale = go.transform.localScale;
+            var inverse = new Vector3(1f / scale.x, 1f / scale.y, 1f / scale.z);
             var visual = PropAssets.AddVisual(go.transform, c.Id,
-                c.Grabbable ? new Vector3(0f, -0.5f, 0f) : Vector3.zero, Quaternion.identity, inverse);
+                c.Grabbable && !flat ? new Vector3(0f, -0.5f, 0f) : Vector3.zero, Quaternion.identity, inverse);
             var shell = PropAssets.AddHighlightShell(visual, c.Id);
             var highlight = go.AddComponent<ClueHighlight>();
             MainSceneBuilder.SetObject(highlight, "shell", shell);
