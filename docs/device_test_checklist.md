@@ -55,7 +55,8 @@ are for the experimenter only; participants use their hands.
 1. Press **☰ (left controller)** to open the setup panel.
 2. Set **Pair** and **Participant** codes (– / +) and the **Case X / Y** of this run (counterbalancing sheet).
 3. Choose **Condition A / B**:
-   - **A (solo)**: no network running ("no partner" on the panel).
+   - **A (solo)**: no network running ("no partner" on the panel). One partner plays while the other **waits outside
+     the room**; then swap (same case, new run with the other participant code).
    - **B (team)**: host headset = **Host**; client headset = **Join**. Wait for "Host's placement loaded (shared
      anchor)" on the client and check that the scene lines up in both headsets. If the shared anchor fails: both press
      **X (Manual)** on the tape mark facing the same wall.
@@ -121,7 +122,8 @@ Do these once, solo (Condition A) first, then once as a team:
       flash red for about 1 s. It also fires when a hand enters. Both eyes, no flicker. `error_contamination` row logged.
       Partner's entry should NOT flash your view.
 - [ ] **Suspect cards** are in a different order for different pair/case/condition combinations.
-- [ ] **Hand tracking**: decide High (current, Fast Motion) vs Low; compare `hand_tracking_lost` counts per run.
+- [ ] **Hand tracking** is Low (decided): Prepare Study Build shows "Hand tracking frequency Low (default)". Note how many
+      `hand_tracking_lost` rows a run has, as a baseline.
 - [ ] Full correct submission in each case: culprit + K1-K4 -> `answer_correct=1`, `perfect_submission=1`, evidence
       score 4 (Case Y keys: clock K1, logbook K2, keris K3, email K4).
 - [ ] Team: taking a clue from the partner's hand (`clue_grab_taken`), a picked-up clue moves in the partner's view.

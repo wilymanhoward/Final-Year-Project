@@ -14,6 +14,8 @@ Read this first in every session. Update **Current status** at the end of each s
   "Use Colocation Session") + Unity Netcode for GameObjects. Design everything so it can become networked
   later: **all game state lives in one place, `CaseState`**, never scattered across objects.
 - **Study design:** within-subjects, counterbalanced. Condition A = solo, Condition B = team of 2.
+  **Condition A runs one partner after the other (user, 2026-10-29):** the other partner waits outside the room, so a
+  solo run never has a second person in view. Order per pair: `docs/counterbalancing.md`.
   Two different but equally difficult cases: Case X and Case Y.
 - **Interaction (decided, session 3):** **hand tracking for participants.** Controllers stay in code only as an
   experimenter/fallback option. Meta Interaction SDK for grabbing. **Never write a custom grab system.** Hook into
@@ -560,8 +562,11 @@ stop after each for the user's headset test, commit only after the user confirms
   app. Not our rendering (it covers our floor too). Headset logs showed `numGuardians: 0` (no room-scale Guardian boundary saved) in
   boundaryless MR mode (the app suppresses the boundary) plus ~33 hand-tracking losses and mount/unmount flaps per 8 min run. Best
   guess: the Quest safety system. Remedy: draw a room-scale boundary on both headsets; if it still appears, A/B with boundary
-  suppression off. Rarer after that (user). `FYP > Set Hand Tracking to Fast Motion (High)` was added and the config is at High (not
-  proven to help; revert to Low if unwanted).
+  suppression off. Rarer after that (user).
+- **Hand tracking frequency = Low, Meta's default (user decision, session 6, 2026-10-29):** the Fast Motion / High trial is
+  over (meant for loss from fast motion, costs processing; the study's hand use is slow). `FYP > Set Hand Tracking to Low
+  (default)` (`HandTrackingSetupTool`, also `SetUpBatch`) sets it; Prepare Study Build fails if it isn't Low. Same for all
+  participants (method section).
 - **Case Y detective spot (user, session 6: he appeared on restricted areas):** in Case Y he always stands at
   `CaseSpecs.YBriefingX/Z` = (0.9, -0.5), open floor right of the start mark, facing the player (team: the pair's middle);
   `DetectiveBriefing.TryFixedSpot` (X = beside the display, Y = this spot, else in front of the player). Test: >= 0.5 m clear
@@ -571,7 +576,7 @@ stop after each for the user's headset test, commit only after the user confirms
   counted own `ContaminationRecorded` (head or hand; not the partner's). Shader `FYP/ScreenFlash` in
   `Assets/_Project/Resources/FYP_ScreenFlash.shader` (clip-space quad, ZTest Always, Overlay queue, loaded with
   `Resources.Load`). Same in both conditions; it is feedback on a measured error (method section; user may want it off
-  for real runs - not decided). Headset-untested (stereo / both eyes).
+  for real runs - **decided 2026-10-29: on in every run, intended feedback**). Headset-untested (stereo / both eyes).
 - **Analysis:** `python -I tools/analyze_runs.py StudyData` -> `StudyData/all_runs.csv` (one row per run, newest copy of a
   duplicated run wins, + evidence score from meta, `board_order`, `culprit_position`, `valid` = Submitted/TimeCap) and a
   means table per condition x case. No within-participant pairing yet (needs a counterbalancing sheet). The old
@@ -636,8 +641,8 @@ stop after each for the user's headset test, commit only after the user confirms
   turn into real line breaks.
 
 **Open questions for the user**
-- Hand tracking frequency: keep High (Fast Motion, current config + `HandTrackingSetupTool`) or revert to Low?
-- Red contamination flash: on in every study run, or practice only (would need a config switch)?
-- Partner markers are a visual aid only in condition B (method section). Hide them when the partner is closer than ~1 m?
+- (Settled 2026-10-29: red flash on in every run; partner markers always visible, also up close, so partners don't
+  collide (a visual aid only in condition B - method section); condition A one partner after the other, the other
+  outside; hand tracking Low.)
 - (Settled session 6: lab 5 x 5 m playable, template content deleted, grading split into answer_correct /
   perfect_submission.)
