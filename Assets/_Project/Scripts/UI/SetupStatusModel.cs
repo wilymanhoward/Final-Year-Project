@@ -65,7 +65,11 @@ namespace FYP.Detective
         public static string NextStep(bool running, bool ended, bool armed, StudyCondition condition, bool partnerConnected,
             bool placementOk, out int card)
         {
-            if (running) { card = 3; return "Run in progress - don't intervene. Hold the left stick only to abort."; }
+            if (running)
+            {
+                card = 3;
+                return "Run in progress - don't intervene. To stop it and go back to setup: tap Abort run twice (or hold the left stick).";
+            }
             string prefix = ended && !armed ? "Run finished. Set the next participant's codes, then: " : "";
             if (condition == StudyCondition.B && !partnerConnected)
             {

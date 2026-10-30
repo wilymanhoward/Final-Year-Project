@@ -10,7 +10,7 @@ namespace FYP.Detective
     /// Shows codes/case/condition, run state, placement and network status; its buttons are wired by the menu tool
     /// to ExperimenterPanel (codes, case), ScenePlacement (place/load/manual), ColocationCoordinator (host/join/stop)
     /// and to <see cref="Arm"/> / <see cref="Disarm"/> / <see cref="StartNow"/> / <see cref="Abort"/> here.
-    /// Hidden automatically while a run is in progress so the participant never sees it.
+    /// Closes automatically when a run starts; the experimenter can open it again during a run only to abort (Toggle).
     /// </summary>
     public class SetupPanel : MonoBehaviour
     {
@@ -91,12 +91,15 @@ namespace FYP.Detective
             if (session != null) session.SessionStarted -= Close;
         }
 
-        /// <summary>Left controller menu button: open in front of the head / close.</summary>
+        /// <summary>
+        /// Left controller menu button: open in front of the head / close. Also during a run (user, session 6: "stop the
+        /// game and go back to setup"): Abort run (two taps) ends it and the panel stays open for the next setup. Every
+        /// other button refuses while running (placement, codes, ARM). Starting a run closes the panel.
+        /// </summary>
         public void Toggle()
         {
             if (content == null) return;
             if (IsOpen) { Close(); return; }
-            if (session != null && session.IsRunning) return;   // never during a run
             PlaceInFront();
             content.SetActive(true);
             Refresh();

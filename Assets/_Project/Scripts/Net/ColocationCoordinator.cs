@@ -133,6 +133,7 @@ namespace FYP.Detective.Net
         /// <summary>Stops hosting/joining, advertising and discovery.</summary>
         public void Stop()
         {
+            if (NotDuringRun()) return;
             _op++;
             StopDiscovery();
             StopAdvertising();
@@ -283,9 +284,19 @@ namespace FYP.Detective.Net
 
         private bool Ready()
         {
+            if (NotDuringRun()) return false;
             if (launcher != null && launcher.Manager != null && placement != null) return true;
             SetStatus("Networking not set up (run FYP > Set Up Networking)");
             return false;
+        }
+
+        // The setup panel can now be opened during a run (to abort it): network changes then would turn a solo run into
+        // a team run or cut the partner off mid-run, so they wait until the run is over.
+        private bool NotDuringRun()
+        {
+            if (session == null || !session.IsRunning) return false;
+            SetStatus("Run in progress - abort it first (Abort run, two taps), then change the network");
+            return true;
         }
 
         private void SetStatus(string text)

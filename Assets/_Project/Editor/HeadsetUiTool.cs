@@ -240,7 +240,7 @@ namespace FYP.Detective.EditorTools
             return setup;
         }
 
-        private static Transform Panel(Transform parent, string name, Rect r, Color color, Sprite sprite)
+        internal static Transform Panel(Transform parent, string name, Rect r, Color color, Sprite sprite)
         {
             var go = new GameObject(name, typeof(RectTransform), typeof(Image));
             go.transform.SetParent(parent, false);
@@ -252,7 +252,7 @@ namespace FYP.Detective.EditorTools
             return go.transform;
         }
 
-        private static void Round(Image image, Sprite sprite)
+        internal static void Round(Image image, Sprite sprite)
         {
             image.sprite = sprite;
             image.type = sprite != null && sprite.border != Vector4.zero ? Image.Type.Sliced : Image.Type.Simple;

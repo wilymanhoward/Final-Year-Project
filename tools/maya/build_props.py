@@ -659,7 +659,7 @@ def manager_desk_x():
     top = 0.75
     mug(p, 0.30, top, 0.10, C["coral"], C["coffee"])
     book_stack(p, -0.30, top, -0.05, [C["blue_dk"], C["teal"], C["charcoal"]], seed=5, yaw=8)
-    desk_lamp(p, 0.32, top, -0.14, C["charcoal"], yaw=200)
+    desk_lamp(p, 0.32, top, -0.14, C["charcoal"], yaw=-55)   # shade over the middle of the desk (K4), not off the back
     return p
 
 
@@ -1600,7 +1600,14 @@ def wall_clock(w):
     p.frustum(0, 0, -0.002, r * 0.88, r * 0.88, 0.002, C["cream"], sides=12, axis="z")           # face
     for k in range(12):
         a = math.radians(k * 30.0)
-        p.frustum(r * 0.74 * math.sin(a), r * 0.74 * math.cos(a), -0.0035, 0.004, 0.004, 0.0015, C["ink"], sides=5, axis="z")
+        sa, ca = math.sin(a), math.cos(a)
+        if k % 3 == 0:   # 12, 3, 6, 9: short bars, so the time reads at a glance
+            n0, n1, hw = r * 0.66, r * 0.8, 0.003
+            p.face_out([(sa * n0 + ca * hw, ca * n0 - sa * hw, -0.004), (sa * n1 + ca * hw, ca * n1 - sa * hw, -0.004),
+                        (sa * n1 - ca * hw, ca * n1 + sa * hw, -0.004), (sa * n0 - ca * hw, ca * n0 + sa * hw, -0.004)],
+                       C["ink"], (0, 0, 0.05))
+        else:
+            p.frustum(r * 0.74 * sa, r * 0.74 * ca, -0.0035, 0.004, 0.004, 0.0015, C["ink"], sides=5, axis="z")
 
     def hand(deg, length, width, z, col):
         a = math.radians(deg)
@@ -1612,15 +1619,46 @@ def wall_clock(w):
                (dx * length * 0.3 - nx * width / 2, dy * length * 0.3 - ny * width / 2, z),
                (-dx * 0.012 - nx * width / 2, -dy * 0.012 - ny * width / 2, z)]
         p.face_out(pts, col, (0, 0, 0.05))
-    hand(8 * 30.0 + 17 * 0.5, r * 0.5, 0.012, -0.0038, C["ink"])    # hour hand, 8:17
-    hand(17 * 6.0, r * 0.74, 0.008, -0.0044, C["ink"])               # minute hand
+    hour_deg, minute_deg = 8 * 30.0 + 17 * 0.5, 17 * 6.0                # 8:17
+    hand(hour_deg, r * 0.5, 0.012, -0.0038, C["ink"])                    # hour hand
+    hand(minute_deg, r * 0.74, 0.008, -0.0044, C["ink"])                 # minute hand
     p.frustum(0, 0, -0.005, 0.006, 0.006, 0.002, C["brass"], sides=6, axis="z")
-    for (x0, y0, x1, y1) in ((0.012, 0.018, 0.058, 0.062), (-0.01, -0.012, -0.05, -0.058), (0.03, -0.03, 0.07, -0.02)):   # cracks
-        dx, dy = x1 - x0, y1 - y0
-        n = math.hypot(dx, dy)
-        nx, ny = -dy / n * 0.0015, dx / n * 0.0015
-        p.face_out([(x0 + nx, y0 + ny, -0.0047), (x1 + nx, y1 + ny, -0.0047), (x1 - nx, y1 - ny, -0.0047), (x0 - nx, y0 - ny, -0.0047)],
-                   C["charcoal"], (0, 0, 0.05))
+
+    # Cracked glass: thin jagged grey lines from one impact point in the upper right, kept clear of the hands and the
+    # centre, so they read as broken glass and never as extra hands.
+    def near_hand(x, y):
+        for deg, length in ((hour_deg, r * 0.5), (minute_deg, r * 0.74)):
+            a = math.radians(deg)
+            t = max(0.0, min(length, x * math.sin(a) + y * math.cos(a)))
+            if math.hypot(x - t * math.sin(a), y - t * math.cos(a)) < 0.012:
+                return True
+        return False
+
+    def crack(pts, hw=0.0008):
+        for (x0, y0), (x1, y1) in zip(pts, pts[1:]):
+            dx, dy = x1 - x0, y1 - y0
+            n = math.hypot(dx, dy) or 1.0
+            nx, ny = -dy / n * hw, dx / n * hw
+            p.face_out([(x0 + nx, y0 + ny, -0.0047), (x1 + nx, y1 + ny, -0.0047), (x1 - nx, y1 - ny, -0.0047),
+                        (x0 - nx, y0 - ny, -0.0047)], C["grey_dk"], (0, 0, 0.05))
+
+    rnd = Rand(17)
+    ix, iy = 0.048, 0.042                                                # impact point
+    for ang in (15, 62, 108, 158, 205, 252, 300):
+        a = math.radians(ang)
+        pts, x, y = [(ix, iy)], ix, iy
+        for k in range(5):
+            step = 0.011 + rnd.range(0.0, 0.006)
+            jit = math.radians(rnd.range(-28.0, 28.0))
+            nx, ny = x + math.cos(a + jit) * step, y + math.sin(a + jit) * step
+            if math.hypot(nx, ny) > r * 0.86 or math.hypot(nx, ny) < 0.028 or near_hand(nx, ny):
+                break
+            pts.append((nx, ny))
+            x, y = nx, ny
+        if len(pts) > 1:
+            crack(pts)
+    ring = [(ix + 0.007 * math.cos(math.radians(60 * k + 10)), iy + 0.007 * math.sin(math.radians(60 * k + 10))) for k in range(7)]
+    crack(ring, hw=0.0007)                                               # small chipped ring at the impact
     return mirrored(p, 0)
 
 
