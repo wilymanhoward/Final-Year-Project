@@ -265,8 +265,12 @@ Data flow:
   per HandGrab/Grab interactable (WhenSelect → `MarkFound` + `BeginHold`, WhenUnselect → `EndHold`) + `ClueResetter`
   + `ClueTagButton`. Static clue = flat object (readable side = local -Z, like a Quad) + transparent poke canvas
   (`AddPokeCanvasInteraction`) whose `PokeInteractable` WhenSelect → `MarkFound`. Clue id defaults to the object name.
-- **Tagging:** after a clue is found, a 14 x 5.6 cm pokeable uGUI button floats 8 cm above it facing the player
-  (yaw only) and calls `Clue.ToggleTagged` (logs clue_tagged / clue_untagged). Hidden when not running.
+- **Tagging:** after a clue is found, an **evidence tag** floats 1.5 cm above it facing the player (yaw only; its bottom
+  just above the clue): manila tag 25 cm wide with a brass eyelet, red EVIDENCE header + "CASE X/Y" (never the
+  clue id: it would reveal key vs red herring), a typed slip (name, red rule, description) and a 19.6 x 5 cm red
+  stamp button "TAG AS EVIDENCE" -> `Clue.ToggleTagged` (logs clue_tagged / clue_untagged); tagged = ink-blue button
+  "EVIDENCE TAGGED / tap to remove" + a TAGGED stamp on the slip (user, session 6: "polished, like the app"). Built by
+  `ClueWiring.EnsureTagButton` (Build Case Scenes), colours of the participant card. Hidden when not running.
 - **Briefing detective (user, session 6):** after ARM the participant's card shows "Begin briefing"; tapping it puts
   the low-poly Inspector Hart (Maya parts Detective_Body/_Head/_Moustache/_Arm, offsets `DETECTIVE_*_AT` =
   `CharacterSetupTool`) 1.6 m in front of them on the floor; he speaks the lines of `Audio/Briefing/briefing_lines.csv`
@@ -355,6 +359,10 @@ Data flow:
   (team: either partner's Start starts both; experimenter "Start now"/right stick still works as fallback); evidence
   board **fixed in the scene** (under CaseRoot); board lists **tagged clues only**; end screen is **neutral** (no
   correct/incorrect, so it can't influence the second condition).
+- **Stop a run and go back to setup (user, session 6):** the left menu button now opens the setup panel during a run too;
+  Abort run (two taps) or hold the left stick ends it as Aborted (team: both headsets) and the panel stays open for the
+  next setup. Panel buttons that change things refuse while running (placement, codes, ARM, and now network
+  Host/Join/Stop: `ColocationCoordinator.NotDuringRun`). Starting a run still closes the panel.
 - **Phase C1 (session 6):** `SetupPanel` (left controller menu button; status + 16 pokeable buttons: pair/participant
   -/+, case, place/load/manual, host/join/stop, arm/disarm/start now/abort; hidden during runs), `ParticipantCard`
   (`ParticipantCardModel`: armed → briefing + Start, running → hidden, ended → neutral text; re-placed in front of the
@@ -534,8 +542,7 @@ stop after each for the user's headset test, commit only after the user confirms
 **Where we are (start here)**
 - `main` = the "Partner head + hands, audit 2 fixes" commit (after `4cc4be4` feet estimate, `9ec94f7` checkpoint:
   floating-clue fix / no grabbing outside a run / grabbable R3 / counterbalancing, `d274af7` audit 1 fixes). Everything
-  committed at the user's request **before** a full headset test. EditMode tests **266/266** (batch, at `c176c73`, no compile
-  or shader errors). Occlusion is OFF by
+  committed at the user's request **before** a full headset test. EditMode tests **266/266** (batch, 2026-10-30, no compile errors). Occlusion is OFF by
   default (`ExperimentConfig.occlusionEnabled`; scene set by Set Up Occlusion) - turn it on with the setup panel button. Packages: + `com.unity.xr.meta-openxr` 2.5.1 (AR Foundation
   6.5.0, XR Composition Layers 2.6.0). Setup order in Unity: Build Case Scenes -> Set Up Networking -> Set Up Evidence
   Board -> Set Up Headset UI -> Set Up Occlusion (Depth API) -> Set Up Briefing Detective -> Prepare Study Build.

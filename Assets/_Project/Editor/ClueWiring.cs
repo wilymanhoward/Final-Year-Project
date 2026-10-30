@@ -190,6 +190,21 @@ namespace FYP.Detective.EditorTools
         }
 
         /// <summary>A pokeable "Tag as Evidence" button that follows the clue (sibling object, so it isn't scaled with it).</summary>
+        // Evidence tag colours: the participant card's case-file palette (HeadsetUiTool).
+        private static readonly Color TagManila = new Color(0.80f, 0.66f, 0.42f, 1f);
+        private static readonly Color TagManilaDark = new Color(0.60f, 0.47f, 0.27f, 1f);
+        private static readonly Color TagSheet = new Color(0.98f, 0.96f, 0.89f, 1f);
+        private static readonly Color TagInk = new Color(0.13f, 0.12f, 0.14f, 1f);
+        private static readonly Color TagStampRed = new Color(0.76f, 0.10f, 0.08f, 1f);
+        private static readonly Color TagBrass = new Color(0.72f, 0.56f, 0.28f, 1f);
+
+        // "CASE X" / "CASE Y" from the clue id's prefix (only the case letter; the rest of the id stays hidden).
+        private static string CaseLetter(Clue clue)
+        {
+            string id = clue.ClueId ?? "";
+            return id.Length > 1 && id[1] == '_' ? "CASE " + id[0] : "";
+        }
+
         public static ClueTagButton EnsureTagButton(Clue clue, Transform head)
         {
             foreach (var b in Object.FindObjectsByType<ClueTagButton>(FindObjectsInactive.Include, FindObjectsSortMode.None))
@@ -205,76 +220,74 @@ namespace FYP.Detective.EditorTools
             root.transform.SetParent(clue.transform.parent, false);
             root.transform.position = clue.transform.position + Vector3.up * 0.2f;
 
-            // Canvas units = mm. Clues with inspect text get a 240 x 130 mm panel: name + text on top, a 140 x 56 mm
-            // button (>= 4 cm) below; others just the button.
+            // Evidence tag (user, session 6: "polished, suits the design of the app"): a manila evidence tag with a brass
+            // eyelet, red EVIDENCE header + case letter, a typed slip (name, red rule, description) and a red
+            // rubber-stamp button (>= 4 cm); once tagged the button turns ink blue and a TAGGED stamp lands on the slip
+            // (ClueTagButton). Canvas units = mm; colours and helpers of the participant card (HeadsetUiTool). The clue id
+            // is never shown: it would tell key evidence from red herrings.
             bool withText = !string.IsNullOrEmpty(clue.InspectText);
-            var content = new GameObject("Content", typeof(RectTransform), typeof(Canvas));
-            content.transform.SetParent(root.transform, false);
-            content.GetComponent<Canvas>().renderMode = RenderMode.WorldSpace;
-            var contentRect = (RectTransform)content.transform;
-            contentRect.sizeDelta = withText ? new Vector2(240f, 130f) : new Vector2(140f, 56f);
-            contentRect.localScale = Vector3.one * 0.001f;
+            const float width = 250f, headerH = 46f, buttonH = 66f;
+            float slipH = withText ? 86f : 34f;
+            float height = headerH + slipH + buttonH + 8f, tagW = width - 6f, tagH = height - 8f;
+            Sprite rounded = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/UISprite.psd");
+            Sprite knob = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/Knob.psd");
+            GameObject content = HeadsetUiTool.Canvas(root.transform, width, height, new Color(0f, 0f, 0f, 0f));
+            Transform c = content.transform;
 
+            HeadsetUiTool.Panel(c, "Shadow", new Rect(6f, 8f, tagW, tagH), new Color(0f, 0f, 0f, 0.35f), rounded);
+            HeadsetUiTool.Panel(c, "Tag", new Rect(0f, 0f, tagW, tagH), TagManila, rounded);
+            var eyelet = HeadsetUiTool.Panel(c, "Eyelet", new Rect(12f, 9f, 28f, 28f), TagBrass, knob);
+            HeadsetUiTool.Panel(eyelet, "Hole", new Rect(7f, 7f, 14f, 14f), new Color(0.10f, 0.08f, 0.06f, 0.9f), knob);
+
+            Text header = HeadsetUiTool.Label(c, "Header", new Rect(48f, 7f, 150f, 32f), 22, TextAnchor.MiddleLeft);
+            header.text = "EVIDENCE";
+            header.fontStyle = FontStyle.Bold;
+            header.color = TagStampRed;
+            Text caseLabel = HeadsetUiTool.Label(c, "Case", new Rect(tagW - 104f, 9f, 92f, 28f), 13, TextAnchor.MiddleRight);
+            caseLabel.text = CaseLetter(clue);
+            caseLabel.fontStyle = FontStyle.Bold;
+            caseLabel.color = TagManilaDark;
+
+            var slip = HeadsetUiTool.Panel(c, "Slip", new Rect(12f, headerH, tagW - 24f, slipH), TagSheet, null);
+            ((RectTransform)slip).localRotation = Quaternion.Euler(0f, 0f, -0.6f);
+            float inner = tagW - 44f;
+            Text nameLabel = HeadsetUiTool.Label(slip, "Name", new Rect(10f, 4f, inner, 24f), 17, TextAnchor.MiddleLeft);
+            nameLabel.text = clue.DisplayName;
+            nameLabel.fontStyle = FontStyle.Bold;
+            nameLabel.color = TagInk;
+            nameLabel.resizeTextForBestFit = true;
+            nameLabel.resizeTextMinSize = 12;
+            nameLabel.resizeTextMaxSize = 17;
+            HeadsetUiTool.Panel(slip, "Rule", new Rect(10f, 29f, inner, 2f), TagStampRed, null);
             Text inspect = null;
             if (withText)
             {
-                var bg = new GameObject("Inspect", typeof(RectTransform), typeof(Image));
-                bg.transform.SetParent(content.transform, false);
-                var bgRect = (RectTransform)bg.transform;
-                bgRect.anchorMin = new Vector2(0f, 0.46f);
-                bgRect.anchorMax = Vector2.one;
-                bgRect.offsetMin = bgRect.offsetMax = Vector2.zero;
-                var bgImage = bg.GetComponent<Image>();
-                bgImage.color = new Color(0.97f, 0.95f, 0.88f, 0.95f);
-                bgImage.raycastTarget = false;
-                var inspectGo = new GameObject("Text", typeof(RectTransform), typeof(Text));
-                inspectGo.transform.SetParent(bg.transform, false);
-                var inspectRect = (RectTransform)inspectGo.transform;
-                Stretch(inspectRect);
-                inspectRect.offsetMin = new Vector2(6f, 3f);
-                inspectRect.offsetMax = new Vector2(-6f, -3f);
-                inspect = inspectGo.GetComponent<Text>();
-                inspect.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-                inspect.fontSize = 13;
-                inspect.alignment = TextAnchor.MiddleCenter;
-                inspect.color = new Color(0.1f, 0.1f, 0.1f);
-                inspect.horizontalOverflow = HorizontalWrapMode.Wrap;
-                inspect.verticalOverflow = VerticalWrapMode.Truncate;
-                inspect.raycastTarget = false;
+                inspect = HeadsetUiTool.Label(slip, "Text", new Rect(10f, 35f, inner, slipH - 39f), 13, TextAnchor.UpperLeft);
+                inspect.color = TagInk;
+                inspect.resizeTextForBestFit = true;   // long notes shrink a little instead of being cut off
+                inspect.resizeTextMinSize = 10;
+                inspect.resizeTextMaxSize = 13;
                 inspect.text = "";
             }
 
-            var buttonGo = new GameObject("Button", typeof(RectTransform), typeof(Image), typeof(Button));
-            buttonGo.transform.SetParent(content.transform, false);
-            var buttonRect = (RectTransform)buttonGo.transform;
-            if (withText)
-            {
-                buttonRect.anchorMin = new Vector2(0.5f, 0f);
-                buttonRect.anchorMax = new Vector2(0.5f, 0f);
-                buttonRect.pivot = new Vector2(0.5f, 0f);
-                buttonRect.sizeDelta = new Vector2(140f, 56f);
-                buttonRect.anchoredPosition = Vector2.zero;
-            }
-            else Stretch(buttonRect);
-            buttonGo.GetComponent<Image>().color = new Color(0.10f, 0.12f, 0.16f, 0.85f);
+            // TAGGED stamp on the slip (shown by ClueTagButton while tagged).
+            var stamp = HeadsetUiTool.Panel(slip, "TaggedStamp", new Rect(inner - 92f, slipH - 40f, 104f, 34f),
+                new Color(TagStampRed.r, TagStampRed.g, TagStampRed.b, 0.12f), rounded);
+            ((RectTransform)stamp).localRotation = Quaternion.Euler(0f, 0f, 10f);
+            Text stampText = HeadsetUiTool.Label(stamp, "Text", new Rect(0f, 0f, 104f, 34f), 20, TextAnchor.MiddleCenter);
+            stampText.text = "TAGGED";
+            stampText.fontStyle = FontStyle.Bold;
+            stampText.color = new Color(TagStampRed.r, TagStampRed.g, TagStampRed.b, 0.85f);
+            stamp.gameObject.SetActive(false);
 
-            var textGo = new GameObject("Text", typeof(RectTransform), typeof(Text));
-            textGo.transform.SetParent(buttonGo.transform, false);
-            var textRect = (RectTransform)textGo.transform;
-            Stretch(textRect);
-            textRect.offsetMin = new Vector2(6f, 4f);
-            textRect.offsetMax = new Vector2(-6f, -4f);
-            var text = textGo.GetComponent<Text>();
-            text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            text.fontSize = 20;   // ~2 cm, readable at arm's length
-            text.alignment = TextAnchor.MiddleCenter;
-            text.color = Color.white;
-            text.horizontalOverflow = HorizontalWrapMode.Wrap;
-            text.verticalOverflow = VerticalWrapMode.Overflow;
-            text.text = "Tag as Evidence";
-
-            var button = buttonGo.GetComponent<Button>();
-            UnityEventTools.AddVoidPersistentListener(button.onClick, clue.ToggleTagged);
+            GameObject buttonGo = HeadsetUiTool.Button(c, "TAG AS EVIDENCE", new Rect((tagW - 196f) / 2f, tagH - 58f, 196f, 50f),
+                clue.ToggleTagged, TagStampRed);
+            var buttonImage = buttonGo.GetComponent<Image>();
+            HeadsetUiTool.Round(buttonImage, rounded);
+            Text text = buttonGo.GetComponentInChildren<Text>();
+            text.fontStyle = FontStyle.Bold;
+            text.fontSize = 17;
+            text.lineSpacing = 0.9f;
 
             QuickActionsAPI.AddPokeCanvasInteraction(content);
 
@@ -282,7 +295,10 @@ namespace FYP.Detective.EditorTools
             MainSceneBuilder.SetObject(tag, "clue", clue);
             MainSceneBuilder.SetObject(tag, "content", content);
             MainSceneBuilder.SetObject(tag, "label", text);
+            MainSceneBuilder.SetObject(tag, "nameLabel", nameLabel);
             if (inspect != null) MainSceneBuilder.SetObject(tag, "inspectLabel", inspect);
+            MainSceneBuilder.SetObject(tag, "buttonImage", buttonImage);
+            MainSceneBuilder.SetObject(tag, "taggedStamp", stamp.gameObject);
             MainSceneBuilder.SetObject(tag, "head", head);
             return tag;
         }

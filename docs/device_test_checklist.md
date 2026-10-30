@@ -14,8 +14,8 @@ are for the experimenter only; participants use their hands.
    6. **FYP > Set Up Briefing Detective** (after any new voice files)
    7. **Ctrl+S** (save the scene)
 
-   After Build Case Scenes always run the whole list again: it rebuilds the clues, and Set Up Networking adds their
-   network parts back (otherwise Prepare Study Build says "X_K2 isn't networked").
+   Build Case Scenes rebuilds the clues and now networks the grabbable ones itself; still run the rest of the list
+   after it (Set Up Networking re-checks everything; if Prepare Study Build says "X_K2 isn't networked", run it).
 2. Run **FYP > Prepare Study Build**. Every line must say OK, and it switches the debug settings off (status-label
    messages, zone debug visuals, **Show Me As Partner**). **FYP > Restore Debug Settings** switches the messages back on
    for development. Never build for participants without running Prepare Study Build last.
@@ -67,6 +67,9 @@ are for the experimenter only; participants use their hands.
    Start appears once both partners have heard the briefing). Without a detective in the scene the card shows the story
    as text instead. (Fallback: **Start now** on the panel / hold the right stick - logged as `heard=0` if it skips it.)
 6. During the run: don't intervene. If a partner disconnects, the run continues and an `incident` row is logged.
+   **To stop a run and go back to setup:** press **☰ (left controller)** - the setup panel opens even during a run - and
+   tap **Abort run** twice (or hold the **left stick**). The run ends as `Aborted` (both headsets in a team run), the
+   panel stays open, and you can set codes / place / ARM again. Network buttons wait until the run is over.
    To stop early: hold the **left stick** (= Aborted).
 7. The run ends when the answer is submitted on the evidence board (or after 15 min). The card says "Case closed" /
    "Time is up"; it never says whether the answer was right.

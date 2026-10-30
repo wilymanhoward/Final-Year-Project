@@ -99,11 +99,7 @@ namespace FYP.Detective.EditorTools
             MainSceneBuilder.SetObject(team, "session", session);
             AddListenerOnce(team.onStatusChanged, label);
             EditorUtility.SetDirty(team);
-            int networkedClues = 0;
-            foreach (var clue in Object.FindObjectsByType<Clue>(FindObjectsInactive.Include, FindObjectsSortMode.None))
-            {
-                if (MakeNetworked(clue)) networkedClues++;
-            }
+            int networkedClues = NetworkAllClues();
 
             // 6. Sockets need INTERNET; Unity doesn't detect UnityTransport's native sockets on its own.
             bool permissionChanged = !PlayerSettings.Android.forceInternetPermission;
@@ -138,6 +134,18 @@ namespace FYP.Detective.EditorTools
                 (logger == null ? "WARNING: no DataLogger - data upload not set up.\n"
                     : (uploaderAdded ? "DataUploader added" : "DataUploader present") + " (sends run files to tools/receive_data.py; HTTP allowed).\n") +
                 "Scene saved. Rebuild to apply.", "OK");
+        }
+
+        /// <summary>
+        /// Networks every grabbable clue in the open scene (idempotent). Also called by Build Case Scenes, which
+        /// rebuilds the clues from scratch (user kept hitting "X_K2 isn't networked" after a rebuild).
+        /// </summary>
+        internal static int NetworkAllClues()
+        {
+            int n = 0;
+            foreach (var clue in Object.FindObjectsByType<Clue>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+                if (MakeNetworked(clue)) n++;
+            return n;
         }
 
         /// <summary>

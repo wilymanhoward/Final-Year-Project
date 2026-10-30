@@ -105,6 +105,7 @@ namespace FYP.Detective.EditorTools
             }
             int hidden = HideTestContent(caseRoot.transform);
             PlaceBoard();
+            int networked = NetworkSetupTool.NetworkAllClues();   // the rebuilt clues lost their network parts
 
             var scene = session.gameObject.scene;
             EditorSceneManager.MarkSceneDirty(scene);
@@ -114,8 +115,8 @@ namespace FYP.Detective.EditorTools
                 "Built Case_X and Case_Y under CaseRoot (validator passed; mean clue distance " +
                 CaseSpecValidator.MeanDistance(CaseSpecs.X).ToString("F2") + " m).\n" + report +
                 (hidden > 0 ? $"Deactivated {hidden} old test object(s) (TestCube, Quad).\n" : "") +
-                "\nNext, in this order:\n1. FYP > Set Up Networking (networks the new grabbable clues)\n" +
-                "2. FYP > Set Up Evidence Board (4 suspect cards)\n3. FYP > Set Up Headset UI (bigger briefing card)\n4. Build.",
+                $"Networked {networked} grabbable clue(s).\n" +
+                "\nThen run the rest of the setup list (Set Up Networking ... Set Up Briefing Detective), then Prepare Study Build.",
                 "OK");
         }
 
