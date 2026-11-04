@@ -45,6 +45,17 @@ namespace FYP.Detective
                  "Off also stops depth sensing. Logged per run as depth_occlusion status=active / off.")]
         public bool occlusionEnabled = false;
 
+        [Tooltip("Occlusion edge softness in depth texels (user, 2026-11-04: edges looked pixelated). 0 = Meta's own soft " +
+                 "edge; higher = smoother but blurrier edges. Tune on the headset with adb (experiment_config.json).")]
+        public float occlusionSoftness = DefaultOcclusionSoftness;
+
+        public const float DefaultOcclusionSoftness = 1.5f;
+        public const float MaxOcclusionSoftness = 4f;
+
+        /// <summary><see cref="occlusionSoftness"/> clamped to 0..<see cref="MaxOcclusionSoftness"/> (bad JSON = default).</summary>
+        public float OcclusionSoftnessTexels =>
+            float.IsNaN(occlusionSoftness) ? DefaultOcclusionSoftness : Mathf.Clamp(occlusionSoftness, 0f, MaxOcclusionSoftness);
+
         [Tooltip("Data upload: IPv4 address of the laptop running tools/receive_data.py. Empty = found automatically from " +
                  "the receiver's broadcast; set it (e.g. with adb) only if the broadcast doesn't get through.")]
         public string dataReceiverAddress = "";

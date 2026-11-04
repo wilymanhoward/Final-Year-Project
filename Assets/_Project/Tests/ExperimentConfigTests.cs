@@ -13,6 +13,15 @@ namespace FYP.Detective.Tests
         }
 
         [Test]
+        public void OcclusionSoftness_IsClamped()
+        {
+            Assert.AreEqual(ExperimentConfig.DefaultOcclusionSoftness, new ExperimentConfig().OcclusionSoftnessTexels);
+            Assert.AreEqual(0f, new ExperimentConfig { occlusionSoftness = -2f }.OcclusionSoftnessTexels);
+            Assert.AreEqual(ExperimentConfig.MaxOcclusionSoftness, new ExperimentConfig { occlusionSoftness = 50f }.OcclusionSoftnessTexels);
+            Assert.AreEqual(ExperimentConfig.DefaultOcclusionSoftness, new ExperimentConfig { occlusionSoftness = float.NaN }.OcclusionSoftnessTexels);
+        }
+
+        [Test]
         public void FileName_SanitizesUnsafeCharacters()
         {
             var c = new ExperimentConfig { pairCode = "G/0 7", participantId = "", condition = StudyCondition.A, caseId = CaseId.Y };

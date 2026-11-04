@@ -86,13 +86,13 @@ namespace FYP.Detective
                 BoardX = 0f, BoardZ = -2.19f, BoardYaw = 0f,
             };
             c.Suspects.Add(new SuspectSpec { Id = "X_grace", Name = "Grace Wong", Role = "Studio manager", IsCulprit = true,
-                Alibi = "\"I locked up at 7:00 pm and went straight home.\" (No one can confirm.)" });
+                Alibi = "\"I locked up at 7:00 pm and was home by 7:30.\"" });
             c.Suspects.Add(new SuspectSpec { Id = "X_kumar", Name = "Kumar Raj", Role = "Night cleaner",
-                Alibi = "Clocked out at 9:05 pm; security confirms he left the building." });
+                Alibi = "\"I finished cleaning and left the building at 9:05 pm.\"" });
             c.Suspects.Add(new SuspectSpec { Id = "X_lena", Name = "Lena Ortiz", Role = "Rival designer next door",
-                Alibi = "At a restaurant 7:00-10:00 pm; the restaurant confirms her booking." });
+                Alibi = "\"I was at dinner nearby from 7 until 10 pm.\"" });
             c.Suspects.Add(new SuspectSpec { Id = "X_aiman", Name = "Aiman Hakim", Role = "Junior designer",
-                Alibi = "At the gym 9:15-10:30 pm; the gym's check-in record confirms it." });
+                Alibi = "\"I was at the gym from 9:15 pm until late.\"" });
 
             c.Clues.Add(Clue("X_", ClueSlot.K1, "Display case lock panel", "\"Case opened: 21:42.\""));
             c.Clues.Add(Clue("X_", ClueSlot.K2, "Sign-in sheet", "Last entry: \"G. Wong, in 21:35.\" Someone tried to scribble it out."));
@@ -141,13 +141,13 @@ namespace FYP.Detective
                 BoardX = 0f, BoardZ = -2.19f, BoardYaw = 0f,
             };
             c.Suspects.Add(new SuspectSpec { Id = "Y_farid", Name = "Farid Rahman", Role = "Tour guide", IsCulprit = true,
-                Alibi = "\"I was alone, preparing tomorrow's tour.\" (No one can confirm.)" });
+                Alibi = "\"I was in the staff room preparing tomorrow's tour, 7:30 to 9 pm.\"" });
             c.Suspects.Add(new SuspectSpec { Id = "Y_tan", Name = "Mr Tan", Role = "Security guard",
-                Alibi = "On gate duty 8:00-8:40 pm; the gate camera shows him there." });
+                Alibi = "\"I was on gate duty from 8 to 8:40 pm.\"" });
             c.Suspects.Add(new SuspectSpec { Id = "Y_sofia", Name = "Dr Sofia Idris", Role = "Curator",
-                Alibi = "On a video call with a lender 7:50-8:45 pm; the recording confirms it." });
+                Alibi = "\"I was on a video call with a lender from 7:50 pm.\"" });
             c.Suspects.Add(new SuspectSpec { Id = "Y_lim", Name = "Mr Lim", Role = "Private collector",
-                Alibi = "At the hotel restaurant 8:00-9:00 pm; the receipt and staff confirm it." });
+                Alibi = "\"I was having dinner at my hotel from 8 to 9 pm.\"" });
 
             c.Clues.Add(Clue("Y_", ClueSlot.K1, "Smashed wall clock", "Knocked off the wall in the struggle. The hands stopped at 8:17."));
             c.Clues.Add(Clue("Y_", ClueSlot.K2, "Visitor logbook", "\"Gallery key out 20:05, F.R.\" No return time written."));

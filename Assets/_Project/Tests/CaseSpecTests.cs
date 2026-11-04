@@ -171,5 +171,19 @@ namespace FYP.Detective.Tests
                 Assert.Greater(new Vector2(CaseSpecs.YBriefingX - zone.X, CaseSpecs.YBriefingZ - zone.Z).magnitude, reach, zone.Id);
             }
         }
+
+        [Test]
+        public void SuspectCardsDontGiveAwayTheCulprit()
+        {
+            // Supervisor: "unconfirmed" on the board made the answer obvious. Every card is a plain quoted claim.
+            foreach (var spec in new[] { CaseSpecs.X, CaseSpecs.Y })
+                foreach (var s in spec.Suspects)
+                {
+                    StringAssert.StartsWith("\"", s.Alibi, s.Id);
+                    StringAssert.DoesNotContain("confirm", s.Alibi.ToLowerInvariant(), s.Id);
+                    StringAssert.DoesNotContain("no one", s.Alibi.ToLowerInvariant(), s.Id);
+                    StringAssert.DoesNotContain("alone", s.Alibi.ToLowerInvariant(), s.Id);
+                }
+        }
     }
 }

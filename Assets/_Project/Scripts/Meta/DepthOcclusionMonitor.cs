@@ -12,13 +12,16 @@ namespace FYP.Detective.Meta
     /// ("com.oculus.permission.USE_SCENE", Scripts/OVRPermissionsRequester.cs:96), checked here the same way.
     /// Added next to the manager by FYP > Set Up Occlusion. Also applies the setup panel's on/off toggle
     /// (<see cref="ExperimentConfig.occlusionEnabled"/>): off disables the EnvironmentDepthManager, which stops depth
-    /// sensing (its OnDisable turns the provider off) and logs status=off.
+    /// sensing (its OnDisable turns the provider off) and logs status=off. Also sets the edge softness global of our
+    /// occlusion shaders (Art/Shaders/FypOcclusion.hlsl) from <see cref="ExperimentConfig.occlusionSoftness"/>.
     /// </summary>
     public class DepthOcclusionMonitor : MonoBehaviour
     {
         [SerializeField] private EnvironmentDepthManager depth;
         [SerializeField] private SessionManager session;
         [SerializeField, Min(0.1f)] private float checkIntervalSeconds = 0.5f;
+
+        private static readonly int SoftnessId = Shader.PropertyToID("_FypOcclusionSoftness");
 
         private float _nextCheck;
 
@@ -43,6 +46,7 @@ namespace FYP.Detective.Meta
         private void ApplyToggle()
         {
             if (depth == null || session == null) return;
+            Shader.SetGlobalFloat(SoftnessId, session.Config.OcclusionSoftnessTexels);
             bool wanted = session.Config.occlusionEnabled;
             if (depth.enabled != wanted) depth.enabled = wanted;
         }

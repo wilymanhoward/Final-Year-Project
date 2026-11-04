@@ -208,7 +208,11 @@ Data flow:
   whose wrist pose hasn't changed at all for 0.4 s (`PartnerHands.FrozenSeconds`). **Bent-finger fix (user):** the
   copy is built from the hand visual this headset is showing for that side (hand tracking, same model as the sender's),
   not the first one found (the rig also has controller-driven visuals with other bone axes), and only when the joint
-  counts match. Not logged. Same in every team run. Headset-untested.
+  counts match. **Alignment check (user: "sometimes the markers don't match the real partner"):** every pose frame
+  (`BodyPoseFrame` v2) carries the sender's scene anchor UUID (`ScenePlacement.CurrentAnchorUuid`, Empty = manual);
+  the receiver shows the markers only when it equals its own (same shared anchor, or both manual), else hides them and
+  the experimenter label says to Join again on the client (or both Manual X on the tape mark). Both headsets need the
+  same build (v1 frames are rejected). Not logged. Same in every team run. Headset-untested.
 - **Feet estimate (user, session 6, trial):** the "head" point of the zone check is now the estimated feet,
   `FootEstimate.FromHead` (8 cm behind the head's floor point, + 25 cm x sin(look-down), max 30 cm), so leaning over a
   zone isn't an entry; hands unchanged; logged positions unchanged (still the head). Revert = `git revert` the
@@ -391,6 +395,11 @@ Data flow:
   briefing, suspects with role/alibi, culprit, K1-K4), places the board, deactivates TestCube + Quad. Clue inspect text
   shows above its tag button; the briefing card shows the case story; the board has 4 suspect cards (name, role, alibi).
   TeamMessage `Arm` carries the host's case (client adopts case + condition B).
+- **Neutral suspect cards (supervisor feedback, 2026-11-04: "the suspect is too obvious"):** the board showed
+  "confirmed" alibis for the 3 innocents and "(No one can confirm.)" for the culprit. Now every card shows only the
+  suspect's own quoted claim, same style, no confirmation (CaseSpecs + docs/cases.md; test
+  `SuspectCardsDontGiveAwayTheCulprit`); the key evidence contradicts the culprit's claim (X sign-in 21:35 vs "home by
+  7:30"; Y key out 20:05 F.R. vs "in the staff room"). Needs Build Case Scenes (updates the CaseDefinition assets).
 - **Grading (user, session 6):** `answer_correct` = correct culprit only; `perfect_submission` (summary column, meta
   `perfectSubmission`, `perfect=` in `answer_submitted`) = culprit + all key evidence + no red herrings. Reasoning errors
   and evidence score unchanged.
@@ -472,6 +481,12 @@ Data flow:
   `DepthOcclusionMonitor` (Meta asm) -> `SessionManager.ReportDepthOcclusion` -> row `depth_occlusion`
   (`when=session_start|change;status=active|waiting|no_permission|unsupported|off`). Same in both conditions.
   Built by `FYP > Set Up Occlusion (Depth API)`. Headset-untested.
+- **Smoother occlusion edges (user, 2026-11-04: "the cutout looks pixelated"):** the depth texture's resolution can't be
+  raised; `Art/Shaders/FypOcclusion.hlsl` (used by OccludedProp + OccludedUI) averages Meta's
+  `CalculateEnvironmentDepthSoftOcclusion` over a centre + 4 rotated-grid taps, `_FypOcclusionSoftness` depth texels
+  apart (global, set by `DepthOcclusionMonitor` from `ExperimentConfig.occlusionSoftness`, default 1.5, clamped 0-4,
+  0 = Meta's own edge; tune with adb in experiment_config.json, no rebuild). 5 samples instead of 1: check 72 fps.
+  Hard occlusion unchanged. Headset-untested (the SOFT_OCCLUSION variant only compiles in the Android build).
 - **Hand look:** participants see translucent dark "ghost" hands with a white rim (custom shader
   `FYP/GhostHand`: depth prepass + alpha-blended fresnel rim; tune Body Colour/Alpha and Outline Width/Sharpness
   on `HandGhost.mat`). The OVRHand system-gesture material swap is set to None.
@@ -579,7 +594,7 @@ stop after each for the user's headset test, commit only after the user confirms
   `DetectiveBriefing.TryFixedSpot` (X = beside the display, Y = this spot, else in front of the player). Test: >= 0.5 m clear
   of every Case Y zone. Headset-untested.
 - **Red contamination flash (user, session 6):** `ContaminationFlash` (UI, creates itself at startup via
-  `RuntimeInitializeOnLoadMethod`, no scene setup) flashes a red edge vignette for 0.9 s (`PeakIntensity` 0.75) on every
+  `RuntimeInitializeOnLoadMethod`, no scene setup) flashes a strong red vignette (light red tint over the whole view, solid band towards the edges) for 1 s (`PeakIntensity` 0.95) and plays a two-tone alarm buzz (880 + 660 Hz, 0.33 s, generated in code, 2D, volume 0.8) on every
   counted own `ContaminationRecorded` (head or hand; not the partner's). Shader `FYP/ScreenFlash` in
   `Assets/_Project/Resources/FYP_ScreenFlash.shader` (clip-space quad, ZTest Always, Overlay queue, loaded with
   `Resources.Load`). Same in both conditions; it is feedback on a measured error (method section; user may want it off

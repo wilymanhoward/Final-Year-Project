@@ -44,6 +44,7 @@ Shader "FYP/OccludedProp"
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.meta.xr.sdk.core/Shaders/EnvironmentDepth/URP/EnvironmentOcclusionURP.hlsl"
+            #include "FypOcclusion.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
 
             struct Attributes
@@ -99,7 +100,7 @@ Shader "FYP/OccludedProp"
                 color.rgb *= lerp(half3(1, 1, 1), lit, _Lighting);
                 color.rgb *= color.a;   // premultiplied
 
-                META_DEPTH_OCCLUDE_OUTPUT_PREMULTIPLY(input, color, _EnvironmentDepthBias);
+                FYP_OCCLUDE_OUTPUT_PREMULTIPLY(input, color, _EnvironmentDepthBias);   // FypOcclusion.hlsl: smoother edges
                 return color;
             }
             ENDHLSL

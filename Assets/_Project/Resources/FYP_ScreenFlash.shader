@@ -44,8 +44,10 @@ Shader "FYP/ScreenFlash"
 
             half4 frag(Varyings i) : SV_Target
             {
-                float edge = smoothstep(0.35, 1.25, length(i.ndc));
-                return half4(_Color.rgb, edge * _Intensity);
+                // Strong red band from about a fifth of the way out, plus a light red tint over the whole view
+                // (user: the first version was too transparent).
+                float edge = smoothstep(0.2, 0.95, length(i.ndc));
+                return half4(_Color.rgb, saturate(0.22 + 0.78 * edge) * _Intensity);
             }
             ENDHLSL
         }

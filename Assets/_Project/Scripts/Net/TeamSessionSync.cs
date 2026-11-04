@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Netcode;
@@ -40,6 +41,8 @@ namespace FYP.Detective.Net
         private CaseRoot _caseRoot;
         private PartnerMarker _marker;
         private FYP.Detective.Meta.PartnerHands _hands;
+        private FYP.Detective.Meta.ScenePlacement _placement;
+        private bool? _partnerAligned;   // last reported alignment (status message on change only)
         private float _nextPoseSend;
         private const float PoseInterval = 1f / 15f;
         private const string PoseMessageName = "fyp.pose";
@@ -62,6 +65,7 @@ namespace FYP.Detective.Net
             if (session == null) session = FindFirstObjectByType<SessionManager>();
             _rig = FindFirstObjectByType<PlayerRig>();
             _caseRoot = FindFirstObjectByType<CaseRoot>();
+            _placement = FindFirstObjectByType<FYP.Detective.Meta.ScenePlacement>();
             _hands = FindFirstObjectByType<FYP.Detective.Meta.PartnerHands>();
             if (_hands == null) _hands = gameObject.AddComponent<FYP.Detective.Meta.PartnerHands>();
         }
@@ -81,6 +85,7 @@ namespace FYP.Detective.Net
                 _sendFrame.HeadPosition = root.InverseTransformPoint(head.position);
                 _sendFrame.HeadRotation = Quaternion.Inverse(root.rotation) * head.rotation;
             }
+            _sendFrame.PlacementId = OwnPlacementId;
             _hands.Capture(_sendFrame, _rig);
             byte[] bytes = _sendFrame.Write(out int length);
             if (selfTest) { ShowSelf(bytes, length); return; }
@@ -117,6 +122,8 @@ namespace FYP.Detective.Net
             ShowReceived();
         }
 
+        private Guid OwnPlacementId => _placement != null ? _placement.CurrentAnchorUuid : Guid.Empty;
+
         private void ShowReceived()
         {
             if (_marker == null) _marker = FindFirstObjectByType<PartnerMarker>();
@@ -137,7 +144,19 @@ namespace FYP.Detective.Net
             }
             catch (System.OverflowException) { return; }   // shorter than it claims
             if (!_receiveFrame.TryRead(buffer, length)) return;
-            ShowReceived();
+            // Alignment fix (user: "sometimes the partner's head and hands don't match the real person"): positions are
+            // CaseRoot-local, so they are only right when both headsets follow the same scene anchor. Otherwise hide the
+            // markers (wrong markers are worse than none) and tell the experimenter how to fix it.
+            bool aligned = _receiveFrame.PlacementId == OwnPlacementId;
+            if (aligned != _partnerAligned)
+            {
+                _partnerAligned = aligned;
+                SetStatus(aligned
+                    ? "Partner markers on: both headsets use the same scene placement"
+                    : "Partner markers hidden: the headsets use different scene placements - on the client press Join again " +
+                      "(loads the host's anchor), or both press Manual (X) on the tape mark");
+            }
+            if (aligned) ShowReceived();
         }
 
         private void OnEnable()

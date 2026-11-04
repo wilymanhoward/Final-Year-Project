@@ -50,6 +50,7 @@ Shader "FYP/OccludedUI"
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.meta.xr.sdk.core/Shaders/EnvironmentDepth/URP/EnvironmentOcclusionURP.hlsl"
+            #include "FypOcclusion.hlsl"
 
             struct Attributes
             {
@@ -94,7 +95,7 @@ Shader "FYP/OccludedUI"
                 UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
                 half4 color = (SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, input.uv) + _TextureSampleAdd) * input.color;
                 color.rgb *= color.a;   // premultiplied
-                META_DEPTH_OCCLUDE_OUTPUT_PREMULTIPLY(input, color, _EnvironmentDepthBias);
+                FYP_OCCLUDE_OUTPUT_PREMULTIPLY(input, color, _EnvironmentDepthBias);   // FypOcclusion.hlsl: smoother edges
                 return color;
             }
             ENDHLSL

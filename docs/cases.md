@@ -5,7 +5,9 @@ if you change the content here, update `CaseSpecs` to match.
 
 ## Shared structure (both cases)
 
-- **4 suspects:** 1 culprit with an unconfirmed alibi, 3 innocent suspects with confirmed alibis.
+- **4 suspects:** 1 culprit, 3 innocents. Every suspect card shows only the suspect's own claim, in the same
+  style, never whether it is confirmed (supervisor, 2026-11: "unconfirmed" on the board gave the answer away). The
+  key evidence contradicts the culprit's claim; the red herrings give each innocent a motive.
 - **7 clues:** 4 key evidence + 3 red herrings.
   - K1 = time, K2 = access, K3 = trace, K4 = motive.
   - R1-R3 = red herrings, one per innocent suspect.
@@ -32,10 +34,10 @@ be near the studio last night. Search the room, tag the evidence, and name the p
 
 | Suspect | Role | Alibi |
 |---|---|---|
-| **Grace Wong** (culprit) | Studio manager | "I locked up at 7:00 pm and went straight home." (No one can confirm.) |
-| Kumar Raj | Night cleaner | Clocked out at 9:05 pm; security confirms he left the building. |
-| Lena Ortiz | Rival designer next door | At a restaurant 7:00-10:00 pm; the restaurant confirms her booking. |
-| Aiman Hakim | Junior designer | At the gym 9:15-10:30 pm; the gym's check-in record confirms it. |
+| **Grace Wong** (culprit) | Studio manager | "I locked up at 7:00 pm and was home by 7:30." |
+| Kumar Raj | Night cleaner | "I finished cleaning and left the building at 9:05 pm." |
+| Lena Ortiz | Rival designer next door | "I was at dinner nearby from 7 until 10 pm." |
+| Aiman Hakim | Junior designer | "I was at the gym from 9:15 pm until late." |
 
 ### Clues
 
@@ -76,10 +78,10 @@ caught in it, and he left through the entrance, leaving bloody footprints.
 
 | Suspect | Role | Alibi |
 |---|---|---|
-| **Farid Rahman** (culprit) | Tour guide | "I was alone, preparing tomorrow's tour." (No one can confirm.) |
-| Mr Tan | Security guard | On gate duty 8:00-8:40 pm; the gate camera shows him there. |
-| Dr Sofia Idris | Curator | On a video call with a lender 7:50-8:45 pm; the recording confirms it. |
-| Mr Lim | Private collector | At the hotel restaurant 8:00-9:00 pm; the receipt and staff confirm it. |
+| **Farid Rahman** (culprit) | Tour guide | "I was in the staff room preparing tomorrow's tour, 7:30 to 9 pm." |
+| Mr Tan | Security guard | "I was on gate duty from 8 to 8:40 pm." |
+| Dr Sofia Idris | Curator | "I was on a video call with a lender from 7:50 pm." |
+| Mr Lim | Private collector | "I was having dinner at my hotel from 8 to 9 pm." |
 
 ### Layout (CaseRoot-local, metres; start mark at 0, 0 facing the front wall +z)
 

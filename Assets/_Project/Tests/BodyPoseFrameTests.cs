@@ -8,7 +8,8 @@ namespace FYP.Detective.Tests
         [Test]
         public void RoundTrip_KeepsHeadWristAndJoints_UntrackedHandStaysOff()
         {
-            var a = new BodyPoseFrame { HasHead = true, HeadPosition = new Vector3(0.4f, 1.62f, -1.2f), HeadRotation = Quaternion.Euler(25f, 95f, 0f) };
+            var a = new BodyPoseFrame { HasHead = true, HeadPosition = new Vector3(0.4f, 1.62f, -1.2f), HeadRotation = Quaternion.Euler(25f, 95f, 0f),
+                PlacementId = System.Guid.NewGuid() };
             a.Left.Tracked = true;
             a.Left.WristPosition = new Vector3(0.3f, 1.1f, -1f);
             a.Left.WristRotation = Quaternion.Euler(10f, 40f, -70f);
@@ -16,10 +17,11 @@ namespace FYP.Detective.Tests
             for (int i = 0; i < 24; i++) a.Left.Joints.Add(Quaternion.Euler(i * 3f, 0f, i));
 
             byte[] bytes = a.Write(out int length);
-            Assert.Less(length, 400);
+            Assert.Less(length, 420);
             var b = new BodyPoseFrame();
             Assert.IsTrue(b.TryRead(bytes, length));
             Assert.IsTrue(b.HasHead);
+            Assert.AreEqual(a.PlacementId, b.PlacementId);
             Assert.AreEqual(1.62f, b.HeadPosition.y, 1e-5f);
             Assert.Less(Quaternion.Angle(a.HeadRotation, b.HeadRotation), 0.1f);
             Assert.IsTrue(b.Left.Tracked);

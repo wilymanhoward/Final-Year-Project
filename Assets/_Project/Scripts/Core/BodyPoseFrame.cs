@@ -24,9 +24,15 @@ namespace FYP.Detective
     /// </summary>
     public sealed class BodyPoseFrame
     {
-        private const byte Version = 1;
+        private const byte Version = 2;   // 2: + PlacementId
         public const int MaxJoints = 40;
         public const int MaxBytes = 2048;
+
+        /// <summary>
+        /// The scene anchor the sender's CaseRoot follows (Guid.Empty = manual placement). Positions are CaseRoot-local,
+        /// so the partner markers only line up when both headsets follow the same anchor (or both are manual).
+        /// </summary>
+        public Guid PlacementId;
 
         public bool HasHead;
         public Vector3 HeadPosition;
@@ -45,6 +51,7 @@ namespace FYP.Detective
             var w = _writer;
             w.Write(Version);
             w.Write((byte)((HasHead ? 1 : 0) | (Left.Tracked ? 2 : 0) | (Right.Tracked ? 4 : 0)));
+            w.Write(PlacementId.ToByteArray());
             if (HasHead) { WriteVector(w, HeadPosition); WriteRotation(w, HeadRotation); }
             if (Left.Tracked) WriteHand(w, Left);
             if (Right.Tracked) WriteHand(w, Right);
@@ -63,6 +70,9 @@ namespace FYP.Detective
                 {
                     if (r.ReadByte() != Version) return false;
                     byte flags = r.ReadByte();
+                    byte[] id = r.ReadBytes(16);
+                    if (id.Length != 16) return false;
+                    PlacementId = new Guid(id);
                     HasHead = (flags & 1) != 0;
                     if (HasHead) { HeadPosition = ReadVector(r); HeadRotation = ReadRotation(r); }
                     Left.Tracked = (flags & 2) != 0;
