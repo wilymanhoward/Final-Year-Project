@@ -18,7 +18,9 @@ namespace FYP.Detective.Tests
         {
             Assert.AreEqual("Grace Wong", CaseSpecs.X.Culprit.Name);
             Assert.AreEqual("Farid Rahman", CaseSpecs.Y.Culprit.Name);
-            Assert.AreEqual("The Missing Design Award", CaseSpecs.X.Title);
+            Assert.AreEqual("Last Coffee at Kite", CaseSpecs.X.Title);
+            StringAssert.Contains("poisoned", CaseSpecs.X.Briefing);
+            StringAssert.Contains("BEST MANAGER", CaseSpecs.X.Clue(ClueSlot.K3).InspectText);
             Assert.AreEqual("Death in the Melaka Room", CaseSpecs.Y.Title);
             StringAssert.Contains("21:42", CaseSpecs.X.Clue(ClueSlot.K1).InspectText);
             StringAssert.Contains("8:17", CaseSpecs.Y.Clue(ClueSlot.K1).InspectText);
@@ -146,9 +148,10 @@ namespace FYP.Detective.Tests
             var y = CaseSpecs.Y;
             float headX = CaseSpecs.YBodyX + CaseSpecs.YBodyHeadOffsetX;
             Assert.IsTrue(CaseSpecValidator.InZone(headX, CaseSpecs.YBodyZ, y.Zones[0]), "the blood pool is under the head");
-            var keris = y.Clue(ClueSlot.K3);
-            Assert.Less(Mathf.Abs(keris.X - CaseSpecs.YBodyX), 0.8f, "the weapon lies beside the body");
-            Assert.Less(Mathf.Abs(keris.Z - CaseSpecs.YBodyZ), 0.6f);
+            var scrap = y.Clue(ClueSlot.K3);
+            Assert.Less(Mathf.Abs(scrap.X - CaseSpecs.YBodyX), 0.8f, "the torn scarf scrap lies beside the body");
+            Assert.Less(Mathf.Abs(scrap.Z - CaseSpecs.YBodyZ), 0.6f);
+            StringAssert.DoesNotContain("keris", scrap.ObjectName.ToLowerInvariant(), "the killer took the weapon away");
             var trail = y.Zones[1];
             var door = y.Prop("door");
             // The trail runs from the pool towards the entrance: its far end is nearer the door than its near end.
@@ -162,6 +165,53 @@ namespace FYP.Detective.Tests
         }
 
         [Test]
+        public void CaseXBodyAndChair_ClearOfTheDetectiveCluesAndTheSignInSheet()
+        {
+            var x = CaseSpecs.X;
+            Assert.AreEqual(180f, CaseSpecs.XBodyYaw, "extents below assume the outline is turned 180 (head at -x)");
+            // Outline extents from tools/maya/build_props.py body_tape_side (head at +x), turned 180 degrees.
+            float minX = CaseSpecs.XBodyX - 0.80f, maxX = CaseSpecs.XBodyX + 0.78f;
+            float minZ = CaseSpecs.XBodyZ - 0.42f, maxZ = CaseSpecs.XBodyZ + 0.20f;
+            float r = CaseSpecs.XChairRadius;
+            var display = x.Prop("display");
+            var k2 = x.Clue(ClueSlot.K2);
+            var k2Spot = new Vector2(k2.X - 0.45f, k2.Z);   // the sign-in sheet is read from the room side (-x)
+            var detective = new Vector2(display.X + 2f, display.Z);   // DetectiveBriefing.DisplaySideOffset
+            var chair = new Vector2(CaseSpecs.XChairX, CaseSpecs.XChairZ);
+
+            Assert.Greater(detective.y - maxZ, 0.3f, "the detective doesn't stand on the body");
+            Assert.Greater((detective - chair).magnitude - r, 0.3f, "nor in the chair");
+            Assert.Greater(minZ - k2Spot.y, 0.3f, "room to stand at the sign-in sheet");
+            Assert.Greater((k2Spot - chair).magnitude - r, 0.3f);
+            foreach (var c in x.Clues)
+            {
+                Assert.IsFalse(c.X > minX && c.X < maxX && c.Z > minZ && c.Z < maxZ, c.Id + " under the body");
+                Assert.Greater((new Vector2(c.X, c.Z) - chair).magnitude, r, c.Id + " under the chair");
+            }
+            var coffee = x.Zones[1];
+            Assert.Greater(coffee.X - coffee.Width / 2f, chair.x + r - 0.01f, "the chair stands beside the spilled coffee, not in it");
+            Assert.Less(chair.x - r - maxX, 0.1f, "his legs lie by the chair he slid off");
+        }
+
+        [Test]
+        public void VerdictSpotIsClearInBothCases()
+        {
+            var spot = new Vector2(CaseSpecs.VerdictX, CaseSpecs.VerdictZ);
+            foreach (var spec in new[] { CaseSpecs.X, CaseSpecs.Y })
+            {
+                foreach (var z in spec.Zones)   // 0.4 m clear of every zone
+                    Assert.IsFalse(CaseSpecValidator.InZone(spot.x, spot.y, z, 0.4f), spec.Case + " " + z.Id);
+                foreach (var p in spec.Props)
+                {
+                    float reach = Mathf.Sqrt(p.Width * p.Width + p.Depth * p.Depth) / 2f + 0.3f;
+                    Assert.Greater((spot - new Vector2(p.X, p.Z)).magnitude, reach, spec.Case + " " + p.Role);
+                }
+                foreach (var c in spec.Clues) Assert.Greater((spot - new Vector2(c.X, c.Z)).magnitude, 0.5f, c.Id);
+                Assert.Greater((spot - new Vector2(spec.BoardX, spec.BoardZ)).magnitude, 0.9f, "beside the board, not in front of it");
+            }
+        }
+
+        [Test]
         public void CaseYDetectiveStandsClearOfEveryZone()
         {
             foreach (var zone in CaseSpecs.Y.Zones)
@@ -170,6 +220,16 @@ namespace FYP.Detective.Tests
                 float reach = Mathf.Sqrt(zone.Width * zone.Width + zone.Depth * zone.Depth) / 2f + 0.5f;
                 Assert.Greater(new Vector2(CaseSpecs.YBriefingX - zone.X, CaseSpecs.YBriefingZ - zone.Z).magnitude, reach, zone.Id);
             }
+        }
+
+        [Test]
+        public void KeyCluesNeverNameTheCulprit()
+        {
+            // User, 2026-11-04: "harder and less obvious" - initials, roles and times only; the answer needs several clues.
+            foreach (var spec in new[] { CaseSpecs.X, CaseSpecs.Y })
+                foreach (var clue in spec.Clues)
+                    foreach (string part in spec.Culprit.Name.Split(' '))
+                        StringAssert.DoesNotContain(part.ToLowerInvariant(), (clue.ObjectName + " " + clue.InspectText).ToLowerInvariant(), clue.Id);
         }
 
         [Test]

@@ -40,7 +40,7 @@ namespace FYP.Detective.EditorTools
             var placement = Object.FindFirstObjectByType<ScenePlacement>();
             if (session == null || shortcuts == null || label == null)
             {
-                EditorUtility.DisplayDialog("Networking",
+                SetupDialogs.Show("Networking",
                     "Open Main.unity and run FYP > Set Up Case Root and Placement first " +
                     "(needs SessionManager, ExperimenterControllerShortcuts and the status label).", "OK");
                 return;
@@ -124,7 +124,7 @@ namespace FYP.Detective.EditorTools
             EditorSceneManager.SaveScene(scene);
             AssetDatabase.SaveAssets();
 
-            EditorUtility.DisplayDialog("Networking",
+            SetupDialogs.Show("Networking",
                 (created ? "Created 'Network' (NetworkManager + UnityTransport).\n" : "NetworkManager already present.\n") +
                 "Launcher + ColocationCoordinator wired: right stick up = host (advertise + share anchor), " +
                 "right stick down = join (discover + load anchor), left stick down = stop.\n" +

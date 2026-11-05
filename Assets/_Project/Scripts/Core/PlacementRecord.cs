@@ -15,6 +15,8 @@ namespace FYP.Detective
         Manual = 2,
         /// <summary>Team condition: the host's anchor, shared through the colocation session and loaded here.</summary>
         SharedAnchor = 3,
+        /// <summary>Placed automatically where the case fits the scanned room (<see cref="RoomFit"/>), held by an anchor.</summary>
+        AutoAnchor = 4,
     }
 
     /// <summary>
@@ -38,14 +40,21 @@ namespace FYP.Detective
         public float YawDegrees { get; }
         public DateTime Utc { get; }
 
-        /// <summary>"anchor", "manual", "shared_anchor" or "none" (as written to logs).</summary>
-        public string MethodCode => Method == PlacementMethod.SharedAnchor ? "shared_anchor" : Method.ToString().ToLowerInvariant();
+        /// <summary>Room check of this placement (<see cref="RoomFitResult.LogDetail"/>), or null if none was made.</summary>
+        public string RoomFit { get; }
+
+        /// <summary>"anchor", "manual", "shared_anchor", "auto_anchor" or "none" (as written to logs).</summary>
+        public string MethodCode =>
+            Method == PlacementMethod.SharedAnchor ? "shared_anchor"
+            : Method == PlacementMethod.AutoAnchor ? "auto_anchor"
+            : Method.ToString().ToLowerInvariant();
 
         public string EventName => LoadedFromSave ? LogEvents.PlacementLoaded : LogEvents.PlacementSet;
 
         public PlacementRecord(PlacementMethod method, bool loadedFromSave, string anchorUuid,
-            Vector3 position, float yawDegrees, DateTime utc)
+            Vector3 position, float yawDegrees, DateTime utc, string roomFit = null)
         {
+            RoomFit = roomFit;
             Method = method;
             LoadedFromSave = loadedFromSave;
             AnchorUuid = anchorUuid;
@@ -64,7 +73,8 @@ namespace FYP.Detective
                 + ";y=" + Position.y.ToString("F4", inv)
                 + ";z=" + Position.z.ToString("F4", inv)
                 + ";yaw_deg=" + YawDegrees.ToString("F2", inv)
-                + ";at_utc=" + FormatUtc(Utc);
+                + ";at_utc=" + FormatUtc(Utc)
+                + (RoomFit != null ? ";" + RoomFit : "");
         }
 
         public static string FormatUtc(DateTime utc)

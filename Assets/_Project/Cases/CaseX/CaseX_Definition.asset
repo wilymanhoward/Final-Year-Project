@@ -13,29 +13,29 @@ MonoBehaviour:
   m_Name: CaseX_Definition
   m_EditorClassIdentifier: FYP.Detective::FYP.Detective.CaseDefinition
   caseId: 0
-  title: The Missing Design Award
-  briefing: Last night, the gold Design of the Year award vanished from the display
-    case at Kite Design Studio, just hours before the company's big exhibition. The
-    case was found open this morning. Four people had a reason to be near the studio
-    last night. Search the room, tag the evidence, and name the person who took the
-    award.
+  title: Last Coffee at Kite
+  briefing: Last night, Encik Rizal Hamid, founder of Kite Design Studio, was found
+    dead beside the front desk. The gold Design of the Year award is gone from its
+    smashed display case. It looks like a break-in, but the doctor says he was poisoned.
+    Four people had a reason to be at the studio last night. Search the room, tag
+    the evidence, and name the person who killed him.
   suspects:
   - id: X_grace
     displayName: Grace Wong
     role: Studio manager
-    alibi: '"I locked up at 7:00 pm and went straight home." (No one can confirm.)'
+    alibi: '"I locked up at 7:00 pm and was home by 7:30."'
   - id: X_kumar
     displayName: Kumar Raj
     role: Night cleaner
-    alibi: Clocked out at 9:05 pm; security confirms he left the building.
+    alibi: '"I finished cleaning and left the building at 9:05 pm."'
   - id: X_lena
     displayName: Lena Ortiz
     role: Rival designer next door
-    alibi: At a restaurant 7:00-10:00 pm; the restaurant confirms her booking.
+    alibi: '"I was at dinner nearby from 7 until 10 pm."'
   - id: X_aiman
     displayName: Aiman Hakim
     role: Junior designer
-    alibi: At the gym 9:15-10:30 pm; the gym's check-in record confirms it.
+    alibi: '"I was at the gym from 9:15 pm until late."'
   correctSuspectId: X_grace
   keyEvidenceIds:
   - X_K1
@@ -52,16 +52,16 @@ MonoBehaviour:
     K2 X_K2 - Sign-in sheet
 
     K3
-    X_K3 - Staff lanyard clip
+    X_K3 - Wet mug
 
     K4 X_K4 - Printed email
 
-    R1 X_R1 - Cleaning
-    glove (red herring: Kumar Raj)
+    R1 X_R1 - Cleaning glove (red
+    herring: Kumar Raj)
 
-    R2 X_R2 - Torn sketch (red herring: Lena
-    Ortiz)
+    R2 X_R2 - Torn sketch (red herring: Lena Ortiz)
 
-    R3 X_R3 - Sticky note (red herring: Aiman Hakim)
+    R3
+    X_R3 - Sticky note (red herring: Aiman Hakim)
 
 '

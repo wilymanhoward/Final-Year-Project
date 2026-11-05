@@ -61,7 +61,7 @@ namespace FYP.Detective.EditorTools
             var caseRoot = Object.FindFirstObjectByType<CaseRoot>(FindObjectsInactive.Include);
             if (session == null || caseRoot == null)
             {
-                EditorUtility.DisplayDialog("Evidence board", "Open Main.unity and run FYP > Set Up Case Root and Placement first.", "OK");
+                SetupDialogs.Show("Evidence board", "Open Main.unity and run FYP > Set Up Case Root and Placement first.", "OK");
                 return;
             }
 
@@ -192,7 +192,7 @@ namespace FYP.Detective.EditorTools
             EditorSceneManager.MarkSceneDirty(scene);
             EditorSceneManager.SaveScene(scene);
             Selection.activeObject = root;
-            EditorUtility.DisplayDialog("Evidence board",
+            SetupDialogs.Show("Evidence board",
                 "Built the evidence board under CaseRoot (" + (existing != null ? "kept its pose" : "default pose: back of the room, facing the start") +
                 "). Move 'EvidenceBoard' in the scene if needed - rerunning keeps its pose (Build Case Scenes resets it to the spec spot).\n" +
                 (hasMesh ? "" : "WARNING: EvidenceBoard.fbx missing - run mayapy tools/maya/build_props.py for the cork board.\n") +

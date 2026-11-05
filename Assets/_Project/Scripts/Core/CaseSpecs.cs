@@ -78,11 +78,11 @@ namespace FYP.Detective
             var c = new CaseSpec
             {
                 Case = CaseId.X,
-                Title = "The Missing Design Award",
-                Briefing = "Last night, the gold Design of the Year award vanished from the display case at Kite Design Studio, " +
-                           "just hours before the company's big exhibition. The case was found open this morning. Four people had " +
-                           "a reason to be near the studio last night. Search the room, tag the evidence, and name the person who " +
-                           "took the award.",
+                Title = "Last Coffee at Kite",
+                Briefing = "Last night, Encik Rizal Hamid, founder of Kite Design Studio, was found dead beside the front desk. " +
+                           "The gold Design of the Year award is gone from its smashed display case. It looks like a break-in, " +
+                           "but the doctor says he was poisoned. Four people had a reason to be at the studio last night. " +
+                           "Search the room, tag the evidence, and name the person who killed him.",
                 BoardX = 0f, BoardZ = -2.19f, BoardYaw = 0f,
             };
             c.Suspects.Add(new SuspectSpec { Id = "X_grace", Name = "Grace Wong", Role = "Studio manager", IsCulprit = true,
@@ -95,12 +95,12 @@ namespace FYP.Detective
                 Alibi = "\"I was at the gym from 9:15 pm until late.\"" });
 
             c.Clues.Add(Clue("X_", ClueSlot.K1, "Display case lock panel", "\"Case opened: 21:42.\""));
-            c.Clues.Add(Clue("X_", ClueSlot.K2, "Sign-in sheet", "Last entry: \"G. Wong, in 21:35.\" Someone tried to scribble it out."));
-            c.Clues.Add(Clue("X_", ClueSlot.K3, "Staff lanyard clip", "Broken clip with a tag: \"Staff #004, G. Wong.\""));
-            c.Clues.Add(Clue("X_", ClueSlot.K4, "Printed email", "From a pawn shop to Grace: \"We can offer RM 15,000 if the award is real gold.\""));
-            c.Clues.Add(Clue("X_", ClueSlot.R1, "Cleaning glove", "A yellow rubber glove from the cleaning trolley.", "X_kumar"));
-            c.Clues.Add(Clue("X_", ClueSlot.R2, "Torn sketch", "A drawing of the award, signed \"L. Ortiz.\"", "X_lena"));
-            c.Clues.Add(Clue("X_", ClueSlot.R3, "Sticky note", "\"This award should have been mine. - A.\"", "X_aiman"));
+            c.Clues.Add(Clue("X_", ClueSlot.K2, "Sign-in sheet", "Last entry: \"G.W., in 21:35.\" Someone tried to scribble it out."));
+            c.Clues.Add(Clue("X_", ClueSlot.K3, "Wet mug", "A mug printed \"BEST MANAGER\", pushed under the display stand. It is still wet: someone rinsed it in a hurry."));
+            c.Clues.Add(Clue("X_", ClueSlot.K4, "Printed email", "Email from a pawn shop to studio.manager@kite.my: \"We can offer RM 15,000 if the award is real gold. Bring it after closing.\""));
+            c.Clues.Add(Clue("X_", ClueSlot.R1, "Cleaning glove", "A yellow cleaning glove beside the display case. It smells of glass cleaner. Encik Rizal fired Kumar this week.", "X_kumar"));
+            c.Clues.Add(Clue("X_", ClueSlot.R2, "Torn sketch", "A torn drawing of the award, signed \"L. Ortiz\". Scrawled across it: \"Rizal stole my design.\"", "X_lena"));
+            c.Clues.Add(Clue("X_", ClueSlot.R3, "Sticky note", "\"Rizal promised me that award. Liar. - A.\"", "X_aiman"));
 
             c.Zones.AddRange(Zones("X_", "Broken glass", "Spilled coffee", "Muddy footprints"));
             c.Props.AddRange(Props("Display case", "Front desk", "Manager's desk", "Monitor", "Door"));
@@ -108,9 +108,28 @@ namespace FYP.Detective
         }
 
         // Case Y "Death in the Melaka Room" (user decision, session 6): its own layout, no longer a mirror of X. The scene
-        // tells the story: Datuk Hashim lies in front of the plinth, stabbed with the gallery's keris (K3, beside him);
+        // tells the story: Datuk Hashim lies in front of the plinth, stabbed with the gallery's keris, which the killer took
+        // away (user, 2026-11-04: leaving the weapon was "too dumb"); a scrap torn off his green scarf lies beside the body (K3);
         // blood pool under his head (zone 1), bloody footprints lead from it towards the entrance (zone 2), the vase
         // knocked off its stand (zone 3), the wall clock smashed in the struggle (K1). Position of the body tape: below.
+        /// <summary>
+        /// Case X (user, 2026-11-05: a poisoning; "the body fell down from the chair"): Encik Rizal sat on the front-desk
+        /// chair with his coffee; the chair rolled back and turned (XChair*), he slid off it and lies on his side in front of
+        /// it, legs by the chair, head away from the desk (taped outline turned XBodyYaw). Both stay clear of the sign-in
+        /// sheet's standing spot and of the briefing detective's spot; the spilled coffee (zone 2) is just past the chair.
+        /// CaseRoot-local.
+        /// </summary>
+        public const float XBodyX = 0.22f, XBodyZ = 1.33f, XBodyYaw = 180f;
+
+        /// <summary>
+        /// Where the detective gives the verdict after a submission (supervisor, 2026-11-05), both cases: open floor left of
+        /// the evidence board, clear of every zone, prop and clue (test). CaseRoot-local.
+        /// </summary>
+        public const float VerdictX = -0.85f, VerdictZ = -1.70f;
+        public const float XChairX = 1.25f, XChairZ = 1.25f, XChairYaw = 140f;
+        /// <summary>Radius of the office chair's footprint (star base and seat).</summary>
+        public const float XChairRadius = 0.30f;
+
         /// <summary>Case Y: where the body lies (centre of the taped outline, head towards -x), CaseRoot-local.</summary>
         public const float YBodyX = 0f, YBodyZ = 1.25f, YBodyHeadOffsetX = -0.80f;
 
@@ -121,7 +140,7 @@ namespace FYP.Detective
         {
             { ClueSlot.K1, new Spot(-1.50f, 2.35f, HeightBand.Eye, 180f, false) },   // smashed wall clock, front wall left of the plinth
             { ClueSlot.K2, new Spot(1.81f, 0.56f, HeightBand.Table, -90f, true) },   // visitor logbook on the reception table (right wall)
-            { ClueSlot.K3, new Spot(0.35f, 0.88f, HeightBand.Floor, 180f, true) },   // the keris, on the floor beside the body
+            { ClueSlot.K3, new Spot(0.35f, 0.88f, HeightBand.Floor, 180f, true) },   // torn scarf scrap, on the floor beside the body
             { ClueSlot.K4, new Spot(1.81f, -0.94f, HeightBand.Table, -90f, true) },  // the Datuk's email on the tour desk
             { ClueSlot.R1, new Spot(0.45f, 2.15f, HeightBand.Floor, -90f, true) },   // torch beside the plinth
             { ClueSlot.R2, new Spot(-2.00f, -1.85f, HeightBand.Floor, 0f, true) },   // card just inside the entrance
@@ -135,7 +154,8 @@ namespace FYP.Detective
                 Case = CaseId.Y,
                 Title = "Death in the Melaka Room",
                 Briefing = "Last night, Datuk Hashim Karim, founder of the Heritage Gallery, was found stabbed to death in the " +
-                           "Melaka Room with the gallery's own keris. He had found out that real pieces were being swapped for " +
+                           "Melaka Room with the gallery's own keris. The keris is gone from its plinth. He had found out that " +
+                           "real pieces were being swapped for " +
                            "replicas. Bloody footprints lead from the body towards the entrance. Four people had access to the " +
                            "room. Search the scene, tag the evidence, and name the person who killed him.",
                 BoardX = 0f, BoardZ = -2.19f, BoardYaw = 0f,
@@ -151,8 +171,8 @@ namespace FYP.Detective
 
             c.Clues.Add(Clue("Y_", ClueSlot.K1, "Smashed wall clock", "Knocked off the wall in the struggle. The hands stopped at 8:17."));
             c.Clues.Add(Clue("Y_", ClueSlot.K2, "Visitor logbook", "\"Gallery key out 20:05, F.R.\" No return time written."));
-            c.Clues.Add(Clue("Y_", ClueSlot.K3, "The keris", "The murder weapon, blade bloody. The hilt was wiped, but a strand of green tour-guide scarf is caught in it."));
-            c.Clues.Add(Clue("Y_", ClueSlot.K4, "Printed email", "From the Datuk to Farid: \"I know about the replicas. Meet me in the Melaka Room at 8. - H.\""));
+            c.Clues.Add(Clue("Y_", ClueSlot.K3, "Torn scarf scrap", "A scrap of green tour-guide scarf, torn off in the struggle. A spot of blood on it."));
+            c.Clues.Add(Clue("Y_", ClueSlot.K4, "Printed email", "Email from the Datuk to the tour guide: \"I know about the replicas. Meet me in the Melaka Room at 8. - H.\""));
             c.Clues.Add(Clue("Y_", ClueSlot.R1, "Torch", "A security-issue torch, battery flat. Mr Tan argued with the Datuk this week.", "Y_tan"));
             c.Clues.Add(Clue("Y_", ClueSlot.R2, "Business card", "Mr Lim's card; on the back: \"That keris will be mine.\"", "Y_lim"));
             c.Clues.Add(Clue("Y_", ClueSlot.R3, "Noticeboard note", "\"Datuk, I will resign if the keris is sold. - S.\"", "Y_sofia"));

@@ -31,6 +31,11 @@ namespace FYP.Detective.Meta
     /// tracking has been stable for 3 s (<see cref="TrackingSettleGate"/>), and the placement height is checked after
     /// placing/loading and continuously before a session (<see cref="PlacementHeight"/>, start is refused if wrong).
     ///
+    /// Room fit (user, 2026-11-04): <see cref="AutoPlace"/> reads the Space Setup room scan (<see cref="RoomScanner"/>)
+    /// and puts the scene where both cases fit the walls and real furniture (<see cref="RoomFit.FindBest"/>, front towards
+    /// the way the experimenter faces); the manual placements (Place here, Manual, Load) check the room and only warn.
+    /// The result is in the placement log row (room_fit=...).
+    ///
     /// Public methods are meant for buttons / controller shortcuts. Placement is refused while a session runs.
     /// </summary>
     public class ScenePlacement : MonoBehaviour
@@ -43,6 +48,7 @@ namespace FYP.Detective.Meta
         public const string StatusCleared = "Placement cleared";
         public const string StatusNoSaved = "No saved placement - use Place Scene Here";
         public const string StatusSharedLoaded = "Host's placement loaded (shared anchor)";
+        public const string StatusAutoPlaced = "Placed automatically to fit the room (anchor saved)";
         public const string StatusPermissionNeeded = "Spatial data permission needed - accept the dialog";
         public const string StatusPermissionGranted = "Spatial data permission granted - press again";
         public const string StatusPermissionDenied =
@@ -64,6 +70,10 @@ namespace FYP.Detective.Meta
         [SerializeField, Min(1f)] private float anchorTimeoutSeconds = 15f;
         [Tooltip("Loading the host's shared anchor downloads it from Meta's cloud, so it gets longer.")]
         [SerializeField, Min(1f)] private float sharedAnchorTimeoutSeconds = 30f;
+
+        [Tooltip("Reads the Space Setup room scan (auto placement + room check). Empty = added at start.")]
+        [SerializeField] private RoomScanner roomScanner;
+        [SerializeField, Min(1f)] private float roomScanTimeoutSeconds = 8f;
 
         [Tooltip("Status text for the experimenter, e.g. wire to StatusLabel.Show or a UI Text.")]
         public UnityEvent<string> onStatusChanged = new UnityEvent<string>();
@@ -87,6 +97,14 @@ namespace FYP.Detective.Meta
         private bool _lastHeightOk = true;
 
         public string Status { get; private set; } = "Not placed";
+
+        /// <summary>Room check of the current placement (no_scan when none was possible or for the shared anchor).</summary>
+        public RoomFitResult LastRoomFit { get; private set; } = RoomFitResult.NoScan;
+
+        // Both cases are played in the same placement, so the scene must fit for both.
+        private static readonly List<FitBox> Footprint = RoomFit.Footprint(CaseSpecs.X, CaseSpecs.Y);
+        private string _roomText;        // room check text appended to the placement status (null = none)
+        private string _lastRoomError;
         public bool IsBusy => _deadline > 0f;
         public bool HasSavedPlacement => PlayerPrefs.HasKey(SavedAnchorKey);
 
@@ -98,6 +116,7 @@ namespace FYP.Detective.Meta
             if (session == null) session = FindFirstObjectByType<SessionManager>();
             if (rig == null) rig = FindFirstObjectByType<PlayerRig>();
             if (caseRoot == null) caseRoot = FindFirstObjectByType<CaseRoot>();
+            if (roomScanner == null && !TryGetComponent(out roomScanner)) roomScanner = gameObject.AddComponent<RoomScanner>();
         }
 
         private void OnDisable()
@@ -160,7 +179,43 @@ namespace FYP.Detective.Meta
         private void ReportPlaced(string successStatus)
         {
             _lastHeightOk = session.IsPlacementHeightOk;
-            SetStatus(_lastHeightOk ? successStatus : PlacementHeight.WrongMessage(session.PlacementHeightOffset));
+            SetStatus(WithRoom(_lastHeightOk ? successStatus : PlacementHeight.WrongMessage(session.PlacementHeightOffset)));
+        }
+
+        private string WithRoom(string status) => _roomText == null ? status : status + " | " + _roomText;
+
+        /// <summary>Loads the room scan (at most roomScanTimeoutSeconds). Null = none; the reason is in _lastRoomError.</summary>
+        private async Task<RoomModel> ScanRoomAsync()
+        {
+            try
+            {
+                Task<RoomScanner.Result> scan = roomScanner.LoadRoomAsync();
+                if (await Task.WhenAny(scan, Task.Delay(TimeSpan.FromSeconds(roomScanTimeoutSeconds))) != scan)
+                {
+                    _lastRoomError = "reading the room scan took too long";
+                    return null;
+                }
+                _lastRoomError = scan.Result.Error;
+                return scan.Result.Room;
+            }
+            catch (Exception e)
+            {
+                Debug.LogException(e);
+                _lastRoomError = "reading the room scan failed";
+                return null;
+            }
+        }
+
+        private static RoomFitResult CheckRoom(RoomModel room, Pose pose) => room == null
+            ? RoomFitResult.NoScan
+            : RoomFit.Check(room, Footprint, new Vector2(pose.position.x, pose.position.z), PlacementMath.HeadingDegrees(pose.rotation));
+
+        private void SetRoomFit(RoomModel room, RoomFitResult fit)
+        {
+            LastRoomFit = room == null ? RoomFitResult.NoScan : fit;
+            _roomText = room == null ? "Room check skipped: " + _lastRoomError : fit.Summary();
+            if (fit.Problems.Count > 0 || fit.Warnings.Count > 0)
+                Debug.LogWarning("[ScenePlacement] Room check: " + string.Join("; ", fit.Problems) + " | " + string.Join("; ", fit.Warnings));
         }
 
         /// <summary>Waits until tracking has been stable for a few seconds (max 10 s). False if superseded.</summary>
@@ -180,14 +235,58 @@ namespace FYP.Detective.Meta
 
         // ---- Public actions ----
 
-        /// <summary>Creates a spatial anchor at the head's floor pose, moves CaseRoot onto it and saves it.</summary>
+        /// <summary>
+        /// Automatic placement: reads the room scan and creates the anchor where both cases fit the walls and the real
+        /// furniture (the scene's front towards the way the experimenter faces), then saves it like Place here.
+        /// </summary>
+        public async void AutoPlace()
+        {
+            if (!CanChange() || !EnsureSpatialDataPermission()) return;
+            if (!await WaitForTrackingToSettle()) return;
+            if (!FloorLooksRightOrOverridden()) return;
+            int op = BeginOperation("Reading the room scan...");
+            float preferredYaw = PlacementMath.HeadingDegrees(rig.Head.rotation);
+            RoomModel room = await ScanRoomAsync();
+            if (!IsCurrent(op)) return;
+            if (room == null)
+            {
+                EndOperation();
+                SetStatus("Auto place failed: " + _lastRoomError + ". Use Place here or Manual (X) on the tape mark");
+                return;
+            }
+
+            SetStatus("Finding where the scene fits the room...");
+            List<FitBox> boxes = Footprint;
+            RoomFitResult fit = null;
+            Vector2 at = Vector2.zero;
+            float yaw = preferredYaw;
+            await Task.Run(() => fit = RoomFit.FindBest(room, boxes, preferredYaw, out at, out yaw));   // pure maths, off the main thread
+            if (!IsCurrent(op)) return;
+
+            float floorY = trackingSpace != null ? trackingSpace.position.y : 0f;
+            SetRoomFit(room, fit);
+            await CreateAnchorAsync(op, new Pose(new Vector3(at.x, floorY, at.y), Quaternion.Euler(0f, yaw, 0f)),
+                PlacementMethod.AutoAnchor, StatusAutoPlaced);
+        }
+
+        /// <summary>Creates a spatial anchor at the head's floor pose, moves CaseRoot onto it and saves it (room check: warn only).</summary>
         public async void PlaceSceneHere()
         {
             if (!CanChange() || !EnsureSpatialDataPermission()) return;
             if (!await WaitForTrackingToSettle()) return;
             if (!FloorLooksRightOrOverridden()) return;
-            int op = BeginOperation("Creating anchor...");
+            int op = BeginOperation("Checking the room...");
             Pose pose = HeadFloorPose();
+            RoomModel room = await ScanRoomAsync();
+            if (!IsCurrent(op)) return;
+            SetRoomFit(room, CheckRoom(room, pose));
+            await CreateAnchorAsync(op, pose, PlacementMethod.Anchor, StatusPlacedSaved);
+        }
+
+        private async Task CreateAnchorAsync(int op, Pose pose, PlacementMethod method, string successStatus)
+        {
+            SetStatus("Creating anchor...");
+            _deadline = Time.unscaledTime + anchorTimeoutSeconds;   // the room scan used part of the first timeout
             var go = new GameObject(AnchorObjectName);
             go.transform.SetPositionAndRotation(pose.position, pose.rotation);
             _pendingAnchorObject = go;
@@ -201,7 +300,7 @@ namespace FYP.Detective.Meta
 
                 _pendingAnchorObject = null;
                 UseAnchor(anchor);
-                Commit(PlacementMethod.Anchor, false, anchor.Uuid.ToString("D"));
+                Commit(method, false, anchor.Uuid.ToString("D"));
 
                 var save = await anchor.SaveAnchorAsync();
                 if (anchor == null || _anchor != anchor) return;   // replaced or cleared meanwhile
@@ -209,7 +308,7 @@ namespace FYP.Detective.Meta
                 {
                     PlayerPrefs.SetString(SavedAnchorKey, anchor.Uuid.ToString("D"));
                     PlayerPrefs.Save();
-                    ReportPlaced(StatusPlacedSaved);
+                    ReportPlaced(successStatus);
                 }
                 else
                 {
@@ -239,7 +338,11 @@ namespace FYP.Detective.Meta
             }
             if (!await WaitForTrackingToSettle()) return;
 
-            int op = BeginOperation("Loading saved placement...");
+            int op = BeginOperation("Checking the room...");
+            RoomModel room = await ScanRoomAsync();
+            if (!IsCurrent(op)) return;
+            SetStatus("Loading saved placement...");
+            _deadline = Time.unscaledTime + anchorTimeoutSeconds;
             try
             {
                 var result = await OVRSpatialAnchor.LoadUnboundAnchorsAsync(new[] { uuid }, _unbound);
@@ -266,6 +369,7 @@ namespace FYP.Detective.Meta
                 unbound.BindTo(anchor);
 
                 UseAnchor(anchor);
+                SetRoomFit(room, CheckRoom(room, new Pose(caseRoot.transform.position, caseRoot.transform.rotation)));
                 Commit(PlacementMethod.Anchor, true, uuid.ToString("D"));
                 ReportPlaced(StatusLoaded);
                 WarnIfLoadedFloorLooksWrong();
@@ -339,6 +443,8 @@ namespace FYP.Detective.Meta
                 float floorY = trackingSpace != null ? trackingSpace.position.y : 0f;
                 float heightCorrection = floorY - go.transform.position.y;
                 UseAnchor(anchor, floorY);
+                LastRoomFit = RoomFitResult.NoScan;   // the host checked the room when it placed
+                _roomText = null;
                 Commit(PlacementMethod.SharedAnchor, true, anchorUuid.ToString("D"));
                 Debug.Log($"[ScenePlacement] Shared anchor loaded; scene moved {heightCorrection:+0.000;-0.000} m onto this headset's floor");
                 ReportPlaced(StatusSharedLoaded + $" - height matched to this floor ({heightCorrection * 100f:+0;-0} cm)");
@@ -351,17 +457,21 @@ namespace FYP.Detective.Meta
             }
         }
 
-        /// <summary>Fallback: same head-based pose, no anchor. Shifts if the headset is recentered.</summary>
-        public void ManualPlacement()
+        /// <summary>Fallback: same head-based pose, no anchor. Shifts if the headset is recentered. Room check: warn only.</summary>
+        public async void ManualPlacement()
         {
             if (!CanChange()) return;
             if (!FloorLooksRightOrOverridden()) return;
-            CancelOperation();
+            int op = BeginOperation("Checking the room...");
             Pose pose = HeadFloorPose();
+            RoomModel room = await ScanRoomAsync();   // without the Spatial data permission this just reports no scan
+            if (!IsCurrent(op)) return;
+            EndOperation();
             ReleaseAnchor();
             caseRoot.PlaceAt(pose);
+            SetRoomFit(room, CheckRoom(room, pose));
             Commit(PlacementMethod.Manual, false, null);
-            SetStatus(StatusManual);
+            SetStatus(WithRoom(StatusManual));
         }
 
         /// <summary>Erases the saved anchor, forgets its UUID and moves CaseRoot back to the origin.</summary>
@@ -372,6 +482,8 @@ namespace FYP.Detective.Meta
             int op = BeginOperation("Clearing placement...");
             ReleaseAnchor();
             caseRoot.PlaceAt(new Pose(Vector3.zero, Quaternion.identity));
+            LastRoomFit = RoomFitResult.NoScan;
+            _roomText = null;
             session.SetPlacement(PlacementRecord.None);
             PlayerPrefs.DeleteKey(SavedAnchorKey);
             PlayerPrefs.Save();
@@ -497,7 +609,8 @@ namespace FYP.Detective.Meta
         private void Commit(PlacementMethod method, bool loaded, string uuid)
         {
             Transform t = caseRoot.transform;
-            var record = new PlacementRecord(method, loaded, uuid, t.position, t.eulerAngles.y, DateTime.UtcNow);
+            var record = new PlacementRecord(method, loaded, uuid, t.position, t.eulerAngles.y, DateTime.UtcNow,
+                method == PlacementMethod.SharedAnchor ? null : LastRoomFit.LogDetail);
             if (!session.SetPlacement(record))
                 Debug.LogWarning("[ScenePlacement] SessionManager refused the placement (session running?).");
         }

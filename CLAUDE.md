@@ -81,7 +81,8 @@ Read this first in every session. Update **Current status** at the end of each s
 
 **Package decisions (user, session 3):**
 - **Netcode for GameObjects: approved, but install it in the Week 3 session**, not before.
-- **MRUK: do not use in Week 2.** Placement is head-based + `OVRSpatialAnchor` only.
+- **MRUK: do not use in Week 2.** Placement is head-based + `OVRSpatialAnchor` only. **Changed (user, 2026-11-04):** MRUK is
+  used read-only for the room scan of automatic placement (`RoomScanner`); no MRUK prefabs, world lock off.
 
 **Anchor / colocation API in this stack** (signatures checked in the installed 207 source):
 - Local anchors: `OVRSpatialAnchor` component; `SaveAnchorAsync()`, `OVRSpatialAnchor.LoadUnboundAnchorsAsync(...)`,
@@ -93,7 +94,7 @@ Read this first in every session. Update **Current status** at the end of each s
   `OVRColocationSession.ColocationSessionDiscovered` event.
 - Building Blocks available in core: `SpatialAnchorCore`, `SharedSpatialAnchorCore`,
   `MultiplayerBlocks/Shared/Colocation` (+ NGO and Photon Fusion variants). The NGO variant needs Netcode.
-- MR Utility Kit (MRUK) is installed (part of `sdk.all`) but not used (see decisions above).
+- MR Utility Kit (MRUK) is installed (part of `sdk.all`); used only by `RoomScanner` (see decisions above).
 
 ## Rules for Claude
 - Before using any Meta XR SDK class or method, verify it exists in the installed package source
@@ -384,8 +385,8 @@ Data flow:
   experimenter armed) right after `session_start` when the run was armed; meta `startSource`, `armedUtc`. Team runs
   carry the source in TeamMessage `ReqStart|source` / `Start|case|cond|source`.
 - **Phase D cases (session 6):** the case content lives in `docs/cases.md` (source of truth) and
-  `Assets/_Project/Scripts/Core/CaseSpecs.cs` (positions; 5 x 5 m area, `PlayArea`). Case X "The Missing Design Award"
-  (theft, culprit Grace Wong); Case Y "Death in the Melaka Room" (murder with its own layout, not a mirror of X; culprit
+  `Assets/_Project/Scripts/Core/CaseSpecs.cs` (positions; 5 x 5 m area, `PlayArea`). Case X "Last Coffee at Kite"
+  (murder by poisoning since 2026-11-05, was the theft "The Missing Design Award"; culprit Grace Wong); Case Y "Death in the Melaka Room" (murder with its own layout, not a mirror of X; culprit
   Farid Rahman); 4 suspects, K1-K4 + R1-R3, 3 zones each. `CaseSpecValidator` checks counts, height bands, inside area,
   clue-zone margins, reachability, red herrings -> distinct innocents and mean clue distance within 0.15 m of the other
   case (no mirror rule since session 6). Earlier numbers in these notes (3 x 3 / 4 x 4 m, mirrored Y, forensic report K2,
@@ -400,6 +401,20 @@ Data flow:
   suspect's own quoted claim, same style, no confirmation (CaseSpecs + docs/cases.md; test
   `SuspectCardsDontGiveAwayTheCulprit`); the key evidence contradicts the culprit's claim (X sign-in 21:35 vs "home by
   7:30"; Y key out 20:05 F.R. vs "in the staff room"). Needs Build Case Scenes (updates the CaseDefinition assets).
+- **Automatic placement (user, 2026-11-04: "the wall blocks the 3D model"; fully automatic + a manual option that
+  checks and warns):** A / setup panel "Auto place (A)" = `ScenePlacement.AutoPlace`: `RoomScanner` (Meta asm, refs
+  `meta.xr.mrutilitykit`) loads the Space Setup scan (`MRUK.LoadSceneFromDevice(requestSceneCaptureIfNoDataFound: false)`,
+  floor outline = `FloorAnchor.PlaneBoundary2D`, furniture = every `VolumeBounds` anchor projected to a convex outline;
+  MRUK is created at runtime with `EnableWorldLock = false` (it would move TrackingSpace) and no scene load on startup) ->
+  `RoomFit.FindBest` (Core, pure, `RoomFitTests`) over the footprint of BOTH cases (props, zones, clues, board + the
+  5 x 5 m play area): yaws lined up with the walls, closest to the experimenter's facing first, 10 cm grid, fewest
+  problems (prop/zone/clue/board in a wall (5 cm margin) or real furniture), then fewest warnings (play area > 15 cm past
+  a wall, furniture in the play area), then nearest the room's middle; runs on a worker thread; then the anchor is
+  created + saved like Place here (method `auto_anchor`). Manual options (Place here = panel only, B load, X manual)
+  run `RoomFit.Check` and only warn ("Room check: ..." on the label). Placement rows carry
+  `room_fit=ok|warn|problem|no_scan;room_problems=n;room_warnings=n` (not on the client's shared anchor). Needs Space
+  Setup on the host headset + Spatial data permission. Headset-untested.
+- **Harder cases (user, 2026-11-04):** no key clue names the culprit (test `KeyCluesNeverNameTheCulprit`): K1 time, K2 initials ("G.W." / "F.R."), K3 object tied to the role ("BEST MANAGER" mug / tour-guide scarf scrap), K4 motive emailed to the role (studio.manager@ / the tour guide); red herrings sharpened (X glove by the case smelling of glass cleaner, sketch "Next year it's MINE"). Case Y: the killer took the keris away (empty cradle). Text in docs/cases.md.
 - **Grading (user, session 6):** `answer_correct` = correct culprit only; `perfect_submission` (summary column, meta
   `perfectSubmission`, `perfect=` in `answer_submitted`) = culprit + all key evidence + no red herrings. Reasoning errors
   and evidence score unchanged.
@@ -487,6 +502,25 @@ Data flow:
   apart (global, set by `DepthOcclusionMonitor` from `ExperimentConfig.occlusionSoftness`, default 1.5, clamped 0-4,
   0 = Meta's own edge; tune with adb in experiment_config.json, no rebuild). 5 samples instead of 1: check 72 fps.
   Hard occlusion unchanged. Headset-untested (the SOFT_OCCLUSION variant only compiles in the Android build).
+- **Interaction sounds (user, 2026-11-04: "more realistic"):** `UiSounds` (UI, self-installs like ContaminationFlash) plays `SoundSynth` clips (Core, pure, generated in code, fixed seeds, `SoundSynthTests`) in 3D: every uGUI Button clicks (soft switch) except the ones with their own sound (persistent method PressSuspect/PressEvidence/ToggleTagged/ConfirmYes); from CaseState events (so a partner hears them from the right place): tag = rubber stamp at the clue, untag = peel, board suspect/evidence chosen = pushpin into cork at the board, removed = pin out, answer submitted = heavy stamp + file closing. Not logged, same in both conditions. Listen on the PC: `FYP > Debug: Export UI Sounds (WAV)` -> Logs/UiSounds/. Headset-untested.
+- **Verdict + celebration, reveal Phase 1 (supervisor + user, 2026-11-05: show right/wrong right after each case, then a
+  full ghost replay of the crime, Case Y stabbing shown; replay = Phases 2-4, not built yet):** on CaseState.AnswerSubmitted
+  (both headsets) `DetectiveBriefing.HandleAnswer` puts Inspector Hart at `CaseSpecs.VerdictX/Z` (-0.85, -1.70, left of
+  the board, test `VerdictSpotIsClearInBothCases`) saying `verdict_correct` / `verdict_wrong` (csv case column
+  "verdict", never in the briefing) + "(Key evidence pinned: n of 4)"; he stays until the next ARM. Correct only:
+  `VerdictCelebration` (UI, self-installs) = `ConfettiBurst` (Core, pure, tested) drawn as one vertex-coloured mesh
+  (Resources/FYP_Confetti.shader) in front of the player + `SoundSynth.Fanfare` 0.75 s after the case-closed stamp.
+  The earlier "neutral end screen" decision is REVERSED by the user (risks: learning between cases, condition A partners
+  sharing the answer - keep them apart). Card: "Listen to Inspector Hart, then take off the headset". Headset-untested.
+- **Crime replay, Phase 2 (2026-11-05):** after the verdict line the detective (same `DetectiveBriefing` playback) says
+  reveal_intro, the case's lines (csv case `reveal_X` / `reveal_Y`, +1 s each to watch) and reveal_outro, raising
+  `LineStarted(file, seconds)`. `CrimeReplay` (Briefing, self-installs next to the detective) plays `RevealScript.For(case)`
+  (Core, pure, `RevealScriptTests`): per line a `RevealBeat` with culprit/victim `GhostKey` tracks (t 0..1 of the line,
+  CaseRoot-local x/z/yaw, `GhostPose`), clue glows (ClueHighlight.Hover for 3.5 s) and a time label ("21:35") over the
+  culprit. Ghosts = copies of the detective's Rig (moustache off, pointing forearm) in Resources/FYP_Ghost.shader (culprit
+  red, victim blue); poses are eased arm/rig rotations, Lying = rig tipped 88 deg forward (head where he faced). Case X
+  has 5 beats; Case Y = Phase 3 (narration only until then); team sync + log rows = Phase 4. Scene objects (glass,
+  chair, footprints) are not animated. Headset-untested (pose signs, sizes).
 - **Hand look:** participants see translucent dark "ghost" hands with a white rim (custom shader
   `FYP/GhostHand`: depth prepass + alpha-blended fresnel rim; tune Body Colour/Alpha and Outline Width/Sharpness
   on `HandGhost.mat`). The OVRHand system-gesture material swap is set to None.
@@ -559,8 +593,10 @@ stop after each for the user's headset test, commit only after the user confirms
   floating-clue fix / no grabbing outside a run / grabbable R3 / counterbalancing, `d274af7` audit 1 fixes). Everything
   committed at the user's request **before** a full headset test. EditMode tests **266/266** (batch, 2026-10-30, no compile errors). Occlusion is OFF by
   default (`ExperimentConfig.occlusionEnabled`; scene set by Set Up Occlusion) - turn it on with the setup panel button. Packages: + `com.unity.xr.meta-openxr` 2.5.1 (AR Foundation
-  6.5.0, XR Composition Layers 2.6.0). Setup order in Unity: Build Case Scenes -> Set Up Networking -> Set Up Evidence
-  Board -> Set Up Headset UI -> Set Up Occlusion (Depth API) -> Set Up Briefing Detective -> Prepare Study Build.
+  6.5.0, XR Composition Layers 2.6.0). Setup in Unity: **FYP > Set Up Everything (one click)** (2026-11-05, `SetUpEverythingTool`; batch:
+  `-executeMethod FYP.Detective.EditorTools.SetUpEverythingTool.RunBatch`) runs Build Case Scenes -> Set Up Networking ->
+  Set Up Evidence Board -> Set Up Headset UI -> Set Up Occlusion (Depth API) -> Set Up Briefing Detective -> Set Hand
+  Tracking to Low -> Prepare Study Build; the tools' message boxes go through `SetupDialogs` and are shown as one summary.
 - Headsets: `2G0YC5ZG4M00Z6` = **P01, host**; `2G0YC5ZG970B12` = **P02, client** (its experiment_config.json was set to
   P02). Campus Wi-Fi works headset-to-headset; IPs come from DHCP (discovery makes them irrelevant; `hostAddress` is
   only the fallback).
@@ -568,15 +604,24 @@ stop after each for the user's headset test, commit only after the user confirms
   DevAgentSettings.asset` changes by itself (a dev tool's `serverAddress`); never commit it unless asked.
 - **Case Y is a murder (user, session 6):** "Death in the Melaka Room", its own layout (no mirror rule any more; the validator
   keeps counts, bands, grab style, reachability, mean clue distance within 0.15 m of X). Body taped outline + blood pool
-  (zone 1) at (0, 1.25), keris = K3 beside the body (green scarf strand), smashed wall clock = K1 (8:17), visitor logbook = K2,
+  (zone 1) at (0, 1.25), torn green scarf scrap = K3 beside the body (the killer took the keris away, user 2026-11-04; plinth cradle empty), smashed wall clock = K1 (8:17), visitor logbook = K2,
   bloody footprints towards the entrance (zone 2), broken vase (zone 3), fallen chair; answer Farid Rahman. Full text:
-  docs/cases.md. Case X stays the theft (user: the cases don't have to be near-identical).
-- **Case X briefing (user, session 6):** `briefing_lines.csv` has an optional `cue` column; `display` on `X_story_01/02` makes the
+  docs/cases.md. Case X is now a poisoning (next note), deliberately unlike Y.
+- **Case X poisoning (user, 2026-11-05, Option A; "too similar to Y" rejected a stabbing):** founder Encik Rizal Hamid
+  poisoned (sleeping pills in a coffee) by Grace, who then opened the case with her code (K1 21:42), took the award and
+  smashed the pane to fake a break-in. No blood. Taped outline collapsed on his side (`body_tape_side`, `X_BodyTape`) at
+  `CaseSpecs.XBodyX/Z` = (0.22, 1.33), turned 180, legs by the front-desk office chair he slid off (`X_DeskChair`,
+  rolled back + turned, `XChair*`; user: "fell down from the chair"), spilled coffee (zone 2, unchanged) past the chair; coffee machine
+  on the front desk; K3 = wet "BEST MANAGER" mug (was the lanyard clip, same spot); red herrings reworded as motives
+  against the founder; zones/clue positions unchanged (validator). Briefing lines renamed X_case_01..03 (cue `display` on
+  02) so the old theft recordings never play: until the user records the new clips the detective shows text only.
+  Test `CaseXBodyLiesByTheCoffee_...`. Needs Build Case Scenes + Set Up Briefing Detective. Headset-untested.
+- **Case X briefing (user, session 6):** `briefing_lines.csv` has an optional `cue` column; `display` on `X_case_02` (was X_story_01/02) makes the
   detective stand at one fixed spot 2 m right of the display (`DetectiveBriefing.DisplaySideOffset`), keep looking at the
   player and point with his right arm (aimed in `PointRotation`, elbow `PointElbowDegrees` 55 = Maya `POINT_FINGER_DOWN` 35
   below 90; the forearm mesh swaps to `Detective_ForearmPoint` with the index finger out) while `TrophyGhost` (under the X
   display, built by Build Case Scenes) blinks a gold trophy silhouette in the empty case. Case Y has no cue. Headset-untested
-  (arm aim, finger direction, silhouette size). Voice clips needed: X_story_01/02 and Y_story_01..03 (supplied, attached).
+  (arm aim, finger direction, silhouette size). Voice clips needed: X_case_01..03 (new poisoning text, to record) and Y_story_01..03 (supplied).
 - **Suspect cards are shuffled (user, session 6: the culprit was always leftmost):** `SuspectOrder.Shuffled` = seeded by pair code +
   case + condition (FNV-1a), so both headsets of a team agree without a message; the left-to-right order is logged as event row
   `board_order` (`left_to_right=<ids>`) at session start. The same pair/case/condition always gives the same order.
@@ -619,7 +664,7 @@ stop after each for the user's headset test, commit only after the user confirms
 
 **Next (in this order)**
 1. **One full team session on both headsets** following `docs/device_test_checklist.md` (rebuild both first). It
-   covers everything not yet headset-tested: Case Y (the new murder scene, read the clues once: logbook, clock, keris, email); shared evidence board in a team run; a fully
+   covers everything not yet headset-tested: Case Y (the new murder scene, read the clues once: logbook, clock, scarf scrap, email); shared evidence board in a team run; a fully
    correct submission (culprit + K1–K4 → `answer_correct 1`, evidence score 4); taking a clue from the partner's hand
    (`clue_grab_taken`); ARM/Start across two headsets; the floor guard ("Floor looks wrong…"); `head_m` in
    `placement_check`. New since then, also headset-untested: the visual pass (props, K1 keypad, desks, hanging

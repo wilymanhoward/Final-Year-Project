@@ -84,7 +84,7 @@ namespace FYP.Detective
             if (!placementOk)
             {
                 card = 1;
-                return prefix + "Place the scene: stand on the tape mark facing the front wall, then press Place here.";
+                return prefix + "Place the scene: face the front wall and press Auto place (A) (or Place here on the tape mark).";
             }
             if (!armed)
             {

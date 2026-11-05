@@ -7,7 +7,7 @@ namespace FYP.Detective.Meta
     /// Experimenter-only Touch controller shortcuts (participants use hand tracking, so these never fire
     /// for them). Until the in-headset setup panel exists, this is how placement and sessions are driven
     /// in the headset:
-    ///   A                     Place Scene Here (anchor)
+    ///   A                     Auto Place (fits the scanned room; Place Scene Here is on the setup panel)
     ///   B                     Load Saved Placement
     ///   X                     Manual Placement
     ///   hold Y                Clear Placement
@@ -60,7 +60,7 @@ namespace FYP.Detective.Meta
         {
             if (placement != null)
             {
-                if (OVRInput.GetDown(OVRInput.RawButton.A, Touch)) Fire("A", "Place Scene Here", placement.PlaceSceneHere);
+                if (OVRInput.GetDown(OVRInput.RawButton.A, Touch)) Fire("A", "Auto Place (fit the room)", placement.AutoPlace);
                 if (OVRInput.GetDown(OVRInput.RawButton.B, Touch)) Fire("B", "Load Saved Placement", placement.LoadSavedPlacement);
                 if (OVRInput.GetDown(OVRInput.RawButton.X, Touch)) Fire("X", "Manual Placement", placement.ManualPlacement);
                 if (Held(OVRInput.RawButton.Y, ref _clearHeld)) Fire("hold Y", "Clear Placement", placement.ClearPlacement);

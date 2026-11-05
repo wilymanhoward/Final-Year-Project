@@ -30,8 +30,8 @@ namespace FYP.Detective.Tests
         {
             var v = ParticipantCardModel.Compute(true, SessionPhase.NotStarted, null, false,
                 CaseSpecs.X.Title, CaseSpecs.X.Briefing);
-            Assert.AreEqual("The Missing Design Award", v.Title);
-            StringAssert.StartsWith("Last night, the gold", v.Body);
+            Assert.AreEqual("Last Coffee at Kite", v.Title);
+            StringAssert.StartsWith("Last night, Encik Rizal", v.Body);
             StringAssert.Contains("Tap Start", v.Body);
         }
 

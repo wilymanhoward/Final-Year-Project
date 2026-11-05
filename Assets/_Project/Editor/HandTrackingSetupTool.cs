@@ -18,7 +18,7 @@ namespace FYP.Detective.EditorTools
         public static void SetUp()
         {
             bool changed = Apply();
-            EditorUtility.DisplayDialog("Hand tracking",
+            SetupDialogs.Show("Hand tracking",
                 "Hand tracking frequency = Low (default)" + (changed ? " (was Fast Motion / High)." : " (already set).") +
                 "\nRebuild and install on both headsets to apply.", "OK");
         }

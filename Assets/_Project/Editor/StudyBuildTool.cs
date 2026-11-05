@@ -36,7 +36,7 @@ namespace FYP.Detective.EditorTools
             var session = Object.FindFirstObjectByType<SessionManager>();
             if (session == null || session.gameObject.scene.path != ScenePath)
             {
-                EditorUtility.DisplayDialog("Study build", "Open " + ScenePath + " first.", "OK");
+                SetupDialogs.Show("Study build", "Open " + ScenePath + " first.", "OK");
                 return;
             }
 
@@ -168,7 +168,7 @@ namespace FYP.Detective.EditorTools
 
             string title = fails == 0 ? (warns == 0 ? "Ready for a study build" : "Ready, with warnings") : $"NOT ready ({fails} problem(s))";
             Debug.Log("[StudyBuild] " + title + "\n" + report);
-            EditorUtility.DisplayDialog("Study build - " + title, report + "\nScene saved. (Full report in the Console.)", "OK");
+            SetupDialogs.Show("Study build - " + title, report + "\nScene saved. (Full report in the Console.)", "OK");
         }
 
         [MenuItem("FYP/Restore Debug Settings")]
@@ -181,7 +181,7 @@ namespace FYP.Detective.EditorTools
                 EditorSceneManager.MarkSceneDirty(session.gameObject.scene);
                 EditorSceneManager.SaveScene(session.gameObject.scene);
             }
-            EditorUtility.DisplayDialog("Debug settings", $"Debug messages on for {labels} status label(s). Scene saved.", "OK");
+            SetupDialogs.Show("Debug settings", $"Debug messages on for {labels} status label(s). Scene saved.", "OK");
         }
 
         /// <summary>One-headset test of the partner markers: your own head and hands as the partner, facing you.</summary>
@@ -189,12 +189,12 @@ namespace FYP.Detective.EditorTools
         public static void ToggleSelfAsPartner()
         {
             var sync = Object.FindFirstObjectByType<TeamSessionSync>(FindObjectsInactive.Include);
-            if (sync == null) { EditorUtility.DisplayDialog("Show Me As Partner", "No TeamSessionSync (run FYP > Set Up Networking).", "OK"); return; }
+            if (sync == null) { SetupDialogs.Show("Show Me As Partner", "No TeamSessionSync (run FYP > Set Up Networking).", "OK"); return; }
             bool on = !sync.ShowSelfAsPartner;
             SetSelfAsPartner(on);
             EditorSceneManager.MarkSceneDirty(sync.gameObject.scene);
             EditorSceneManager.SaveScene(sync.gameObject.scene);
-            EditorUtility.DisplayDialog("Show Me As Partner", on
+            SetupDialogs.Show("Show Me As Partner", on
                 ? "ON. Build and run: with no partner connected you see your own head and hands 1.5 m in front of you, " +
                   "facing you. FYP > Prepare Study Build turns it off."
                 : "OFF. Scene saved.", "OK");

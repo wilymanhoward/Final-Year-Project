@@ -34,7 +34,7 @@ namespace FYP.Detective.EditorTools
             { "X_K1", new Vector3(0.12f, 0.18f, 1f) }, { "Y_K1", new Vector3(0.20f, 0.20f, 1f) },   // X keypad / Y wall clock (quads)
             { "X_R3", new Vector3(0.10f, 0.10f, 1f) }, { "Y_R3", new Vector3(0.12f, 0.12f, 1f) },
             { "X_K2", new Vector3(0.23f, 0.015f, 0.32f) }, { "Y_K2", new Vector3(0.21f, 0.03f, 0.29f) },
-            { "X_K3", new Vector3(0.10f, 0.02f, 0.07f) }, { "Y_K3", new Vector3(0.30f, 0.035f, 0.07f) },
+            { "X_K3", new Vector3(0.10f, 0.105f, 0.08f) }, { "Y_K3", new Vector3(0.14f, 0.012f, 0.09f) },
             { "X_K4", new Vector3(0.21f, 0.008f, 0.297f) }, { "Y_K4", new Vector3(0.21f, 0.008f, 0.297f) },
             { "X_R1", new Vector3(0.18f, 0.04f, 0.10f) }, { "Y_R1", new Vector3(0.20f, 0.045f, 0.045f) },
             { "X_R2", new Vector3(0.17f, 0.008f, 0.13f) }, { "Y_R2", new Vector3(0.13f, 0.008f, 0.08f) },
@@ -54,6 +54,8 @@ namespace FYP.Detective.EditorTools
             yield return "X_Floor";
             yield return "Y_Floor";
             yield return BodyTapeMesh;
+            yield return XBodyTapeMesh;
+            yield return XDeskChairMesh;
             yield return FallenChairMesh;
             yield return TrophyGhostMesh;
             foreach (var spec in new[] { CaseSpecs.X, CaseSpecs.Y })
@@ -76,14 +78,14 @@ namespace FYP.Detective.EditorTools
             var errors = CaseSpecValidator.ValidatePair(CaseSpecs.X, CaseSpecs.Y);
             if (errors.Count > 0)
             {
-                EditorUtility.DisplayDialog("Case scenes", "The case specs fail validation - nothing built:\n" + string.Join("\n", errors), "OK");
+                SetupDialogs.Show("Case scenes", "The case specs fail validation - nothing built:\n" + string.Join("\n", errors), "OK");
                 return;
             }
             AssetDatabase.Refresh();
             var missing = PropAssets.Missing(RequiredMeshes());
             if (missing.Count > 0)
             {
-                EditorUtility.DisplayDialog("Case scenes", "Prop meshes missing in " + PropImportSettings.Folder + " - run\n" +
+                SetupDialogs.Show("Case scenes", "Prop meshes missing in " + PropImportSettings.Folder + " - run\n" +
                     "mayapy tools/maya/build_props.py\nfirst. Missing: " + string.Join(", ", missing), "OK");
                 return;
             }
@@ -92,7 +94,7 @@ namespace FYP.Detective.EditorTools
             var rig = Object.FindFirstObjectByType<PlayerRig>();
             if (session == null || caseRoot == null || rig == null || rig.Head == null)
             {
-                EditorUtility.DisplayDialog("Case scenes", "Open Main.unity and run FYP > Set Up Case Root and Placement first.", "OK");
+                SetupDialogs.Show("Case scenes", "Open Main.unity and run FYP > Set Up Case Root and Placement first.", "OK");
                 return;
             }
 
@@ -111,7 +113,7 @@ namespace FYP.Detective.EditorTools
             EditorSceneManager.MarkSceneDirty(scene);
             EditorSceneManager.SaveScene(scene);
             AssetDatabase.SaveAssets();
-            EditorUtility.DisplayDialog("Case scenes",
+            SetupDialogs.Show("Case scenes",
                 "Built Case_X and Case_Y under CaseRoot (validator passed; mean clue distance " +
                 CaseSpecValidator.MeanDistance(CaseSpecs.X).ToString("F2") + " m).\n" + report +
                 (hidden > 0 ? $"Deactivated {hidden} old test object(s) (TestCube, Quad).\n" : "") +
@@ -152,6 +154,7 @@ namespace FYP.Detective.EditorTools
             foreach (var p in spec.Props) BuildProp(root.transform, spec, p);
             foreach (var z in spec.Zones) BuildZone(root.transform, z, session);
             if (spec.Case == CaseId.Y) BuildMurderScene(root.transform);
+            else BuildPoisoningScene(root.transform);
             foreach (var c in spec.Clues) BuildClue(root.transform, spec, c, session, caseRoot, head);
             return root.transform;
         }
@@ -226,6 +229,8 @@ namespace FYP.Detective.EditorTools
         // Case Y murder scene (user, session 6): the taped body outline lies in front of the plinth with its head in the blood
         // pool (zone 1), plus a fallen chair from the struggle. Decoration only (no zone, no collider).
         private const string BodyTapeMesh = "Y_BodyTape";
+        private const string XBodyTapeMesh = "X_BodyTape";
+        private const string XDeskChairMesh = "X_DeskChair";
         private const string FallenChairMesh = "Y_FallenChair";
         private const string TrophyGhostMesh = "X_TrophyGhost";
 
@@ -243,6 +248,14 @@ namespace FYP.Detective.EditorTools
         {
             AddDecor(parent, "Body tape outline", BodyTapeMesh, new Vector3(CaseSpecs.YBodyX, 0f, CaseSpecs.YBodyZ), 0f);
             AddDecor(parent, "Fallen chair", FallenChairMesh, new Vector3(-0.35f, 0f, 2.10f), 25f);
+        }
+
+        // Case X poisoning (user, 2026-11-05): the front-desk chair rolled back and turned, the taped outline of the victim
+        // who slid off it on the floor in front of it. Decoration only (no zone, no collider).
+        private static void BuildPoisoningScene(Transform parent)
+        {
+            AddDecor(parent, "Body tape outline", XBodyTapeMesh, new Vector3(CaseSpecs.XBodyX, 0f, CaseSpecs.XBodyZ), CaseSpecs.XBodyYaw);
+            AddDecor(parent, "Desk chair (rolled back)", XDeskChairMesh, new Vector3(CaseSpecs.XChairX, 0f, CaseSpecs.XChairZ), CaseSpecs.XChairYaw);
         }
 
         private static void AddDecor(Transform parent, string name, string mesh, Vector3 at, float yaw)

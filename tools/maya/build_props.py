@@ -459,28 +459,76 @@ def pen_cup(p, x, y, z):
         p.frustum(x + math.cos(a) * 0.012, y + 0.05, z + math.sin(a) * 0.012, 0.004, 0.003, 0.09, col, sides=5)
 
 
+def tube(part, a, b, r0, r1, col, sides=8, cap=True):
+    """Tapered cylinder between two 3D points a -> b (radius r0 at a, r1 at b), for angled rods and shades."""
+    d = [b[i] - a[i] for i in range(3)]
+    ln = math.sqrt(sum(c * c for c in d))
+    u = [c / ln for c in d]
+    h = [0.0, 1.0, 0.0] if abs(u[1]) < 0.9 else [1.0, 0.0, 0.0]
+    v = [u[1] * h[2] - u[2] * h[1], u[2] * h[0] - u[0] * h[2], u[0] * h[1] - u[1] * h[0]]
+    lv = math.sqrt(sum(c * c for c in v))
+    v = [c / lv for c in v]
+    w = [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]]
+
+    def ring(c, r):
+        return [tuple(c[i] + (v[i] * math.cos(2 * math.pi * k / sides) + w[i] * math.sin(2 * math.pi * k / sides)) * r
+                      for i in range(3)) for k in range(sides)]
+    ra, rb = ring(a, r0), ring(b, r1)
+    mid = tuple((a[i] + b[i]) / 2 for i in range(3))
+    for k in range(sides):
+        j = (k + 1) % sides
+        part.face_out([ra[k], ra[j], rb[j], rb[k]], col, mid)
+    if cap:
+        if r0 > 1e-5: part.face_out(ra, col, mid)
+        if r1 > 1e-5: part.face_out(rb, col, mid)
+
+
 def desk_lamp(p, x, y, z, col, yaw=0.0):
+    """Architect's desk lamp (user, 2026-11-05: "make the lamp more good"): weighted round base, a pivot knuckle, a
+    double lower arm with its spring, an elbow knuckle, a double upper arm reaching forward (+Z) and a cone shade tilted
+    down at the desk with the bulb glowing inside. About 0.4 m tall, reaching 0.25 m."""
     part = Part()
-    part.frustum(0, 0, 0, 0.06, 0.055, 0.018, col, sides=10)
-    part.frustum(0, 0.018, 0, 0.008, 0.008, 0.22, C["chrome"], sides=6)
-    part.frustum(0.0, 0.24, 0.0, 0.008, 0.008, 0.14, C["chrome"], sides=6, axis="z")
-    part.frustum(0.0, 0.17, 0.14, 0.06, 0.03, 0.07, col, sides=10, axis="y")       # shade, opening downwards
-    part.frustum(0.0, 0.173, 0.14, 0.054, 0.054, 0.002, C["lamp"], sides=10)       # bulb glow under the shade
+    part.frustum(0, 0, 0, 0.065, 0.058, 0.022, col, sides=12)                         # weighted base
+    part.frustum(0, 0.022, 0, 0.03, 0.026, 0.008, C["chrome"], sides=10)              # turntable
+    part.frustum(-0.022, 0.045, -0.02, 0.014, 0.014, 0.044, col, sides=8, axis="x")  # pivot knuckle
+    part.cbb(0, 0.028, -0.02, 0.03, 0.02, 0.022, col, b=0.004)                         # knuckle bracket
+    A, B, Cc = (0.0, 0.045, -0.02), (0.0, 0.30, -0.07), (0.0, 0.34, 0.16)
+    for sx in (-0.011, 0.011):                                                          # double arms
+        tube(part, (sx, A[1], A[2]), (sx, B[1], B[2]), 0.0045, 0.0045, C["chrome"], sides=6)
+        tube(part, (sx, B[1], B[2]), (sx, Cc[1], Cc[2]), 0.004, 0.004, C["chrome"], sides=6)
+    tube(part, (0.0, 0.08, -0.045), (0.0, 0.24, -0.075), 0.0045, 0.0045, C["grey_dk"], sides=6)    # spring
+    part.frustum(-0.02, B[1], B[2], 0.012, 0.012, 0.04, col, sides=8, axis="x")      # elbow knuckle
+    part.frustum(-0.016, Cc[1], Cc[2], 0.009, 0.009, 0.032, col, sides=8, axis="x")  # head knuckle
+    d = (0.0, -0.93, 0.37)                                                              # shade axis: down, a bit forward
+    s0 = (Cc[0], Cc[1] - 0.006, Cc[2] + 0.012)
+    s1 = tuple(s0[i] + d[i] * 0.12 for i in range(3))
+    tube(part, s0, s1, 0.022, 0.065, col, sides=12)                                    # shade
+    tube(part, tuple(s0[i] + d[i] * 0.02 for i in range(3)), tuple(s0[i] + d[i] * 0.004 for i in range(3)),
+         0.026, 0.024, C["chrome"], sides=12)                                          # shade collar
+    tube(part, tuple(s1[i] - d[i] * 0.004 for i in range(3)), tuple(s1[i] + d[i] * 0.001 for i in range(3)),
+         0.06, 0.06, C["lamp"], sides=12)                                              # bulb glow across the opening
     for verts, c in part.faces:
         p.face([(px + x, py + y, pz + z) for px, py, pz in rot_y(verts, yaw)], c)
 
 
 def office_chair(p, x, z, seat_col, frame_col, yaw=0.0):
     part = Part()
-    for i in range(5):                                                             # star base on castors
+    # Five-star base (user, 2026-11-05: the old flat spokes with floating blocks looked broken): solid spokes from a
+    # hub, sloping down to a castor under each end.
+    part.frustum(0, 0.055, 0, 0.04, 0.035, 0.035, frame_col, sides=10)             # hub
+    for i in range(5):
         a = 2 * math.pi * i / 5
-        ex, ez = math.cos(a) * 0.27, math.sin(a) * 0.27
-        part.face_out([(0, 0.07, 0), (ex, 0.05, ez), (ex, 0.035, ez), (0, 0.045, 0)], frame_col, (0, 0, 0))
-        part.cbb(ex * 0.9, 0.0, ez * 0.9, 0.03, 0.04, 0.03, C["rubber"], b=0.006)
-        part.bbox(-0.01 + ex * 0.5, 0.045, -0.01 + ez * 0.5, 0.01 + ex * 0.5, 0.065, 0.01 + ez * 0.5, frame_col)
+        ca, sa = math.cos(a), math.sin(a)
+        tube(part, (ca * 0.03, 0.07, sa * 0.03), (ca * 0.25, 0.058, sa * 0.25), 0.016, 0.011, frame_col, sides=6)   # spoke
+        tube(part, (ca * 0.25, 0.058, sa * 0.25), (ca * 0.25, 0.045, sa * 0.25), 0.011, 0.009, frame_col, sides=6)  # stem
+        part.frustum(ca * 0.25 - sa * 0.012, 0.024, sa * 0.25 + ca * 0.012, 0.023, 0.023, 0.024, C["rubber"],
+                     sides=8, axis="x" if abs(ca) < abs(sa) else "z")                                           # wheel
+        part.cbb(ca * 0.25, 0.034, sa * 0.25, 0.03, 0.014, 0.03, frame_col, b=0.004)                            # fork
     part.frustum(0, 0.06, 0, 0.022, 0.018, 0.37, C["chrome"], sides=8)            # gas lift
     part.cbb(0, 0.43, 0, 0.46, 0.07, 0.44, seat_col, b=0.025, edge_col=seat_col)   # seat
-    part.cbb(0, 0.43, -0.2, 0.06, 0.25, 0.03, frame_col, b=0.006)                 # back post
+    # Back post behind the backrest (user, 2026-11-05: it stood in front of the backrest), joined under the seat.
+    part.cbb(0, 0.405, -0.19, 0.05, 0.022, 0.12, frame_col, b=0.005)               # bracket under the seat
+    part.cbb(0, 0.405, -0.274, 0.05, 0.36, 0.024, frame_col, b=0.006)              # back post
     part.cbb(0, 0.62, -0.23, 0.42, 0.36, 0.06, seat_col, b=0.025)                 # backrest
     for sx in (-1, 1):                                                             # armrests
         part.cbb(sx * 0.24, 0.48, -0.02, 0.03, 0.16, 0.03, frame_col, b=0.005)
@@ -490,18 +538,27 @@ def office_chair(p, x, z, seat_col, frame_col, yaw=0.0):
 
 
 def wooden_chair(p, x, z, wood, wood_dk, cushion, yaw=0.0):
+    """Plain wooden dining chair (user, 2026-11-04: "a normal chair"): four square tapered legs, the back legs running
+    on up as the back posts, an apron under the seat, side and front stretchers, a top rail with three vertical slats,
+    and a thin batik cushion. Front = +Z, seat height 0.46 m, total height 0.92 m."""
     part = Part()
+    seat_y, sw, sd = 0.43, 0.42, 0.40
+    lx, fz, bz = 0.18, 0.165, -0.165                                                   # leg centres
     for sx in (-1, 1):
-        for sz in (-1, 1):
-            part.lathe(sx * 0.19, sz * 0.18, [(0, 0.016), (0.2, 0.02), (0.22, 0.026), (0.24, 0.02), (0.45, 0.018)],
-                       [wood_dk, wood, wood, wood], sides=6)
-    part.cbb(0, 0.43, 0, 0.44, 0.04, 0.42, wood, b=0.008, edge_col=wood_dk)        # seat
-    part.cbb(0, 0.47, 0.01, 0.38, 0.03, 0.36, cushion, b=0.012)                   # batik cushion
-    for sx in (-1, 1):
-        part.cbb(sx * 0.19, 0.45, -0.18, 0.035, 0.5, 0.035, wood_dk, b=0.006)       # back posts
-    for k, y in enumerate((0.68, 0.84)):
-        part.cbb(0, y, -0.18, 0.38, 0.06, 0.025, wood if k == 0 else wood_dk, b=0.006)
-    part.cbb(0, 0.12, 0, 0.36, 0.02, 0.02, wood_dk, b=0.004)                      # stretcher
+        part.frustum(sx * lx, 0, fz, 0.026, 0.022, seat_y, wood, sides=4, phase=0.5)  # front legs (tapered, square)
+        part.frustum(sx * lx, 0, bz, 0.026, 0.022, 0.92, wood, sides=4, phase=0.5)    # back leg + back post in one piece
+    part.cbb(0, seat_y, 0, sw, 0.035, sd, wood, b=0.008, edge_col=wood_dk)            # seat
+    part.cbb(0, seat_y + 0.035, 0.012, sw - 0.06, 0.018, sd - 0.07, cushion, b=0.008)  # cushion
+    for sx in (-1, 1):                                                                  # apron, sides
+        part.cbb(sx * lx, seat_y - 0.065, 0, 0.018, 0.065, fz - bz, wood_dk)
+        part.cbb(sx * lx, 0.13, 0, 0.018, 0.022, fz - bz, wood_dk, b=0.004)            # side stretchers
+    part.cbb(0, seat_y - 0.065, fz, 2 * lx, 0.065, 0.018, wood_dk)                     # apron, front
+    part.cbb(0, seat_y - 0.065, bz, 2 * lx, 0.065, 0.018, wood_dk)                     # apron, back
+    part.cbb(0, 0.2, fz, 2 * lx, 0.02, 0.018, wood_dk, b=0.004)                        # front stretcher
+    part.cbb(0, 0.83, bz, 2 * lx + 0.03, 0.075, 0.024, wood, b=0.008, edge_col=wood_dk)   # top rail
+    part.cbb(0, seat_y + 0.10, bz, 2 * lx, 0.03, 0.02, wood_dk, b=0.004)               # low back rail
+    for k in (-1, 0, 1):                                                                 # slats
+        part.cbb(k * 0.09, seat_y + 0.13, bz, 0.035, 0.83 - seat_y - 0.13, 0.014, wood)
     for verts, c in part.faces:
         p.face([(px + x, py, pz + z) for px, py, pz in rot_y(verts, yaw)], c)
 
@@ -526,6 +583,45 @@ def batik_band(p, x0, x1, y0, y1, z, base, motif, motif2, depth=0.002, count=7, 
 # ---------------------------------------------------------------------------------------------------------------
 # Props
 # ---------------------------------------------------------------------------------------------------------------
+def smashed_pane(body, glass, h, e, ylo, yhi, seed=17):
+    """A glass pane with a big jagged hole smashed through it (user, 2026-11-05: the broken glass on the floor needs a
+    broken case): jagged pieces still stuck in the frame all round, mostly gone near the bottom where the blow landed,
+    with white crack lines running from the hole to the frame. The pane runs from h to e (floor x, z) between ylo, yhi."""
+    rnd = Rand(seed)
+    (hx, hz), (ex, ez) = h, e
+
+    def at(u, v):   # u 0..1 along the pane (hinge -> free edge), v 0..1 up
+        return (hx + (ex - hx) * u, ylo + (yhi - ylo) * v, hz + (ez - hz) * u)
+    cu, cv, n = 0.5, 0.38, 28                       # hole centre: lower middle, where it was hit
+    outer, inner = [], []
+    for k in range(n):
+        a = 2 * math.pi * k / n
+        du, dv = math.cos(a), math.sin(a)
+        reach = min((1 - cu) / du if du > 0 else cu / -du if du < 0 else 9,
+                    (1 - cv) / dv if dv > 0 else cv / -dv if dv < 0 else 9)   # centre -> frame along this angle
+        ou, ov = cu + du * reach, cv + dv * reach
+        down = dv < -0.3                             # below the hole the glass broke out almost to the frame
+        f = rnd.range(0.88, 0.97) if down else rnd.range(0.5, 0.8) if k % 2 else rnd.range(0.62, 0.9)
+        outer.append((ou, ov)); inner.append((cu + du * reach * f, cv + dv * reach * f))
+    for k in range(n):
+        j = (k + 1) % n
+        q = [at(*outer[k]), at(*outer[j]), at(*inner[j]), at(*inner[k])]
+        glass.face(q, C["glass"]); glass.face(list(reversed(q)), C["glass"])
+    # Crack lines on the remaining glass: thin strips from the hole edge out to the frame.
+    nu, nz = (ez - hz), -(ex - hx)
+    ln = math.hypot(nu, nz) or 1
+    off = (nu / ln * 0.0015, nz / ln * 0.0015)
+    for k in range(1, n, 3):
+        (iu, iv), (ou, ov) = inner[k], outer[k]
+        mu, mv = iu + (ou - iu) * 0.95, iv + (ov - iv) * 0.95
+        for side in (-1, 1):
+            p0, p1 = at(iu, iv), at(mu, mv)
+            w = 0.0025
+            q = [(p0[0] + side * off[0], p0[1] - w, p0[2] + side * off[1]), (p1[0] + side * off[0], p1[1] - w, p1[2] + side * off[1]),
+                 (p1[0] + side * off[0], p1[1] + w, p1[2] + side * off[1]), (p0[0] + side * off[0], p0[1] + w, p0[2] + side * off[1])]
+            body.face(q, C["shard"]); body.face(list(reversed(q)), C["shard"])
+
+
 def display_case(w, d, studio):
     """Glass display case on a plinth (front +Z pane swung open: the case was found open). Top 1.63 m: the case is
     tall enough for the K1 keypad (eye height 1.5 m) on its lock-side glass (local -X, opposite the hinge)."""
@@ -578,7 +674,10 @@ def display_case(w, d, studio):
     dx, dz = -math.cos(a), math.sin(a)
     ex, ez = hx + dx * pw, hz + dz * pw
     pane = [(hx, y0 + 0.01, hz), (ex, y0 + 0.01, ez), (ex, y0 + case_h - t - 0.01, ez), (hx, y0 + case_h - t - 0.01, hz)]
-    glass.face(pane, C["glass"]); glass.face(list(reversed(pane)), C["glass"])
+    if studio:   # Case X: the pane is smashed (the glass on the floor in front, zone 1)
+        smashed_pane(body, glass, (hx, hz), (ex, ez), y0 + 0.01, y0 + case_h - t - 0.01)
+    else:
+        glass.face(pane, C["glass"]); glass.face(list(reversed(pane)), C["glass"])
     nx, nz = -dz * 0.006, dx * 0.006
     for (ax, az), (bx, bz) in (((hx, hz), (ex, ez)),):
         for yy in (y0 + 0.004, y0 + case_h - t - 0.016):
@@ -650,7 +749,28 @@ def front_desk_x():
     top = 0.75
     laptop(p, -0.28, top, -0.02, C["silver"], C["screen"], yaw=180)               # world: right of the sheet
     pen_cup(p, 0.33, top, 0.12)
-    plant(p, 0.33, top, -0.12, seed=3, pot=C["white"], pot_dk=C["white_dk"], scale=0.8)
+    coffee_machine(p, 0.31, top, -0.11)
+    return p
+
+
+def coffee_machine(p, x, y, z):
+    """Small espresso machine (Case X front desk: where the poisoned coffee was made): charcoal body, chrome group
+    head and spout, drip tray, water tank at the back, one cup left on the tray. Front = +Z."""
+    p.cbb(x, y, z, 0.15, 0.012, 0.18, C["charcoal"], b=0.004)                       # base
+    p.cbb(x, y + 0.012, z - 0.05, 0.15, 0.24, 0.08, C["charcoal"], b=0.01)          # body
+    p.cbb(x, y + 0.012, z - 0.095, 0.12, 0.17, 0.03, C["glass"], b=0.004)           # water tank
+    p.cbb(x, y + 0.22, z + 0.0, 0.15, 0.032, 0.12, C["charcoal"], b=0.008)          # top over the spout
+    p.frustum(x, y + 0.18, z + 0.03, 0.022, 0.026, 0.04, C["chrome"], sides=8)      # group head
+    p.frustum(x, y + 0.165, z + 0.03, 0.006, 0.006, 0.016, C["chrome"], sides=6)    # spout
+    p.cbb(x, y + 0.012, z + 0.03, 0.12, 0.01, 0.08, C["chrome"], b=0.002)           # drip tray
+    p.frustum(x, y + 0.022, z + 0.03, 0.022, 0.026, 0.05, C["white"], sides=8)      # cup
+    p.cbb(x + 0.05, y + 0.20, z - 0.009, 0.014, 0.014, 0.004, C["led"])              # power light
+
+
+def desk_chair_x():
+    """Case X: the front-desk office chair the victim slid off (CaseSceneTool rolls it back and turns it). Decor."""
+    p = Part()
+    office_chair(p, 0, 0, C["teal"], C["charcoal"])
     return p
 
 
@@ -663,18 +783,61 @@ def manager_desk_x():
     return p
 
 
+def service_bell(p, x, y, z):
+    """Hotel-style service bell (user, 2026-11-05: the old cone didn't read as a bell): a wide flat dark base, a low round
+    brass dome and the small press button on its own stem on top. 9 cm across, 6 cm tall."""
+    p.frustum(x, y, z, 0.045, 0.043, 0.01, C["walnut_dk"], sides=12)                  # base
+    dome = [(0.0, 0.038)]
+    for k in range(1, 6):                                                              # quarter circle, slightly flattened
+        a = math.radians(90.0 * k / 6)
+        dome.append((0.032 * math.sin(a), 0.038 * math.cos(a)))
+    dome.append((0.034, 0.004))
+    p.lathe(x, z, dome, C["brass"], sides=12, base_y=y + 0.01)
+    p.frustum(x, y + 0.042, z, 0.0035, 0.0035, 0.01, C["chrome"], sides=6)             # stem
+    p.frustum(x, y + 0.052, z, 0.009, 0.008, 0.005, C["chrome"], sides=8)              # button
+    p.frustum(x, y + 0.057, z, 0.008, 0.004, 0.002, C["chrome"], sides=8)              # rounded top of the button
+
+
 def reception_table_y():
     p = desk(0.9, 0.5, False, C["walnut"])
     top = 0.75
-    p.cbb(0, top, 0, 0.24, 0.004, 0.52, C["indigo"])                              # batik runner
-    for i in range(4):
-        p.cbb(0, top + 0.004, -0.19 + i * 0.125, 0.12, 0.0015, 0.03, C["ochre"] if i % 2 else C["batik_lt"])
     plant(p, 0.33, top, -0.10, seed=8, pot=C["indigo"], pot_dk=C["indigo_dk"], scale=0.9)
-    p.frustum(-0.33, top, 0.12, 0.035, 0.03, 0.012, C["walnut"], sides=8)          # bell base
-    p.lathe(-0.33, 0.12, [(0, 0.03), (0.02, 0.028), (0.045, 0.012), (0.06, 0.004)], C["brass"], sides=8, base_y=top + 0.012)
+    service_bell(p, -0.33, top, 0.12)
     p.cbb(-0.30, top, -0.12, 0.12, 0.02, 0.18, C["cream"], b=0.003)                # brochures
     p.cbb(-0.30, top + 0.02, -0.12, 0.1, 0.002, 0.12, C["maroon"])
     return p
+
+
+def tour_flag(p, x, y, z):
+    """Tour guide's flag (user, 2026-11-05: the old one looked like a golf flag): a telescopic hand-held pole with a black
+    grip and chrome sections, standing in a small brass desk stand, and a rectangular gallery flag (indigo with an ochre
+    batik border and the gallery's white emblem) near the top. About 0.47 m tall."""
+    p.frustum(x, y, z, 0.035, 0.03, 0.012, C["brass"], sides=10)                         # desk stand
+    p.frustum(x, y + 0.012, z, 0.010, 0.009, 0.08, C["rubber"], sides=8)                 # grip
+    h = y + 0.092
+    for r, length in ((0.0065, 0.14), (0.005, 0.14), (0.0038, 0.10)):                   # telescopic sections
+        p.frustum(x, h, z, r, r, length, C["chrome"], sides=6)
+        p.frustum(x, h + length - 0.004, z, r + 0.0015, r + 0.0015, 0.004, C["grey_dk"], sides=6)   # joint collar
+        h += length
+    p.frustum(x, h, z, 0.007, 0.006, 0.01, C["chrome"], sides=8)                        # top knob
+    fw, fh, top = 0.17, 0.11, h - 0.015
+    x0 = x + 0.006
+    p.bbox(x0, top - fh, z - 0.0015, x0 + fw, top, z + 0.0015, C["indigo"])             # flag cloth
+    b = 0.012                                                                             # ochre batik border
+    for bx0, by0, bx1, by1 in ((x0, top - b, x0 + fw, top), (x0, top - fh, x0 + fw, top - fh + b),
+                               (x0 + fw - b, top - fh, x0 + fw, top)):
+        p.bbox(bx0, by0, z - 0.0022, bx1, by1, z + 0.0022, C["ochre"])
+    for k in range(5):                                                                    # diamond motif in the border
+        cx = x0 + 0.02 + k * (fw - 0.04) / 4
+        for by in (top - b / 2, top - fh + b / 2):
+            for side in (-1, 1):
+                p.face_out([(cx - 0.004, by, z + side * 0.0024), (cx, by + 0.004, z + side * 0.0024),
+                            (cx + 0.004, by, z + side * 0.0024), (cx, by - 0.004, z + side * 0.0024)],
+                           C["maroon"], (cx, by, z))
+    p.frustum(x0 + fw / 2, top - fh / 2, z - 0.0026, 0.026, 0.026, 0.0052, C["white"], sides=10, axis="z")   # emblem
+    p.frustum(x0 + fw / 2, top - fh / 2, z - 0.003, 0.012, 0.012, 0.006, C["ochre"], sides=6, axis="z")
+    for t in (top - 0.006, top - fh + 0.006):                                           # rings holding it to the pole
+        p.frustum(x, t - 0.003, z, 0.0075, 0.0075, 0.006, C["grey_dk"], sides=6)
 
 
 def tour_desk_y():
@@ -683,9 +846,7 @@ def tour_desk_y():
     book_stack(p, -0.30, top, -0.06, [C["maroon"], C["walnut_dk"], C["ochre_dk"]], seed=9, yaw=-6)
     p.frustum(0.30, top, 0.10, 0.04, 0.045, 0.10, C["batik_lt"], sides=8)          # cup (batik)
     p.frustum(0.30, top + 0.098, 0.10, 0.036, 0.036, 0.003, C["coffee"], sides=8)
-    p.frustum(0.30, top, -0.14, 0.008, 0.008, 0.32, C["brass"], sides=6)            # tour flag
-    p.face_out([(0.30, top + 0.32, -0.14), (0.42, top + 0.28, -0.14), (0.30, top + 0.24, -0.14)], C["ochre"], (0.33, top + 0.28, -0.15))
-    p.face_out([(0.30, top + 0.32, -0.14), (0.42, top + 0.28, -0.14), (0.30, top + 0.24, -0.14)], C["ochre_dk"], (0.33, top + 0.28, -0.13))
+    tour_flag(p, 0.30, top, -0.14)
     return p
 
 
@@ -1317,38 +1478,78 @@ def readable(part):
     return mirrored(part, 2)
 
 
-def lanyard_clip(sx, sy, sz):
+def manager_mug(sx, sy, sz):
+    """Case X K3 (poisoning, 2026-11-05): Grace's white "BEST MANAGER" mug lying on its side, handle up, rinsed in a
+    hurry: a dark print band (the text is in the inspect text), a coral heart, water drops beside it. Fills the clue box
+    from the bottom centre: length sx along x, sy tall (with the handle), sz wide."""
     p = Part()
-    tag_x0 = -sx / 2 + 0.03
-    p.bbox(tag_x0, 0, -sz / 2, sx / 2, sy * 0.35, sz / 2, C["white"], b=0.003, edge_col=C["white_dk"])  # staff tag
-    p.bbox(tag_x0 + 0.006, sy * 0.35, -sz / 2 + 0.006, tag_x0 + 0.03, sy * 0.4, -sz / 2 + 0.036, C["skin_card"])  # photo
-    p.bbox(tag_x0 + 0.036, sy * 0.35, sz / 2 - 0.018, sx / 2 - 0.006, sy * 0.38, sz / 2 - 0.006, C["teal"])     # stripe
-    p.bbox(tag_x0 + 0.036, sy * 0.35, -0.012, sx / 2 - 0.012, sy * 0.37, -0.006, C["ink"])                       # name
-    p.bbox(tag_x0 + 0.036, sy * 0.35, -0.002, sx / 2 - 0.025, sy * 0.37, 0.003, C["pencil"])                     # number
-    p.bbox(-sx / 2, 0, -0.012, tag_x0 + 0.004, sy * 0.25, 0.012, C["teal_dk"], b=0.002)                          # strap stub
-    p.frustum(-sx / 2 + 0.014, sy * 0.25, 0, 0.012, 0.011, sy * 0.5, C["chrome"], sides=8)                       # broken clip
-    p.bbox(-sx / 2 + 0.008, sy * 0.6, 0.004, -sx / 2 + 0.03, sy, 0.012, C["silver"], b=0.002)
+    r = sz / 2
+    p.frustum(-sx / 2 + 0.004, r, 0, r * 0.95, r, sx - 0.008, C["white"], sides=12, axis="x", cap_col=C["white_dk"])
+    p.frustum(sx / 2 - 0.0045, r, 0, r * 0.82, r * 0.82, 0.0006, C["grey_dk"], sides=12, axis="x")    # open mouth (inside)
+    p.frustum(-sx * 0.12, r, 0, r + 0.0006, r + 0.0006, sx * 0.3, C["charcoal"], sides=12, axis="x", cap=False)   # print band
+    p.bbox(-0.004, 2 * r - 0.002, -0.006, 0.006, sy, 0.006, C["white"], b=0.002)                     # handle, upright
+    p.bbox(-0.022, 2 * r - 0.002, -0.006, -0.012, sy, 0.006, C["white"], b=0.002)
+    p.bbox(-0.022, sy - 0.007, -0.006, 0.006, sy, 0.006, C["white"], b=0.002)
+    p.face_out([(0.02, r + 0.008, r + 0.0008), (0.03, r + 0.016, r * 0.86), (0.02, r - 0.006, r * 0.9)],
+               C["coral"], (0.02, r, 0))                                                            # heart (side)
+    for dx, dz in ((0.03, r + 0.012), (-0.02, -r - 0.008), (0.045, -r - 0.004)):
+        p.prism(ring_outline(dx, dz, 0.007, 0.005, 6), 0.0, 0.0012, C["water_lt"])                 # drips
     return p
 
 
+def capsule_outline(a, b, r, n=5):
+    """Floor outline (x, z) of a rounded finger shape from a to b with radius r (two half circles joined)."""
+    dx, dz = b[0] - a[0], b[1] - a[1]
+    ang = math.atan2(dz, dx)
+    pts = []
+    for k in range(n + 1):   # round end at b
+        t = ang - math.pi / 2 + math.pi * k / n
+        pts.append((b[0] + math.cos(t) * r, b[1] + math.sin(t) * r))
+    for k in range(n + 1):   # round end at a
+        t = ang + math.pi / 2 + math.pi * k / n
+        pts.append((a[0] + math.cos(t) * r, a[1] + math.sin(t) * r))
+    return pts
+
+
+def soft_slab(p, outline, inset_outline, h, col, top_col):
+    """A flat rubber piece: the full outline up to h * 0.8 and a slightly smaller, puffier top layer up to h."""
+    p.prism(outline, 0.0, h * 0.8, col)
+    p.prism(inset_outline, h * 0.8, h, top_col)
+
+
 def glove(sx, sy, sz):
+    """Case X R1 (user, 2026-11-05: "more realistic"): a yellow rubber cleaning glove dropped flat on the floor: soft
+    palm with a grip pattern, a thumb angled out, four rounded fingers slightly spread, a flared cuff with its rolled rim
+    and the dark opening. Cuff at -x, fingertips at +x; fills the clue box (sx, sy, sz) from the bottom centre."""
     p = Part()
-    palm_l = sx * 0.48
-    x0 = -sx / 2
-    p.bbox(x0, 0, -sz / 2, x0 + 0.045, sy * 0.85, sz / 2, C["yellow"], b=0.008, edge_col=C["yellow_dk"])   # cuff
-    p.bbox(x0 + 0.004, sy * 0.85, -sz / 2 + 0.004, x0 + 0.04, sy, sz / 2 - 0.004, C["orange"], b=0.004)     # rolled rim
-    p.bbox(x0 + 0.04, 0, -sz * 0.44, x0 + palm_l, sy * 0.72, sz * 0.4, C["yellow"], b=0.01, edge_col=C["yellow_dk"])  # palm
-    fl = sx - palm_l
-    r = sy * 0.24
-    for i in range(4):
-        z = -sz * 0.36 + i * sz * 0.235
-        length = fl * (0.82 if i in (0, 3) else 0.98)
-        p.frustum(x0 + palm_l - 0.01, r, z, r, r * 0.85, length, C["yellow"] if i % 2 else C["yellow_dk"], sides=6, axis="x")
-    # thumb, angled outwards
-    th = Part()
-    th.frustum(0, r, 0, r * 1.05, r * 0.9, palm_l * 0.55, C["yellow"], sides=6, axis="x")
-    for verts, c in th.faces:                                                  # stays inside the collider box
-        p.face([(x0 + palm_l * 0.45 + vx, vy, sz * 0.22 + vz) for vx, vy, vz in rot_y(verts, -22)], c)
+    yl, yd = C["yellow"], C["yellow_dk"]
+    h = sy * 0.5
+    # Cuff, flaring towards the opening.
+    cuff = [(-0.088, -0.046), (-0.036, -0.038), (-0.036, 0.038), (-0.088, 0.047)]
+    soft_slab(p, cuff, [(-0.084, -0.04), (-0.038, -0.033), (-0.038, 0.033), (-0.084, 0.041)], h * 0.9, yl, yl)
+    p.prism([(-0.09, -0.047), (-0.079, -0.046), (-0.079, 0.047), (-0.09, 0.048)], 0.0, h * 1.05, yd)        # rolled rim
+    p.prism(ring_outline(-0.083, 0.0, 0.0045, 0.036, 10), h * 1.05, h * 1.08, C["charcoal"])             # opening
+    # Palm with rounded corners.
+    palm = [(-0.04, -0.034), (0.008, -0.04), (0.018, -0.032), (0.02, 0.028), (0.01, 0.038), (-0.04, 0.036)]
+    soft_slab(p, palm, [(-0.036, -0.028), (0.006, -0.034), (0.014, -0.027), (0.016, 0.023), (0.007, 0.032),
+                        (-0.036, 0.03)], h, yl, yl)
+    for gx in (-0.024, -0.008, 0.006):                                                                       # grip pattern
+        for gz in (-0.02, 0.0, 0.02):
+            p.prism([(gx - 0.004, gz), (gx, gz - 0.004), (gx + 0.004, gz), (gx, gz + 0.004)], h, h + 0.0012, yd)
+    # Thumb, angled out.
+    r = 0.0095
+    soft_slab(p, capsule_outline((-0.022, 0.03), (0.016, 0.042), r), capsule_outline((-0.02, 0.03), (0.014, 0.041), r * 0.7),
+              h * 0.85, yl, yl)
+    # Fingers: index (next to the thumb) to little finger, slightly spread, the little one a bit curled in.
+    for z0, length, ang in ((0.024, 0.056, 7), (0.008, 0.066, 2), (-0.009, 0.062, -3), (-0.026, 0.048, -10)):
+        a = math.radians(ang)
+        start = (0.012, z0)
+        end = (start[0] + math.cos(a) * length, z0 + math.sin(a) * length)
+        soft_slab(p, capsule_outline(start, end, 0.0085), capsule_outline(start, end, 0.006), h * 0.8, yl, yl)
+        tip = (end[0] - math.cos(a) * 0.004, end[1] - math.sin(a) * 0.004)                                 # finger crease
+        p.prism(capsule_outline((tip[0] - math.cos(a) * 0.022, tip[1] - math.sin(a) * 0.022),
+                                (tip[0] - math.cos(a) * 0.020, tip[1] - math.sin(a) * 0.020), 0.0045, 3),
+                h * 0.8, h * 0.8 + 0.0008, yd)
     return p
 
 
@@ -1519,21 +1720,42 @@ def blood_pool(w, d):
     return p
 
 
+def tape_strip(p, a, b, width=0.035, h=0.0055):
+    """One straight piece of yellow police tape on the floor from a to b (x, z)."""
+    dx, dz = b[0] - a[0], b[1] - a[1]
+    n = math.hypot(dx, dz)
+    ux, uz = dx / n, dz / n
+    e = width / 2
+    ax, az, bx, bz = a[0] - ux * e, a[1] - uz * e, b[0] + ux * e, b[1] + uz * e
+    nx, nz = -uz * e, ux * e
+    p.prism([(ax + nx, az + nz), (bx + nx, bz + nz), (bx - nx, bz - nz), (ax - nx, az - nz)], 0.001, h, C["yellow"],
+            top_col=C["yellow_dk"])
+
+
+def body_tape_side():
+    """Case X (user, 2026-11-05: poisoning): tape outline of a man who collapsed on his side, knees drawn up, one arm
+    reaching out (towards the spilled coffee). Head at +x, built in Unity coordinates around the origin; about 1.6 x 0.5 m.
+    A different pose from Case Y's (on his back, arms out). Decoration only, no zone."""
+    p = Part()
+    ring = ring_outline(0.62, 0.0, 0.11, 0.11, 8, phase=0.5)
+    for i in range(8):
+        tape_strip(p, ring[i], ring[(i + 1) % 8])
+    loop = [(0.50, 0.07), (0.40, 0.14), (0.55, 0.32), (0.74, 0.42), (0.79, 0.36), (0.57, 0.22), (0.30, 0.13),
+            (0.05, 0.12), (-0.18, 0.12), (-0.36, 0.27), (-0.44, 0.24), (-0.58, 0.14), (-0.72, 0.10), (-0.78, 0.04),
+            (-0.74, -0.04), (-0.56, 0.02), (-0.40, 0.10), (-0.26, -0.06), (-0.18, -0.20), (0.00, -0.19),
+            (0.30, -0.20), (0.42, -0.15), (0.50, -0.07)]
+    for i in range(len(loop) - 1):
+        tape_strip(p, loop[i], loop[i + 1])
+    return p
+
+
 def body_tape(width=0.035):
     # Case Y: police-style tape outline of a body lying on its back (head at -x, feet at +x), built in Unity
     # coordinates around the origin (CaseSceneTool puts it beside the blood pool). Decoration only, no zone.
     p = Part()
-    h = 0.0055   # above the blood pool decal (0.0034)
 
     def strip(a, b):
-        dx, dz = b[0] - a[0], b[1] - a[1]
-        n = math.hypot(dx, dz)
-        ux, uz = dx / n, dz / n
-        e = width / 2
-        ax, az, bx, bz = a[0] - ux * e, a[1] - uz * e, b[0] + ux * e, b[1] + uz * e
-        nx, nz = -uz * e, ux * e
-        p.prism([(ax + nx, az + nz), (bx + nx, bz + nz), (bx - nx, bz - nz), (ax - nx, az - nz)], 0.001, h, C["yellow"],
-                top_col=C["yellow_dk"])
+        tape_strip(p, a, b, width)
 
     ring = ring_outline(-0.80, 0.0, 0.11, 0.11, 8, phase=0.5)
     for i in range(8):
@@ -1565,29 +1787,17 @@ def logbook(sx, sy, sz):
     return p
 
 
-def keris(sx, sy, sz):
-    """Case Y K3, the murder weapon: a wavy-bladed keris lying on the floor, bloody blade, carved wooden hilt with a
-    curved pommel, brass guard and a strand of green tour-guide scarf caught at the hilt. Handle at -x, tip at +x."""
+def scarf_scrap(sx, sy, sz):
+    """Case Y K3 (user, 2026-11-04: the killer took the keris away): a scrap torn off Farid's green tour-guide scarf in
+    the struggle, lying beside the body. Flat cloth: jagged torn edge at +x, hemmed edge with an ochre stripe at -x, one
+    corner folded over, a small blood smear near the tear."""
     p = Part()
-    x0 = -sx / 2
-    p.frustum(x0 + 0.03, 0.017, 0, 0.010, 0.0145, 0.06, C["wood_dk"], sides=8, axis="x")      # hilt
-    p.bbox(x0, 0.012, -0.012, x0 + 0.032, 0.034, 0.012, C["walnut"], b=0.003)                  # curved pommel
-    p.bbox(x0 + 0.09, 0.004, -0.026, x0 + 0.106, 0.030, 0.026, C["brass"], b=0.002)           # guard
-    xb, length = x0 + 0.106, sx / 2 - (x0 + 0.106)
-
-    def blade(t0, grow):
-        top, bot = [], []
-        for i in range(8):
-            t = t0 + (1.0 - t0) * i / 7.0
-            wave = 0.010 * math.sin(t * math.pi * 3)
-            half = (0.016 * (1.0 - 0.85 * t) + 0.002) * grow
-            top.append((xb + length * t, wave + half))
-            bot.append((xb + length * t, wave - half))
-        return top + list(reversed(bot))
-    p.prism(blade(0.0, 1.0), 0.003, 0.011, C["silver"], top_col=C["chrome"])                    # blade
-    p.prism(blade(0.3, 0.8), 0.011, 0.0118, C["maroon"])                                        # blood on the blade
-    p.prism([(x0 + 0.050, 0.012), (x0 + 0.058, 0.012), (x0 + 0.066, 0.034), (x0 + 0.058, 0.034)], 0.001, 0.0035, C["green"])   # scarf
-    p.prism([(x0 + 0.060, 0.012), (x0 + 0.066, 0.012), (x0 + 0.082, 0.030), (x0 + 0.076, 0.032)], 0.001, 0.0035, C["green_dk"])
+    hx, hz, base = sx / 2, sz / 2, sy * 0.55
+    p.prism([(-hx, -hz), (hx * 0.55, -hz), (hx * 0.72, -hz * 0.6), (hx, -hz * 0.42), (hx * 0.78, -hz * 0.08),
+             (hx * 0.98, hz * 0.28), (hx * 0.6, hz * 0.5), (hx * 0.8, hz), (-hx, hz)], 0.0, base, C["green"])   # cloth
+    p.prism([(-hx * 0.2, hz * 0.15), (hx * 0.38, hz * 0.15), (hx * 0.62, hz), (-hx * 0.2, hz)], base, sy, C["green_dk"])   # fold
+    p.prism([(-hx, -hz), (-hx + 0.012, -hz), (-hx + 0.012, hz), (-hx, hz)], base, base + 0.0012, C["ochre"])   # hem stripe
+    p.prism(blob_outline(hx * 0.45, -hz * 0.35, 0.016, 0.012, 7, 11), base, base + 0.0008, C["maroon"])        # blood smear
     return p
 
 
@@ -1663,14 +1873,16 @@ def wall_clock(w):
 
 
 def fallen_chair():
-    """Case Y: a wooden chair knocked over in the struggle, lying on its back. Decoration."""
+    """Case Y: the wooden chair knocked over in the struggle, lying on its side (the way a chair usually falls; the
+    side view is what makes it read as a chair). Origin under its middle. Decoration."""
     base = Part()
     wooden_chair(base, 0, 0, C["wood"], C["wood_dk"], C["indigo"], 0.0)
-    faces = [([(x, z, -y) for x, y, z in verts], col) for verts, col in base.faces]   # roll 90 degrees onto its back
-    low = min(v[1] for verts, _ in faces for v in verts)
+    faces = [([(y, -x, z) for x, y, z in verts], col) for verts, col in base.faces]   # roll 90 degrees onto its side
+    xs = [v[0] for verts, _ in faces for v in verts]
+    mid_x, low = (min(xs) + max(xs)) / 2, min(v[1] for verts, _ in faces for v in verts)
     q = Part()
     for verts, col in faces:
-        q.face([(x, y - low + 0.001, z) for x, y, z in verts], col)
+        q.face([(x - mid_x, y - low + 0.001, z) for x, y, z in verts], col)
     return q
 
 
@@ -1696,20 +1908,87 @@ def bloody_footprints(w, d):
     return p
 
 
+def curved_shard(p, cx, cz, yaw, radius, span, length, outer, inner, band=None):
+    """A curved piece of a broken pot lying on the floor, bulge up: a strip of a cylinder wall (radius, span degrees,
+    length along its axis), outer glaze on top, plain clay inside, optional decorative band across the middle."""
+    t = 0.005
+    steps = 4
+    outer_pts, inner_pts = [], []
+    for k in range(steps + 1):
+        a = math.radians(-span / 2 + span * k / steps)
+        for rr, out in ((radius, outer_pts), (radius - t, inner_pts)):
+            out.append((math.sin(a) * rr, math.cos(a) * rr - radius * math.cos(math.radians(span / 2)) + t + 0.001))
+
+    def place(u, y, v):
+        x, z = rot_y([(u, 0, v)], yaw)[0][0], rot_y([(u, 0, v)], yaw)[0][2]
+        return (cx + x, y, cz + z)
+    h = length / 2
+    for k in range(steps):
+        (u0, y0), (u1, y1) = outer_pts[k], outer_pts[k + 1]
+        (i0, j0), (i1, j1) = inner_pts[k], inner_pts[k + 1]
+        if band is None:
+            p.face_out([place(u0, y0, -h), place(u1, y1, -h), place(u1, y1, h), place(u0, y0, h)], outer, (cx, -1, cz))
+        else:   # three strips: glaze, band, glaze
+            for va, vb, col in ((-h, -h / 3, outer), (-h / 3, h / 3, band), (h / 3, h, outer)):
+                p.face_out([place(u0, y0, va), place(u1, y1, va), place(u1, y1, vb), place(u0, y0, vb)], col, (cx, -1, cz))
+        p.face_out([place(i0, j0, -h), place(i1, j1, -h), place(i1, j1, h), place(i0, j0, h)], inner, (cx, 1, cz))
+        for v in (-h, h):   # broken edges at the ends
+            p.face([place(u0, y0, v), place(u1, y1, v), place(i1, j1, v), place(i0, j0, v)], inner)
+            p.face([place(i0, j0, v), place(i1, j1, v), place(u1, y1, v), place(u0, y0, v)], inner)
+    for k in (0, steps):    # long broken edges
+        (u, y), (i, j) = outer_pts[k], inner_pts[k]
+        q = [place(u, y, -h), place(u, y, h), place(i, j, h), place(i, j, -h)]
+        p.face(q, inner); p.face(list(reversed(q)), inner)
+
+
 def vase_shards(w, d):
-    """Case Y zone 3: a batik vase knocked off its stand: sharp indigo/ochre shards and the broken base."""
+    """Case Y zone 3 (user, 2026-11-05: make it obvious): the batik vase knocked off its stand and smashed. The bottom
+    of the vase still stands with a jagged broken rim, big curved pieces of its wall (indigo glaze with the ochre band)
+    lie around it, water has spilled and the frangipani flowers it held lie in the puddle."""
     p = Part()
-    rnd = Rand(81)
-    for i in range(14):
-        r = rnd.range(0.02, 0.055)
-        cx = rnd.range(-1, 1) * (w / 2 - r - 0.02)
-        cz = rnd.range(-1, 1) * (d / 2 - r - 0.02)
+    p.prism(blob_outline(0.04, 0.05, w * 0.32, d * 0.26, 14, 82), 0.001, 0.0025, C["water"])       # spilled water
+    p.prism(blob_outline(0.05, 0.06, w * 0.18, d * 0.13, 10, 83), 0.0025, 0.003, C["water_lt"])
+    # The broken bottom of the vase, standing: round belly, open top, jagged rim.
+    bx, bz = -0.08, -0.07
+    p.lathe(bx, bz, [(0.0, 0.045), (0.01, 0.06), (0.035, 0.072), (0.06, 0.068)],
+            [C["indigo_dk"], C["indigo"], C["indigo"]], sides=12, base_y=0.001)
+    p.frustum(bx, 0.035, bz, 0.0725, 0.0725, 0.012, C["ochre"], sides=12, cap=False)           # the band
+    p.frustum(bx, 0.061, bz, 0.06, 0.06, 0.0005, C["soil"], sides=12)                          # dark inside
+    for k in range(12):                                                                         # jagged teeth
+        if k % 3 == 1:
+            continue
+        a0, a1 = 2 * math.pi * k / 12, 2 * math.pi * (k + 1) / 12
+        r = 0.068
+        top = 0.06 + (0.035 if k % 3 == 0 else 0.02)
+        am = (a0 + a1) / 2 + (0.15 if k % 2 else -0.1)
+        tri = [(bx + math.cos(a0) * r, 0.06, bz + math.sin(a0) * r), (bx + math.cos(a1) * r, 0.06, bz + math.sin(a1) * r),
+               (bx + math.cos(am) * r * 0.97, top, bz + math.sin(am) * r * 0.97)]
+        p.face(tri, C["indigo"]); p.face(list(reversed(tri)), C["cream"])
+    # Big curved pieces of the wall.
+    for cx, cz, yaw, span, length, band in ((0.10, -0.10, 30, 70, 0.08, True), (0.12, 0.11, -50, 60, 0.07, False),
+                                             (-0.12, 0.12, 80, 80, 0.09, True), (-0.15, -0.16, -20, 50, 0.05, False),
+                                             (0.17, 0.0, 110, 45, 0.05, False)):
+        curved_shard(p, cx, cz, yaw, 0.07, span, length, C["indigo"], C["cream"], C["ochre"] if band else None)
+    rnd = Rand(81)                                                                              # small chips
+    for i in range(9):
+        r = rnd.range(0.01, 0.022)
+        cx, cz = rnd.range(-1, 1) * (w / 2 - 0.04), rnd.range(-1, 1) * (d / 2 - 0.04)
         a = rnd.next() * 2 * math.pi
-        n = 3 if rnd.next() < 0.7 else 4
-        pts = [(cx + math.cos(a + k * 2 * math.pi / n + rnd.range(-0.4, 0.4)) * r * rnd.range(0.6, 1.0),
-                cz + math.sin(a + k * 2 * math.pi / n + rnd.range(-0.4, 0.4)) * r * rnd.range(0.6, 1.0)) for k in range(n)]
-        p.prism(pts, 0.001, 0.003 + 0.003 * rnd.next(), C["indigo"] if i % 3 else C["ochre"], top_col=C["batik_lt"])
-    p.prism(ring_outline(0.0, 0.0, 0.06, 0.06, 8), 0.001, 0.014, C["indigo_dk"], top_col=C["ochre"])   # broken base
+        pts = [(cx + math.cos(a + k * 2.1 + rnd.range(-0.3, 0.3)) * r, cz + math.sin(a + k * 2.1 + rnd.range(-0.3, 0.3)) * r)
+               for k in range(3)]
+        p.prism(pts, 0.001, 0.004, C["cream"], top_col=C["indigo"] if i % 3 else C["ochre"])
+    # Fallen frangipani flowers on short stems, lying in the water.
+    for fx, fz, yaw in ((0.07, 0.07, 20), (0.0, 0.13, -40), (0.13, 0.02, 75)):
+        stem = rot_y([(0, 0, 0), (0, 0, 0.11)], yaw)
+        x0, z0 = fx + stem[0][0], fz + stem[0][2]
+        x1, z1 = fx + stem[1][0], fz + stem[1][2]
+        nx, nz = (z1 - z0) / 0.11 * 0.004, -(x1 - x0) / 0.11 * 0.004
+        p.prism([(x0 - nx, z0 - nz), (x1 - nx, z1 - nz), (x1 + nx, z1 + nz), (x0 + nx, z0 + nz)], 0.003, 0.008, C["green_dk"])
+        for k in range(5):                                                                      # five petals
+            a = 2 * math.pi * k / 5 + math.radians(yaw)
+            px, pz = x0 + math.cos(a) * 0.016, z0 + math.sin(a) * 0.016
+            p.prism(ring_outline(px, pz, 0.014, 0.009, 6, phase=a / (2 * math.pi) * 6), 0.006, 0.012, C["white"], top_col=C["cream"])
+        p.prism(ring_outline(x0, z0, 0.008, 0.008, 6), 0.012, 0.0135, C["yellow"])
     return p
 
 
@@ -1870,8 +2149,8 @@ def build():
     export("Y_K1", wall_clock(0.20), kind="clue")
     export("X_K2", readable(clipboard_sheet(0.23, 0.015, 0.32)), kind="clue")
     export("Y_K2", readable(logbook(0.21, 0.03, 0.29)), kind="clue")
-    export("X_K3", lanyard_clip(0.10, 0.02, 0.07), kind="clue")
-    export("Y_K3", keris(0.30, 0.035, 0.07), kind="clue")
+    export("X_K3", manager_mug(0.10, 0.105, 0.08), kind="clue")
+    export("Y_K3", scarf_scrap(0.14, 0.012, 0.09), kind="clue")
     export("X_K4", readable(printout(0.21, 0.004, 0.297)), kind="clue")
     export("Y_K4", readable(chat_printout(0.21, 0.004, 0.297)), kind="clue")
     export("X_R1", glove(0.18, 0.04, 0.10), kind="clue")
@@ -1891,6 +2170,8 @@ def build():
     export("Y_Z2", bloody_footprints(0.45, 2.2), alpha=outline_border(0.45, 2.2), kind="zone")
     export("Y_Z3", vase_shards(0.45, 0.45), alpha=outline_border(0.45, 0.45), kind="zone")
     export("Y_BodyTape", to_maya(body_tape()), kind="decor")
+    export("X_BodyTape", to_maya(body_tape_side()), kind="decor")
+    export("X_DeskChair", desk_chair_x(), kind="decor")
     export("X_TrophyGhost", trophy_ghost(), kind="decor")
     export("Y_FallenChair", fallen_chair(), kind="decor")
 

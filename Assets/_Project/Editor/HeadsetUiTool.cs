@@ -35,7 +35,7 @@ namespace FYP.Detective.EditorTools
             var team = Object.FindFirstObjectByType<TeamSessionSync>();
             if (session == null || panel == null || rig == null || rig.Head == null || shortcuts == null || placement == null)
             {
-                EditorUtility.DisplayDialog("Headset UI",
+                SetupDialogs.Show("Headset UI",
                     "Open Main.unity and run FYP > Set Up Case Root and Placement first.", "OK");
                 return;
             }
@@ -60,7 +60,7 @@ namespace FYP.Detective.EditorTools
             var scene = session.gameObject.scene;
             EditorSceneManager.MarkSceneDirty(scene);
             EditorSceneManager.SaveScene(scene);
-            EditorUtility.DisplayDialog("Headset UI",
+            SetupDialogs.Show("Headset UI",
                 "Built SetupPanel (left menu button) and ParticipantCard.\n" +
                 (coordinator == null ? "WARNING: no ColocationCoordinator - run FYP > Set Up Networking, then this again.\n" : "") +
                 "Scene saved. Rebuild to apply.", "OK");
@@ -204,11 +204,13 @@ namespace FYP.Detective.EditorTools
             float rowA = cardH - 12f - 2 * bh - 8f, rowB = cardH - 12f - bh;
             float w3 = (inner - 16f) / 3f, w2 = (inner - 8f) / 2f;
             var place = Card(1, "PLACEMENT & VIEW", "placementText", "placementLight", new Rect(14f, 44f, inner, rowA - 50f));
-            var occlusion = Btn(place, "Occlusion", new Rect(14f, rowA, inner, bh), panel.ToggleOcclusion, NeutralButton);
+            // Auto place = fit the scanned room (user, 2026-11-04); the three below are the manual options (room check warns).
+            Btn(place, "Auto place (A)", new Rect(14f, rowA, w2, bh), placement.AutoPlace, NeutralButton);
+            var occlusion = Btn(place, "Occlusion", new Rect(14f + w2 + 8f, rowA, w2, bh), panel.ToggleOcclusion, NeutralButton);
             var occlusionText = occlusion.GetComponentInChildren<Text>();
             occlusionText.text = "Occlusion: OFF";
             MainSceneBuilder.SetObject(setup, "occlusionLabel", occlusionText);
-            Btn(place, "Place here (A)", new Rect(14f, rowB, w3, bh), placement.PlaceSceneHere, NeutralButton, 14);
+            Btn(place, "Place here", new Rect(14f, rowB, w3, bh), placement.PlaceSceneHere, NeutralButton, 14);
             Btn(place, "Load saved (B)", new Rect(14f + w3 + 8f, rowB, w3, bh), placement.LoadSavedPlacement, NeutralButton, 14);
             Btn(place, "Manual (X)", new Rect(14f + 2 * (w3 + 8f), rowB, w3, bh), placement.ManualPlacement, NeutralButton, 14);
 

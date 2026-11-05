@@ -15,27 +15,28 @@ MonoBehaviour:
   caseId: 1
   title: Death in the Melaka Room
   briefing: Last night, Datuk Hashim Karim, founder of the Heritage Gallery, was
-    found stabbed to death in the Melaka Room with the gallery's own keris. He had
-    found out that real pieces were being swapped for replicas. Bloody footprints
-    lead from the body towards the entrance. Four people had access to the room.
-    Search the scene, tag the evidence, and name the person who killed him.
+    found stabbed to death in the Melaka Room with the gallery's own keris. The keris
+    is gone from its plinth. He had found out that real pieces were being swapped
+    for replicas. Bloody footprints lead from the body towards the entrance. Four
+    people had access to the room. Search the scene, tag the evidence, and name the
+    person who killed him.
   suspects:
   - id: Y_farid
     displayName: Farid Rahman
     role: Tour guide
-    alibi: '"I was alone, preparing tomorrow''s tour." (No one can confirm.)'
+    alibi: '"I was in the staff room preparing tomorrow''s tour, 7:30 to 9 pm."'
   - id: Y_tan
     displayName: Mr Tan
     role: Security guard
-    alibi: On gate duty 8:00-8:40 pm; the gate camera shows him there.
+    alibi: '"I was on gate duty from 8 to 8:40 pm."'
   - id: Y_sofia
     displayName: Dr Sofia Idris
     role: Curator
-    alibi: On a video call with a lender 7:50-8:45 pm; the recording confirms it.
+    alibi: '"I was on a video call with a lender from 7:50 pm."'
   - id: Y_lim
     displayName: Mr Lim
     role: Private collector
-    alibi: At the hotel restaurant 8:00-9:00 pm; the receipt and staff confirm it.
+    alibi: '"I was having dinner at my hotel from 8 to 9 pm."'
   correctSuspectId: Y_farid
   keyEvidenceIds:
   - Y_K1
@@ -52,16 +53,16 @@ MonoBehaviour:
     K2 Y_K2 - Visitor logbook
 
     K3
-    Y_K3 - The keris
+    Y_K3 - Torn scarf scrap
 
     K4 Y_K4 - Printed email
 
-    R1 Y_R1 - Torch (red herring:
-    Mr Tan)
+    R1 Y_R1 - Torch (red
+    herring: Mr Tan)
 
     R2 Y_R2 - Business card (red herring: Mr Lim)
 
-    R3 Y_R3 - Noticeboard
-    note (red herring: Dr Sofia Idris)
+    R3 Y_R3
+    - Noticeboard note (red herring: Dr Sofia Idris)
 
 '

@@ -44,11 +44,16 @@ are for the experimenter only; participants use their hands.
 
 ## Placing the scene (each headset, wearing it)
 
+0. Once per headset (the host's matters): Quest **Settings > Physical space > Space setup**: scan the study room
+   (walls + any real furniture). Redo it when furniture in the room moves.
 1. Open the app and wait a few seconds for tracking to settle.
-2. Stand **straight on the tape mark, facing the front wall**.
-3. Press **A (Place here)**. If you see "Floor looks wrong…", fix the floor (above), then press A again.
-   B loads the last saved placement; X places it without an anchor (fallback).
-4. Check the furniture stands on the real floor.
+2. Stand in the room **facing the front wall**.
+3. Press **A (Auto place)**: the app reads the room scan and puts the scene where both cases fit the walls and the real
+   furniture, front towards the wall you face. The label ends with "Room check OK" or lists what doesn't fit.
+   If you see "Floor looks wrong…", fix the floor (above), then press A again.
+   Manual options (they only warn): **Place here** (setup panel, on the tape mark, anchor), B loads the last saved
+   placement, X places it without an anchor (fallback). Each shows "Room check: ..." after placing.
+4. Check the furniture stands on the real floor and no wall cuts through a prop.
 
 ## Per participant / run
 
@@ -115,7 +120,7 @@ Do these once, solo (Condition A) first, then once as a team:
 
 - [ ] **Room-scale boundary** drawn on both headsets (Settings > Physical space). This is the best guess for the grey
       screen; if the grey screen still appears, tell me and I'll add a switch to turn boundary suppression off.
-- [ ] **Case Y scene**: body outline with the blood pool at the head end, keris beside the body, smashed clock, logbook on
+- [ ] **Case Y scene**: body outline with the blood pool at the head end, torn green scarf scrap beside the body (no keris; empty cradle on the plinth), smashed clock, logbook on
       the reception table, bloody footprints from the pool to the door (nothing sitting under furniture), broken vase.
 - [ ] **Case X briefing**: the detective stands about 2 m right of the display case, points at it with the finger out,
       and a gold trophy outline blinks in the empty case. Is it large enough to see from the start mark?
@@ -128,7 +133,7 @@ Do these once, solo (Condition A) first, then once as a team:
 - [ ] **Hand tracking** is Low (decided): Prepare Study Build shows "Hand tracking frequency Low (default)". Note how many
       `hand_tracking_lost` rows a run has, as a baseline.
 - [ ] Full correct submission in each case: culprit + K1-K4 -> `answer_correct=1`, `perfect_submission=1`, evidence
-      score 4 (Case Y keys: clock K1, logbook K2, keris K3, email K4).
+      score 4 (Case Y keys: clock K1, logbook K2, scarf scrap K3, email K4).
 - [ ] Team: taking a clue from the partner's hand (`clue_grab_taken`), a picked-up clue moves in the partner's view.
 
 ## First test after the partner / grab / zone changes (session 6)
@@ -163,6 +168,25 @@ Do these once, solo (Condition A) first, then once as a team:
 - [ ] Partner's fingers move as theirs; a hand they hide disappears; when they leave (Stop on one headset) both their head
       and hands disappear within about a second.
 - [ ] Nothing stutters (72 fps: `frame_dt_ms` about 14 in the log) with the markers on.
+
+## First test of automatic placement (2026-11-04, headset-untested)
+
+- [ ] Space Setup done on the host; A says "Placed automatically to fit the room" and "Room check OK".
+- [ ] Walk the room: no prop, clue or the evidence board is inside a real wall or real furniture.
+- [ ] Turn to face another wall and press A again: the scene turns to that wall (front = the wall you face).
+- [ ] Place here on the tape mark too close to a wall: the label names the prop in the wall (warning only, still placed).
+- [ ] Without a room scan (or with Spatial data denied): A says why and falls back to Place here / Manual.
+- [ ] Log: `placement_set` has `method=auto_anchor` and `room_fit=ok;room_problems=0;room_warnings=0`.
+- [ ] Team run: the client still joins the host's anchor (no room check on the client).
+
+## First test of the Case X poisoning (2026-11-05, headset-untested)
+
+- [ ] Case X shows the taped outline (on his side) by the front desk, hand towards the spilled coffee; the briefing
+      detective stands clear of it.
+- [ ] Coffee machine on the front desk; the display pane is smashed; K3 is a white mug on its side under the display.
+- [ ] Briefing card title "Last Coffee at Kite"; the detective says the new lines (or shows them as text until the
+      X_case_01..03 voice clips are recorded).
+- [ ] Clue texts: wet "BEST MANAGER" mug, glove ("fired Kumar"), sketch ("Rizal stole my design"), note ("promised me").
 
 ## Troubleshooting
 

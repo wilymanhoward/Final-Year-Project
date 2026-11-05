@@ -14,6 +14,11 @@ namespace FYP.Detective
     /// user decisions session 6): the mouth opens with the loudness of the voice, the eyes blink, and every joint moves
     /// through damped springs driven by noise, speech beats and one gesture per line (see "Natural motion" below).
     /// Built by FYP > Set Up Briefing Detective. Lines without an audio clip are shown for an estimated time.
+    /// Verdict (supervisor, 2026-11-05): when the answer is submitted he appears again at <see cref="CaseSpecs.VerdictX"/>
+    /// (beside the evidence board) and says whether the culprit was right (lines verdict_correct / verdict_wrong, case
+    /// column "verdict" so the briefing never includes them), with the key evidence count in the bubble. Then he narrates
+    /// the crime replay (Phase 2): reveal_intro, the case's reveal lines (case column "reveal_X" / "reveal_Y") and
+    /// reveal_outro, raising <see cref="LineStarted"/> so <see cref="CrimeReplay"/> moves the ghost figures with him.
     /// </summary>
     public class DetectiveBriefing : MonoBehaviour
     {
@@ -53,6 +58,15 @@ namespace FYP.Detective
         private List<BriefingLine> _lines = new List<BriefingLine>();
         private readonly Dictionary<string, AudioClip> _clipByName = new Dictionary<string, AudioClip>();
         private BriefingPlayback _playback = new BriefingPlayback(new float[0]);
+        private float[] _durations = new float[0];
+
+        /// <summary>A line starts: its file name (briefing_lines.csv) and how long it lasts (seconds).</summary>
+        public event System.Action<string, float> LineStarted;
+
+        /// <summary>The body rig (Rig and its parts) the crime replay copies for its ghost figures.</summary>
+        public Transform RigTemplate => rig;
+        /// <summary>Right forearm with the index finger out (no magnifier), for the ghosts.</summary>
+        public Mesh PointForearmMesh => pointForearmMesh;
         private readonly float[] _samples = new float[256];
         private float _talk;
         private Quaternion _headRest = Quaternion.identity, _armRest = Quaternion.identity;
@@ -77,6 +91,7 @@ namespace FYP.Detective
         // detective at one shared spot (CaseRoot-local, computed by the host); he faces the pair and looks at player A
         // on even lines and player B on odd lines.
         private bool _team;
+        private bool _verdict;   // speaking the verdict after a submission (not the briefing)
         private BriefingSpot _spot;
         private int _gazeLine;
 
@@ -130,6 +145,7 @@ namespace FYP.Detective
             session.ArmedChanged += HandleArmed;
             session.SessionStarted += Hide;
             session.BriefingGo += HandleBriefingGo;
+            session.State.AnswerSubmitted += HandleAnswer;
         }
 
         private void OnDisable()
@@ -139,14 +155,52 @@ namespace FYP.Detective
             session.ArmedChanged -= HandleArmed;
             session.SessionStarted -= Hide;
             session.BriefingGo -= HandleBriefingGo;
+            session.State.AnswerSubmitted -= HandleAnswer;
         }
 
         private void HandleArmed(bool armed)
         {
             Stage = BriefingStage.NotStarted;
             _team = false;
+            _verdict = false;
             _turnInit = false;
             Hide();
+        }
+
+        // The verdict (fires on both headsets of a team): one line, right or wrong, plus the key evidence count. He stands
+        // at a fixed spot beside the evidence board (the same on both headsets), facing the player.
+        private void HandleAnswer(AnswerResult result)
+        {
+            if (result == null || character == null || floorReference == null) return;
+            string file = result.IsCorrect ? "verdict_correct" : "verdict_wrong";
+            int i = _all.FindIndex(l => l.File == file);
+            string spoken = i >= 0 ? _all[i].Text : result.IsCorrect ? "Case solved!" : "Not quite, detective.";
+            string text = spoken + "\n(Key evidence pinned: " + result.CorrectEvidenceIds.Count + " of " + result.KeyEvidenceTotal + ")";
+            _lines = new List<BriefingLine> { new BriefingLine(0, file, "verdict", "*", text) };
+            string revealCase = "reveal_" + session.Config.CaseCode;
+            var reveal = _all.FindAll(l => l.Case == "reveal" || l.Case == revealCase);
+            reveal.Sort((a, b) => a.Order.CompareTo(b.Order));
+            _lines.AddRange(reveal);
+            _durations = new float[_lines.Count];
+            for (int k = 0; k < _lines.Count; k++)
+            {
+                _durations[k] = _clipByName.TryGetValue(_lines[k].File, out AudioClip c) && c != null
+                    ? c.length : BriefingScript.EstimateSeconds(_lines[k].Text);
+                if (_lines[k].Case == revealCase) _durations[k] += 1.0f;   // a moment to watch the ghosts after he speaks
+            }
+            _durations[0] += 1.5f;   // keep the result readable a little longer
+            _playback = new BriefingPlayback(_durations);
+            _team = false;
+            _verdict = true;
+            Vector3 position = floorReference.TransformPoint(new Vector3(CaseSpecs.VerdictX, 0f, CaseSpecs.VerdictZ));
+            Vector3 toPlayer = head != null ? head.position - position : floorReference.forward;
+            toPlayer.y = 0f;
+            character.transform.SetPositionAndRotation(position,
+                toPlayer.sqrMagnitude > 1e-4f ? Quaternion.LookRotation(toPlayer, Vector3.up) : floorReference.rotation);
+            character.SetActive(true);
+            _turnInit = false;
+            _playback.Begin(Time.unscaledTimeAsDouble);
+            Stage = BriefingStage.Playing;
         }
 
         /// <summary>Participant card "Begin briefing": the detective appears in front of the participant and starts.</summary>
@@ -282,6 +336,7 @@ namespace FYP.Detective
                     ? clip.length
                     : BriefingScript.EstimateSeconds(_lines[i].Text);
             _playback = new BriefingPlayback(durations);
+            _durations = durations;
             _ghost = FindFirstObjectByType<TrophyGhost>();   // only exists in Case X, only the active case is shown
         }
 
@@ -293,6 +348,7 @@ namespace FYP.Detective
             Stage = BriefingStage.Finished;
             _pointAtDisplay = false;
             if (_ghost != null) _ghost.SetBlinking(false);
+            if (_verdict) return;   // stays standing after the verdict until the next run is armed
             session.ReportBriefingFinished();
         }
 
@@ -316,6 +372,7 @@ namespace FYP.Detective
                 _gestureUntil = Time.unscaledTime + spoken + 0.5f;
             }
             UpdateBubbleText();
+            LineStarted?.Invoke(line.File, index < _durations.Length ? _durations[index] : spoken);
             if (voice == null) return;
             voice.Stop();
             if (_clipByName.TryGetValue(line.File, out AudioClip clip) && clip != null)

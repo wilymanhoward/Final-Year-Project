@@ -39,7 +39,7 @@ namespace FYP.Detective.EditorTools
             var manager = Object.FindFirstObjectByType<OVRManager>();
             if (session == null || manager == null)
             {
-                EditorUtility.DisplayDialog("Occlusion", "Open Main.unity first (it needs the SessionManager and OVRManager).", "OK");
+                SetupDialogs.Show("Occlusion", "Open Main.unity first (it needs the SessionManager and OVRManager).", "OK");
                 return;
             }
 
@@ -91,7 +91,7 @@ namespace FYP.Detective.EditorTools
             var scene = session.gameObject.scene;
             EditorSceneManager.MarkSceneDirty(scene);
             EditorSceneManager.SaveScene(scene);
-            EditorUtility.DisplayDialog("Occlusion",
+            SetupDialogs.Show("Occlusion",
                 "Depth API occlusion set up:\n" +
                 "- EnvironmentDepthManager: soft occlusion, hands removed from depth\n" +
                 "- Prop materials on " + PropAssets.PropShaderName + ", world-space UI on " + UiShaderName + " (applied at start)\n" +

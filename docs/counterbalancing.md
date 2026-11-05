@@ -1,7 +1,7 @@
 # Counterbalancing sheet
 
-Within-subjects: every participant plays **both conditions** (A = solo, B = team of 2) and **both cases** (X = "The
-Missing Design Award", Y = "Death in the Melaka Room"), one case per condition. Participants come as pairs, and both
+Within-subjects: every participant plays **both conditions** (A = solo, B = team of 2) and **both cases** (X = "Last Coffee at
+Kite", Y = "Death in the Melaka Room"), one case per condition. Participants come as pairs, and both
 partners of a pair follow the same order (in B they play together, so they must share the case).
 
 Four orders, so condition order and case-condition pairing are both balanced:

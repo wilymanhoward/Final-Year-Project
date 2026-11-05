@@ -217,7 +217,7 @@ namespace FYP.Detective
             }
 
             if (placementText != null)
-                placementText.text = _placementStatus == "-" ? "Not placed yet.\nStand on the tape mark facing the front wall, then Place here." : _placementStatus;
+                placementText.text = _placementStatus == "-" ? "Not placed yet.\nFace the front wall and press Auto place (A), or stand on the tape mark and press Place here." : _placementStatus;
             SetLight(placementLight, SetupStatusModel.Placement(session.Placement.Method, session.IsPlacementHeightOk));
             if (occlusionLabel != null)
             {

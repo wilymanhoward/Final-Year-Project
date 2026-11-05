@@ -5,7 +5,8 @@
         "FYP.Detective",
         "Oculus.VR",
         "Meta.XR.EnvironmentDepth",
-        "Oculus.Interaction"
+        "Oculus.Interaction",
+        "meta.xr.mrutilitykit"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

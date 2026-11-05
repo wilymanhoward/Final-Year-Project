@@ -50,7 +50,7 @@ namespace FYP.Detective.EditorTools
             var caseRoot = Object.FindFirstObjectByType<CaseRoot>(FindObjectsInactive.Include);
             if (session == null || rig == null || rig.Head == null || caseRoot == null)
             {
-                EditorUtility.DisplayDialog("Briefing detective", "Open Main.unity and run FYP > Set Up Case Root and Placement first.", "OK");
+                SetupDialogs.Show("Briefing detective", "Open Main.unity and run FYP > Set Up Case Root and Placement first.", "OK");
                 return;
             }
             AssetDatabase.Refresh();
@@ -58,7 +58,7 @@ namespace FYP.Detective.EditorTools
             var script = AssetDatabase.LoadAssetAtPath<TextAsset>(ScriptPath);
             if (missing.Count > 0 || script == null)
             {
-                EditorUtility.DisplayDialog("Briefing detective",
+                SetupDialogs.Show("Briefing detective",
                     (missing.Count > 0 ? "Missing meshes (run mayapy tools/maya/build_props.py): " + string.Join(", ", missing) + "\n" : "") +
                     (script == null ? "Missing " + ScriptPath + "\n" : ""), "OK");
                 return;
@@ -153,7 +153,7 @@ namespace FYP.Detective.EditorTools
             EditorSceneManager.MarkSceneDirty(scene);
             EditorSceneManager.SaveScene(scene);
             Selection.activeObject = root;
-            EditorUtility.DisplayDialog("Briefing detective",
+            SetupDialogs.Show("Briefing detective",
                 $"Built '{RootName}': {lines.Count} script line(s), {clips.Length} voice clip(s), {realVoice} of them not a .wav " +
                 "placeholder (e.g. ElevenLabs .mp3)." +
                 (noAudio.Count > 0 ? "\nNo audio yet for: " + string.Join(", ", noAudio) + " (shown as text only)." : "") +

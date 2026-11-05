@@ -80,7 +80,7 @@ namespace FYP.Detective
                 switch (endReason.Value)
                 {
                     case SessionEndReason.Submitted:
-                        return new ParticipantCardView(true, "Case closed", "Thank you. Please take off the headset.", false);
+                        return new ParticipantCardView(true, "Case closed", "Thank you. Listen to Inspector Hart, then take off the headset.", false);
                     case SessionEndReason.TimeCap:
                         return new ParticipantCardView(true, "Time is up", "Thank you. Please take off the headset.", false);
                     default:
