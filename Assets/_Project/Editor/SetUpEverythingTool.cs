@@ -26,6 +26,7 @@ namespace FYP.Detective.EditorTools
             ("Set Up Headset UI", HeadsetUiTool.SetUp),
             ("Set Up Occlusion", OcclusionSetupTool.SetUp),
             ("Set Up Briefing Detective", CharacterSetupTool.SetUp),
+            ("Set Up Crime Replay Cast", ReplayCastTool.SetUp),
             ("Set Hand Tracking to Low", HandTrackingSetupTool.SetUp),
             ("Prepare Study Build", StudyBuildTool.Prepare),
         };

@@ -1,0 +1,11 @@
+Crime replay characters and motions (2026-11-06)
+
+Models/ - Quaternius "Ultimate Modular Women Pack" (Suit -> Women_Suit.fbx) and "Ultimate Modular Men Pack"
+          (Suit -> Men_Suit.fbx, Casual2 -> Men_Casual2.fbx), "Humanoid Rig" versions.
+          License: CC0 (stated on https://quaternius.com/packs/ultimatemodularwomen.html and
+          https://quaternius.com/packs/ultimatemodularcharacters.html). No attribution required.
+
+Animations/ - Mixamo (Adobe), https://www.mixamo.com, exported without skin, FBX, 30 fps, on the Mixamo
+              character "Heraklios"; retargeted in Unity through the Humanoid rig. Mixamo characters and
+              animations are free to use in personal, commercial and non-profit projects (Adobe terms);
+              the raw files are not redistributed on their own.

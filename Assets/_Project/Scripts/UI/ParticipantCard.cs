@@ -71,6 +71,8 @@ namespace FYP.Detective
                 session.IsArmed, s.Phase, s.EndReason, session.IsTeamMode || s.IsTeamRun,
                 def != null ? def.Title : null, def != null ? def.Briefing : null,
                 hasBriefing ? briefing.Stage : (BriefingStage?)null, session.CanParticipantStart);
+            // The "Case closed" card waits until the verdict and the crime replay are over (user: it blocked the replay).
+            if (hasBriefing && briefing.IsRevealing) view = ParticipantCardView.Hidden;
 
             if (view.Visible != _visible || (view.Visible && (view.Title != _shownTitle || view.Body != _shownBody)))
             {

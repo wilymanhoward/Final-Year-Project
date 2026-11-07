@@ -1,0 +1,63 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6876392288dc3fb4db548b3cfd00fc6a, type: 3}
+  m_Name: ReplayCast
+  m_EditorClassIdentifier: FYP.Detective::FYP.Detective.ReplayCast
+  woman: {fileID: 919132149155446097, guid: 74833ac759b084f42808d8854d115655, type: 3}
+  manSuit: {fileID: 919132149155446097, guid: 277a9a3095deb27448e6df59977e97c3, type: 3}
+  manCasual: {fileID: 919132149155446097, guid: 334a94ba9ca1f9442b017d8590c262b4, type: 3}
+  walkFemale: {fileID: -203655887218126122, guid: cb300ca537e5374469baa78bb67c72ad, type: 3}
+  motions:
+  - pose: 0
+    clip: {fileID: -203655887218126122, guid: 4a931bb3abfad2145807891a9e9aa546, type: 3}
+  - pose: 1
+    clip: {fileID: -203655887218126122, guid: 114997c8ffd913547b136900ac058e00, type: 3}
+  - pose: 2
+    clip: {fileID: -203655887218126122, guid: b87c0454844bb7042a33d8c8b37a445a, type: 3}
+  - pose: 3
+    clip: {fileID: -203655887218126122, guid: f5dc5e3ad2ac069479eab1c6b8739320, type: 3}
+  - pose: 4
+    clip: {fileID: -203655887218126122, guid: 23f4c72c54a44a445bc9d6af4c0fbdc7, type: 3}
+  - pose: 5
+    clip: {fileID: -203655887218126122, guid: 44c347a8c6c3ae14da4cd27877812af0, type: 3}
+  - pose: 6
+    clip: {fileID: -203655887218126122, guid: 138ab9546213b5b468d490651e062390, type: 3}
+  - pose: 7
+    clip: {fileID: -203655887218126122, guid: 727e2c4f4b2fc8749945d79a514911ba, type: 3}
+  - pose: 8
+    clip: {fileID: -203655887218126122, guid: a4a0daa2db0782947b186ba50e246394, type: 3}
+  - pose: 9
+    clip: {fileID: -203655887218126122, guid: 4a931bb3abfad2145807891a9e9aa546, type: 3}
+  - pose: 10
+    clip: {fileID: -203655887218126122, guid: d9784dd2c0f944048b60e9d87209f9cd, type: 3}
+  - pose: 11
+    clip: {fileID: -203655887218126122, guid: 4efb1d6eb7508694bb7034c1de6501e5, type: 3}
+  - pose: 12
+    clip: {fileID: -203655887218126122, guid: bdc5c699e358633489de339039716758, type: 3}
+  - pose: 13
+    clip: {fileID: -203655887218126122, guid: bcb88fcb8eedea645adafa220edb491f, type: 3}
+  - pose: 14
+    clip: {fileID: -203655887218126122, guid: 89434a492c8681a40bfd7ae738b81006, type: 3}
+  - pose: 15
+    clip: {fileID: -203655887218126122, guid: 4fd34f0d3576f444aa3c2aab335d1498, type: 3}
+  - pose: 16
+    clip: {fileID: -203655887218126122, guid: 1724cf92f78e9e547874353000f24863, type: 3}
+  - pose: 17
+    clip: {fileID: -203655887218126122, guid: b7d4e0364f008324f935bd07cb79c380, type: 3}
+  - pose: 18
+    clip: {fileID: -203655887218126122, guid: bd323df2217e8d548b166f5e3d51d6f5, type: 3}
+  - pose: 19
+    clip: {fileID: -203655887218126122, guid: 763422014defce948a85fc914858f109, type: 3}
+  - pose: 20
+    clip: {fileID: -203655887218126122, guid: f072d731f07253240adb6ec35e80d470, type: 3}
+  - pose: 21
+    clip: {fileID: -203655887218126122, guid: 13ae7f9c799e02c4db9fdeb04e3e841e, type: 3}

@@ -63,10 +63,9 @@ namespace FYP.Detective
         /// <summary>A line starts: its file name (briefing_lines.csv) and how long it lasts (seconds).</summary>
         public event System.Action<string, float> LineStarted;
 
-        /// <summary>The body rig (Rig and its parts) the crime replay copies for its ghost figures.</summary>
-        public Transform RigTemplate => rig;
-        /// <summary>Right forearm with the index finger out (no magnifier), for the ghosts.</summary>
-        public Mesh PointForearmMesh => pointForearmMesh;
+        /// <summary>True while the verdict and the crime replay are being told (the participant card waits).</summary>
+        public bool IsRevealing => _verdict && Stage == BriefingStage.Playing;
+
         private readonly float[] _samples = new float[256];
         private float _talk;
         private Quaternion _headRest = Quaternion.identity, _armRest = Quaternion.identity;

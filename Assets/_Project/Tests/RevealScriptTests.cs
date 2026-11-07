@@ -38,8 +38,30 @@ namespace FYP.Detective.Tests
             // The victim ends where the taped outline is (feet by the chair, lying towards -x).
             RevealScript.Evaluate(beats[4].Victim, 1f, out float vx, out float vz, out float yaw, out GhostPose pose);
             Assert.AreEqual(GhostPose.Lying, pose);
-            Assert.AreEqual(CaseSpecs.XBodyZ, vz, 0.1f);
-            Assert.AreEqual(-90f, yaw, 1f);
+            // He stands where the measured fall puts his hips on the outline (head towards -x).
+            Assert.AreEqual(1.05f, vx, 0.01f);
+            Assert.AreEqual(0.83f, vz, 0.01f);
+            Assert.AreEqual(101.0f, yaw, 0.5f);
+            // Poisoned: he sways and collapses, no knock-out / fight motion.
+            CollectionAssert.Contains(beats[2].Victim.ConvertAll(k => k.Pose), GhostPose.Collapse);
+            CollectionAssert.Contains(beats[2].Victim.ConvertAll(k => k.Pose), GhostPose.Dizzy);
+        }
+
+        [Test]
+        public void CaseY_FiveBeats_DatukFallsWhereTheOutlineIs_FaridRunsToTheDoor()
+        {
+            var beats = RevealScript.For(CaseId.Y);
+            Assert.AreEqual(5, beats.Count);
+            CollectionAssert.AreEqual(new[] { "Y_reveal_01", "Y_reveal_02", "Y_reveal_03", "Y_reveal_04", "Y_reveal_05" },
+                beats.ConvertAll(b => b.Line));
+            RevealScript.Evaluate(beats[3].Victim, 1f, out _, out float vz, out float yaw, out GhostPose pose);
+            Assert.AreEqual(GhostPose.FallBack, pose);
+            Assert.AreEqual(1.22f, vz, 0.01f);
+            Assert.AreEqual(108.1f, yaw, 0.5f, "turned so the measured back fall puts his head towards -x like the outline");
+            RevealScript.Evaluate(beats[4].Culprit, 0.6f, out _, out _, out _, out pose);
+            Assert.AreEqual(GhostPose.Run, pose);
+            RevealScript.Evaluate(beats[0].Victim, 0f, out _, out _, out _, out pose);
+            Assert.AreEqual(GhostPose.Hidden, pose, "the Datuk isn't there yet when Farid takes the key");
         }
 
         [Test]
@@ -62,7 +84,7 @@ namespace FYP.Detective.Tests
             RevealScript.Evaluate(keys, 2f, out _, out _, out yaw, out pose);
             Assert.AreEqual(180f, yaw, 1e-3f);
             Assert.IsFalse(RevealScript.Evaluate(new List<GhostKey>(), 0.5f, out _, out _, out _, out _));
-            Assert.AreEqual(0, RevealScript.For(CaseId.Y).Count, "Case Y comes in Phase 3");
+
         }
     }
 }

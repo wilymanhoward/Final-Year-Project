@@ -521,6 +521,34 @@ Data flow:
   red, victim blue); poses are eased arm/rig rotations, Lying = rig tipped 88 deg forward (head where he faced). Case X
   has 5 beats; Case Y = Phase 3 (narration only until then); team sync + log rows = Phase 4. Scene objects (glass,
   chair, footprints) are not animated. Headset-untested (pose signs, sizes).
+- **Replay characters (user, 2026-11-06: "the silhouette was the detective"; low-poly + Mixamo + see-through ghost):**
+  Quaternius CC0 Humanoid-rig people (Art/Characters/Models: Women_Suit = Grace, Men_Suit = Rizal + the Datuk,
+  Men_Casual2 = Farid) + 21 Mixamo motions (Art/Characters/Animations, no skin, 30 fps, walks/run in place; credits in
+  Art/Characters/CREDITS.txt). `ReplayCharacterImport` (Humanoid, root baked in place, loop list), `ReplayCastTool`
+  (FYP > Set Up Crime Replay Cast, in Set Up Everything) -> Resources/ReplayCast.asset (pose -> clip). `CrimeReplay.Ghost`
+  = instantiated model in FYP/Ghost, scaled to 1.72 / 1.64 m, PlayableGraph mixer cross-fading 0.25 s, one-shots hold the
+  last frame, Lying keeps the fall. `RevealScript` now has both cases (X: Rizal sits typing on the rolled-back chair,
+  drinks, stands, sways and collapses (poison, see below); Grace walks, signs, pours, puts the cup down, keys the code, picks up the award,
+  smashes, kneels, leaves carrying. Y: Farid signs/takes the key, argue, fist fight, keris from the plinth, stab, the
+  Datuk is hit and falls back onto the outline, Farid runs along the footprints). The "Case closed" card waits until
+  the reveal ends (`DetectiveBriefing.IsRevealing`). Headset-untested (scale, facing, sit height on the chair).
+  **Motion fixes (user, 2026-11-06: falls off the tape, keypad hand too low, buggy stand-up):** measured in batch with
+  AnimationMode.SampleAnimationClip: SitDrinking walks 2.5 m and sits first -> trimmed to frames 130-456 + body pulled back
+  by `DrinkOffset` (0.30, 2.56) while it plays; SitToStand uses root motion (0.44 m forward), absorbed into the root when the
+  next pose starts; sitting poses lift the body 0.15 m onto the office chair. Falls land off-axis (stomach: hips +0.90 right
+  / +0.74 ahead, 53 deg right; back: hips 0.79 behind / 0.23 right), so the fall spots/yaws are solved for the outlines
+  (X victim (1.40, 1.38) yaw -143.1; Y Datuk (0.66, 1.22) yaw 108.1, Farid faces him). Hand IK (`HandReachJob`,
+  AnimationHumanStream.SolveIK) puts Grace's right hand on the keypad (X b4) and the sign-in sheet (X b1), Farid's on the
+  logbook (Y b1): `RevealBeat.ReachClueId/From/To`. Headset-untested.
+  **Poison collapse + smooth walking (user, 2026-11-07: drinking sat backwards, walk on the spot, sliding feet, the
+  stomach fall looked like a fight):** the X victim now sways (`GhostPose.Dizzy`, Mixamo "Dizzy Idle") and slumps
+  backwards clutching his chest (`GhostPose.Collapse`, "Death From Standing Idle" = PoisonCollapse.fbx; FallToStomach
+  deleted): hips end 0.89 behind / 0.34 left, so he stands at (1.05, 0.83) yaw 101.0. SitDrinking is baked "based upon
+  body orientation / centre of mass" (it turned round to sit), so `DrinkOffset` is gone (SampleAnimationClip can't show
+  root baking: check on the headset). Locomotion is chosen from the measured root speed (walk/run/carry above 0.15 m/s,
+  else stand), step rate = speed / natural speed (one cycle per clip: WalkCareful 0.44, WalkFemale 1.28, WalkHolding
+  1.28, Run 2.9 m/s, clamp 0.4-1.8x); keys move at constant speed; after SitToStand the stood-up offset (`_carry`)
+  fades out at 0.6 m/s instead of snapping back to the chair. Headset-untested.
 - **Hand look:** participants see translucent dark "ghost" hands with a white rim (custom shader
   `FYP/GhostHand`: depth prepass + alpha-blended fresnel rim; tune Body Colour/Alpha and Outline Width/Sharpness
   on `HandGhost.mat`). The OVRHand system-gesture material swap is set to None.
