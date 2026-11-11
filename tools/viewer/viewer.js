@@ -276,33 +276,83 @@ function label(text, color) {
   return sp;
 }
 
-// Measures a hand model from its bones (fingers = wrist -> middle knuckle, back of the hand from the knuckle line) so
-// poseHand doesn't depend on how the model is authored, then bends the flat bind pose into relaxed, slightly curled fingers.
+// Measures a hand model at rest (the WebXR hand: every bone is a direct child of the armature, one bone per joint, so a
+// pose = every bone's position + rotation). Keeps the rest joint positions/rotations for solveHand, the wrist frame
+// for the estimated pose, and a relaxed, slightly curled copy of the joint positions for runs without a finger log.
 function prepareHand(root, side) {
   root.updateMatrixWorld(true);
-  const P = (n) => root.getObjectByName(n).getWorldPosition(new THREE.Vector3());
-  const wrist = P('wrist'), f = P('middle-finger-phalanx-proximal').sub(wrist).normalize();
-  const across = P('index-finger-phalanx-proximal').sub(P('pinky-finger-phalanx-proximal')).normalize();
+  const rest = {}, restQ = {};
+  for (const n of JOINT_NAMES) {
+    const b = root.getObjectByName(n);
+    rest[n] = b.getWorldPosition(new THREE.Vector3());
+    restQ[n] = b.getWorldQuaternion(new THREE.Quaternion());
+  }
+  const wrist = rest.wrist, f = rest['middle-finger-phalanx-proximal'].clone().sub(wrist).normalize();
+  const across = rest['index-finger-phalanx-proximal'].clone().sub(rest['pinky-finger-phalanx-proximal']).normalize();
   const back = side === 'r' ? new THREE.Vector3().crossVectors(f, across) : new THREE.Vector3().crossVectors(across, f);
   back.addScaledVector(f, -back.dot(f)).normalize();
   const z = f.clone().negate(), x = new THREE.Vector3().crossVectors(back, z);
   const qInv = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(x, back, z)).invert();
-  const pq = new THREE.Quaternion(), tip = new THREE.Vector3(), moved = new THREE.Vector3();
-  for (const finger of ['index', 'middle', 'ring', 'pinky']) {
-    ['proximal', 'intermediate', 'distal'].forEach((seg, i) => {
-      const bone = root.getObjectByName(`${finger}-finger-phalanx-${seg}`);
-      const child = root.getObjectByName(i < 2 ? `${finger}-finger-phalanx-${['intermediate', 'distal'][i]}` : `${finger}-finger-tip`);
-      bone.parent.getWorldQuaternion(pq);
-      const axis = across.clone().applyQuaternion(pq.invert());
-      const angle = [0.3, 0.38, 0.3][i] + (finger === 'pinky' ? 0.1 : 0);
-      child.getWorldPosition(tip);
-      bone.quaternion.premultiply(new THREE.Quaternion().setFromAxisAngle(axis, angle));
-      root.updateMatrixWorld(true);
-      if (child.getWorldPosition(moved).sub(tip).dot(back) > 0)   // curled towards the back of the hand: bend the other way
-        { bone.quaternion.premultiply(new THREE.Quaternion().setFromAxisAngle(axis, -2 * angle)); root.updateMatrixWorld(true); }
+  // relaxed fingers: each finger joint bends towards the palm around the knuckle line
+  const curled = Object.fromEntries(JOINT_NAMES.map((n) => [n, rest[n].clone()]));
+  const q = new THREE.Quaternion();
+  for (const f4 of ['index', 'middle', 'ring', 'pinky']) {
+    const chain = ['phalanx-proximal', 'phalanx-intermediate', 'phalanx-distal', 'tip'].map((s2) => `${f4}-finger-${s2}`);
+    [0.28, 0.38, 0.28].forEach((a, k) => {
+      const pivot = curled[chain[k]];
+      let ang = a + (f4 === 'pinky' ? 0.1 : 0);
+      const tip = curled[chain[3]].clone().sub(pivot).applyQuaternion(q.setFromAxisAngle(across, ang));
+      if (tip.dot(back) > curled[chain[3]].clone().sub(pivot).dot(back)) ang = -ang;   // bend towards the palm
+      q.setFromAxisAngle(across, ang);
+      for (let m = k + 1; m < 4; m++) curled[chain[m]].sub(pivot).applyQuaternion(q).add(pivot);
     });
   }
-  return { scene: root, qInv, wrist };
+  const restDir = {};
+  for (const n of JOINT_NAMES) restDir[n] = segmentDir((m, out) => out.copy(rest[m]), n, new THREE.Vector3());
+  return { scene: root, qInv, wrist, across, rest, restQ, restDir, curled };
+}
+
+// Direction a joint's bone points: to its next joint (tips: continue the last segment).
+const NEXT = { wrist: 'middle-finger-phalanx-proximal', 'thumb-metacarpal': 'thumb-phalanx-proximal',
+  'thumb-phalanx-proximal': 'thumb-phalanx-distal', 'thumb-phalanx-distal': 'thumb-tip' };
+const PREV = { 'thumb-tip': 'thumb-phalanx-distal' };
+for (const f4 of ['index', 'middle', 'ring', 'pinky']) {
+  const c = ['metacarpal', 'phalanx-proximal', 'phalanx-intermediate', 'phalanx-distal', 'tip'].map((s2) => `${f4}-finger-${s2}`);
+  for (let k = 0; k < 4; k++) NEXT[c[k]] = c[k + 1];
+  PREV[c[4]] = c[3];
+}
+const _sa = new THREE.Vector3(), _sb = new THREE.Vector3();
+function segmentDir(pos, name, out) {
+  if (NEXT[name]) return out.subVectors(pos(NEXT[name], _sa), pos(name, _sb)).normalize();
+  return out.subVectors(pos(name, _sa), pos(PREV[name], _sb)).normalize();
+}
+
+// Rotation of the frame (dir, reference) - reference = the knuckle line, always across the fingers.
+const _bx = new THREE.Vector3(), _by = new THREE.Vector3(), _bm = new THREE.Matrix4();
+function frameQ(dir, ref, out) {
+  _bx.crossVectors(ref, dir).normalize();
+  _by.crossVectors(dir, _bx);
+  return out.setFromRotationMatrix(_bm.makeBasis(_bx, _by, dir));
+}
+
+// Poses every bone of a hand clone: on its joint (pos(name, out) gives world positions) and turned the way the joint's
+// segment points, keeping the bone's rest roll relative to the knuckle line `across`. The mesh follows the real hand size.
+const _sp = new THREE.Vector3(), _sd = new THREE.Vector3(), _sq1 = new THREE.Quaternion(), _sq2 = new THREE.Quaternion(), _pw = new THREE.Quaternion();
+function solveHand(obj, pos, across) {
+  const cal = obj.userData.cal, bones = obj.userData.bones;
+  obj.position.set(0, 0, 0); obj.quaternion.identity();
+  obj.updateMatrixWorld(true);
+  for (const n of JOINT_NAMES) {
+    const bone = bones[n];
+    if (!bone) continue;
+    pos(n, _sp);
+    segmentDir(pos, n, _sd);
+    frameQ(_sd, across, _sq1).multiply(frameQ(cal.restDir[n], cal.across, _sq2).invert()).multiply(cal.restQ[n]);
+    bone.parent.getWorldQuaternion(_pw);
+    bone.quaternion.copy(_pw.invert().multiply(_sq1));
+    bone.position.copy(bone.parent.worldToLocal(_sp));
+  }
+  obj.updateMatrixWorld(true);
 }
 
 function makePlayer(i, name, assets) {
@@ -332,7 +382,6 @@ function makePlayer(i, name, assets) {
     h.userData.cal = assets.hands[side];
     h.userData.bones = {};
     h.traverse((o) => { if (o.isBone) h.userData.bones[o.name] = o; });
-    h.userData.rest = Object.values(h.userData.bones).map((b) => [b, b.quaternion.clone()]);
     return h;
   };
   const left = hand('l'), right = hand('r');
@@ -356,7 +405,7 @@ const _hf = new THREE.Vector3(), _hb = new THREE.Vector3(), _ho = new THREE.Vect
   _hr = new THREE.Vector3(), _hs = new THREE.Vector3(), _hm = new THREE.Matrix4(), UP = new THREE.Vector3(0, 1, 0);
 function poseHand(obj, pos, headPos, headQ, side) {
   obj.position.copy(pos);
-  if (!headPos) return;
+  if (!headPos) { obj.visible = !obj.userData.cal; return; }   // no head: no way to aim a real hand
   _hr.set(-1, 0, 0).applyQuaternion(headQ); _hr.y = 0;
   if (_hr.lengthSq() < 1e-6) _hr.set(-1, 0, 0);
   _hr.normalize();                                                       // participant's right, in three's frame
@@ -371,20 +420,17 @@ function poseHand(obj, pos, headPos, headQ, side) {
   _hb.multiplyScalar(Math.cos(0.61)).addScaledVector(_ho, Math.sin(0.61)).normalize();
   _hx.crossVectors(_hb, _hf.negate());                                  // x = y × z with z = -fingers
   _hm.makeBasis(_hx, _hb, _hf);
-  obj.quaternion.setFromRotationMatrix(_hm);
   const cal = obj.userData.cal;
-  if (cal) {   // model axes -> target axes, and put the model's wrist (not its origin) on the logged point
-    obj.quaternion.multiply(cal.qInv);
-    obj.position.sub(_hs.copy(cal.wrist).applyQuaternion(obj.quaternion));
-  }
+  if (!cal) { obj.quaternion.setFromRotationMatrix(_hm); return; }   // simple marker
+  // model axes -> target axes, the model's wrist on the logged point, then the relaxed joints through the solver
+  _hq.setFromRotationMatrix(_hm).multiply(cal.qInv);
+  _ht.copy(pos).sub(_hs.copy(cal.wrist).applyQuaternion(_hq));
+  solveHand(obj, (n, out) => out.copy(cal.curled[n]).applyQuaternion(_hq).add(_ht), _ha.copy(cal.across).applyQuaternion(_hq));
 }
+const _hq = new THREE.Quaternion(), _ht = new THREE.Vector3(), _ha = new THREE.Vector3();
 
 // ---------- hands from the joint log ----------
 const _joints = new Float32Array(75);
-const FINGER_CHAINS = [['thumb-metacarpal', 'thumb-phalanx-proximal', 'thumb-phalanx-distal', 'thumb-tip'],
-  ...['index', 'middle', 'ring', 'pinky'].map((f) => ['metacarpal', 'phalanx-proximal', 'phalanx-intermediate', 'phalanx-distal', 'tip'].map((s) => `${f}-finger-${s}`))];
-function resetBones(obj) { if (obj.userData.rest) for (const [b, q] of obj.userData.rest) b.quaternion.copy(q); }
-
 // Joints of one hand at time t (rows every 0.05 s: interpolate inside 0.12 s, else hold); false = not tracked then.
 function jointsAt(h, t, side, out) {
   const ts = h.t, rows = h[side];
@@ -402,38 +448,12 @@ function jointsAt(h, t, side, out) {
   return true;
 }
 
-const _jw = new THREE.Vector3(), _ja = new THREE.Vector3(), _jb = new THREE.Vector3(), _jc = new THREE.Vector3(),
-  _jd = new THREE.Vector3(), _jt = new THREE.Vector3(), _jr = new THREE.Quaternion(), _jbw = new THREE.Quaternion(), _jpw = new THREE.Quaternion();
+const _jb = new THREE.Vector3(), _jc = new THREE.Vector3(), _jd = new THREE.Vector3();
 const jointPos = (J, name, out) => { const i = JOINT_INDEX[name] * 3; return out.set(-J[i], J[i + 1], J[i + 2]); };   // Unity -> three
-// Wrist frame from the wrist and three knuckles (same rule as prepareHand), then every finger bone turned so it points
-// at its next logged joint. The model keeps its own finger lengths; only directions come from the log.
-function poseFromJoints(obj, J, side) {
-  resetBones(obj);
-  const cal = obj.userData.cal, bones = obj.userData.bones;
-  jointPos(J, 'wrist', _jw);
-  _hf.subVectors(jointPos(J, 'middle-finger-phalanx-proximal', _ja), _jw).normalize();
+// Real finger joints: every bone on its logged joint.
+function poseFromJoints(obj, J) {
   _jd.subVectors(jointPos(J, 'index-finger-phalanx-proximal', _jb), jointPos(J, 'pinky-finger-phalanx-proximal', _jc)).normalize();
-  if (side === 'r') _hb.crossVectors(_hf, _jd); else _hb.crossVectors(_jd, _hf);
-  _hb.addScaledVector(_hf, -_hb.dot(_hf)).normalize();
-  _hf.negate();
-  _hx.crossVectors(_hb, _hf);
-  _hm.makeBasis(_hx, _hb, _hf);
-  obj.quaternion.setFromRotationMatrix(_hm).multiply(cal.qInv);
-  obj.position.copy(_jw).sub(_hs.copy(cal.wrist).applyQuaternion(obj.quaternion));
-  obj.updateMatrixWorld(true);
-  for (const chain of FINGER_CHAINS) {
-    for (let k = 0; k < chain.length - 1; k++) {
-      const bone = bones[chain[k]], child = bones[chain[k + 1]];
-      if (!bone || !child) break;
-      _jd.subVectors(child.getWorldPosition(_ja), bone.getWorldPosition(_jb)).normalize();
-      _jt.subVectors(jointPos(J, chain[k + 1], _ja), jointPos(J, chain[k], _jb)).normalize();
-      _jr.setFromUnitVectors(_jd, _jt);
-      bone.getWorldQuaternion(_jbw).premultiply(_jr);
-      bone.parent.getWorldQuaternion(_jpw);
-      bone.quaternion.copy(_jpw.invert().multiply(_jbw));
-      bone.updateMatrixWorld(true);
-    }
-  }
+  solveHand(obj, (n, out) => jointPos(J, n, out), _jd);
 }
 
 // ---------- state ----------
@@ -630,12 +650,11 @@ function update() {
     for (const [obj, key] of [[p.left, 'l'], [p.right, 'r']]) {
       if (run.hands && obj.userData.bones && jointsAt(run.hands, t, key, _joints)) {   // real finger joints
         obj.visible = true;
-        poseFromJoints(obj, _joints, key);
+        poseFromJoints(obj, _joints);
         continue;
       }
       const v = lerp3(a[key], b[key], k);
       obj.visible = !!v;
-      resetBones(obj);
       if (v) poseHand(obj, _hp.set(-v[0], v[1], v[2]), head ? p.head.position : null, p.head.quaternion, key);
     }
     p.gaze.visible = showGaze;
@@ -826,7 +845,10 @@ async function pollServer() {
       : dev.length ? `Headset ${dev[0][0]}: ${dev[0][1]} - allow USB debugging in the headset` : `No headset plugged in${last}`;
     if (st.version !== libVersion) { libVersion = st.version; libRuns = await fetch('/api/runs', { cache: 'no-store' }).then((r) => r.json()); renderLibrary(); }
     setTimeout(pollServer, 3000);
-  } catch (e) { if (e) console.warn('Library:', e); /* no viewer_server.py (plain static server): drag-and-drop only */ }
+  } catch (e) {
+    if (e) console.warn('Library:', e);
+    setTimeout(pollServer, 5000);   // server busy or not started yet: keep trying (plain static server = drag-and-drop only)
+  }
 }
 $('libFilter').oninput = renderLibrary;
 $('libList').onclick = (e) => { const c = e.target.closest('.card'); if (c) openLibraryRun(c.dataset.name); };

@@ -196,7 +196,7 @@ async function poll() {
     }
     $('liveEmpty').hidden = tiles.size > 0;
     setTimeout(poll, 3000);
-  } catch { /* no viewer_server.py: no live view */ }
+  } catch { setTimeout(poll, 5000); /* server busy or not started yet: keep trying */ }
 }
 new MutationObserver(() => tiles.forEach((t) => t.sync())).observe($('live'), { attributes: true, attributeFilter: ['class'] });
 document.addEventListener('visibilitychange', () => tiles.forEach((t) => t.sync()));
