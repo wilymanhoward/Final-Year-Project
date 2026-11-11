@@ -821,7 +821,8 @@ async function pollServer() {
     const dev = Object.entries(st.devices), on = dev.filter(([, s]) => s === 'device');
     const last = st.messages.length ? ' · ' + st.messages[st.messages.length - 1].replace(/^\S+ /, '') : '';
     $('headset').classList.toggle('on', on.length > 0);
-    $('headset').querySelector('span').textContent = on.length ? `Headset connected (${on.map(([s]) => s).join(', ')}) · new runs are saved automatically${last}`
+    const hs = [...new Map((st.headsets || []).map((h) => [h.serial, h])).values()];   // one per real headset (USB + Wi-Fi = 1)
+    $('headset').querySelector('span').textContent = on.length ? `${hs.length} headset${hs.length === 1 ? '' : 's'} connected (${hs.map((h) => h.participant || h.serial).join(', ')}) · new runs are saved automatically${last}`
       : dev.length ? `Headset ${dev[0][0]}: ${dev[0][1]} - allow USB debugging in the headset` : `No headset plugged in${last}`;
     if (st.version !== libVersion) { libVersion = st.version; libRuns = await fetch('/api/runs', { cache: 'no-store' }).then((r) => r.json()); renderLibrary(); }
     setTimeout(pollServer, 3000);

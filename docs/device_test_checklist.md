@@ -203,6 +203,7 @@ Do these once, solo (Condition A) first, then once as a team:
 - [ ] Laptop: `python -I tools/viewer_server.py`, open http://localhost:8000 in Chrome or Edge -> Live.
 - [ ] Each headset once per boot: plug in by USB with the game running, press **Make wireless** on its tile, unplug.
       Same Wi-Fi as the laptop (if campus Wi-Fi blocks it, use a phone hotspot). After a headset reboot, repeat.
+      If a tile disappears (Unity Build and Run restarts adb, or the headset slept), it reconnects within ~10 s once awake.
 - [ ] Team run: two tiles side by side. "Headset view" = flat picture like Meta's cast, "Both eyes" = raw lens view,
       "Full screen" for the monitor.
 - [ ] Only watch live; nothing is recorded. Check the ethics approval covers live video of participants.

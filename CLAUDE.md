@@ -188,7 +188,8 @@ tools/viewer_server.py `python -I tools/viewer_server.py` -> http://localhost:80
                      zoom 0.65, tuned by eye on a screenshot; "Both eyes" = raw) via `adb exec-out screenrecord --output-format=h264
                      --size 1920x1024 (falls back to 1280x688) --time-limit 0 -`
                      piped by GET /live, decoded in the browser with WebCodecs (`tools/viewer/live.js`, Chrome/Edge); nothing saved.
-                     "Make wireless" = POST /api/wireless (adb tcpip 5555 + connect; lasts until the headset reboots). Tested on
+                     "Make wireless" = POST /api/wireless (adb tcpip 5555 + connect; lasts until the headset reboots); remembered in
+                     StudyData/wireless_headsets.json and re-connected every 10 s when dropped (adb restart in Build and Run, sleep). Tested on
                      P01's headset: 64-67 fps picture over USB and campus Wi-Fi, game stayed 72/72 fps. Files pull only after
                      15 s unchanged (not mid-run). Ethics: live video of participants - check the approval/consent covers it.
                      Look: Apple-style (awesome-design-md/apple). Avatars: Lee Perry-Smith head scan (CC BY 3.0, cropped to the head

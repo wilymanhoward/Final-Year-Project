@@ -15,7 +15,8 @@ then open http://localhost:8000. Leave it running: plug a headset in after a tes
 - GET /live?device=<adb id> -> live H.264 (Annex B) of that headset's screen (`adb exec-out screenrecord`, what the
   player sees: passthrough room + the app); the viewer decodes it with WebCodecs. Nothing is saved.
 - POST /api/wireless?device=<adb id> -> switches a USB headset to adb over Wi-Fi (tcpip 5555 + connect), so it can be
-  watched live without a cable.
+  watched live without a cable. Remembered in StudyData/wireless_headsets.json and reconnected by itself whenever the
+  Wi-Fi link drops (adb restarts during Unity's Build and Run, the headset slept); after a headset reboot press it again.
 Files still being written (changed in the last 15 s on the headset) are pulled once they settle, so a running session
 isn't copied over and over. Listens on 127.0.0.1 only (study data stays on this laptop).
 """
@@ -42,6 +43,7 @@ RUN_NAME = re.compile(r"^([A-Za-z0-9\-]+)_([A-Za-z0-9\-]+)_([AB])_([XY])_(\d{8}_
 STATE = {"devices": {}, "headsets": [], "messages": [], "version": 0}
 INFO = {}   # adb id -> {"serial", "participant", "checked"}: real serial (Wi-Fi ids are ip:port) + code from the config
 SETTLE_S = 15
+RECONNECT_S = 10
 # both eyes, same aspect as the 4128x2208 display, multiples of 16; the viewer asks for the big one and falls back
 LIVE_SIZES = {"1920x1024": "8M", "1280x688": "4M"}
 LOCK = threading.Lock()
@@ -141,9 +143,54 @@ def headset_info(adb_path, dev):
     return info
 
 
+WIRELESS_FILE = "wireless_headsets.json"   # real serial -> "ip:5555" of headsets made wireless
+
+
+def load_wireless(out):
+    try:
+        with open(os.path.join(out, WIRELESS_FILE), encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return {}
+
+
+def save_wireless(out, known):
+    with open(os.path.join(out, WIRELESS_FILE), "w", encoding="utf-8") as f:
+        json.dump(known, f, indent=1, sort_keys=True)
+
+
+def wifi_ip(adb_path, dev):
+    out = adb(adb_path, "-s", dev, "shell", "ip -f inet addr show wlan0", timeout=10).stdout
+    m = re.search(r"inet (\d+\.\d+\.\d+\.\d+)/", out)
+    return m.group(1) if m else None
+
+
+def reconnect(adb_path, out, devices, headsets):
+    """Re-attach remembered wireless headsets that dropped off adb (a quick `adb connect` each)."""
+    known = load_wireless(out)
+    if not known:
+        return
+    for h in headsets:   # a headset on USB may have a new DHCP address: keep the remembered one current
+        if not h["wireless"] and h["serial"] in known:
+            ip = wifi_ip(adb_path, h["id"])
+            if ip and known[h["serial"]] != f"{ip}:5555":
+                known[h["serial"]] = f"{ip}:5555"
+                save_wireless(out, known)
+    for serial, addr in known.items():
+        if devices.get(addr) == "device":
+            continue
+        if devices.get(addr):   # "offline" / "unauthorized": drop the stale entry first
+            adb(adb_path, "disconnect", addr, timeout=5)
+        try:
+            adb(adb_path, "connect", addr, timeout=6)
+        except subprocess.TimeoutExpired:
+            pass   # headset off or on another network; try again later
+
+
 def device_loop(out, pull):
     adb_path = find_adb()
     index = load_index(out)
+    next_reconnect = 0.0
     while True:
         try:
             lines = adb(adb_path, "devices", timeout=15).stdout.splitlines()[1:]
@@ -158,6 +205,9 @@ def device_loop(out, pull):
             with LOCK:
                 STATE["devices"] = devices
                 STATE["headsets"] = headsets
+            if time.time() >= next_reconnect and not any(t.name == "reconnect" for t in threading.enumerate()):
+                next_reconnect = time.time() + RECONNECT_S   # in the background: an asleep headset takes seconds to time out
+                threading.Thread(target=reconnect, args=(adb_path, out, devices, headsets), name="reconnect", daemon=True).start()
             changed, done = 0, set()
             for h in sorted(headsets, key=lambda h: h["wireless"]):   # USB first; one pull per real headset
                 if pull and h["serial"] not in done:
@@ -227,19 +277,22 @@ def current_headset(dev):
         return next((h for h in STATE["headsets"] if h["id"] == dev), None)
 
 
-def make_wireless(dev):
+def make_wireless(dev, out_dir):
     adb_path = find_adb()
-    out = adb(adb_path, "-s", dev, "shell", "ip -f inet addr show wlan0", timeout=10).stdout
-    m = re.search(r"inet (\d+\.\d+\.\d+\.\d+)/", out)
-    if not m:
+    ip = wifi_ip(adb_path, dev)
+    if not ip:
         return "The headset isn't on Wi-Fi - connect it to the same Wi-Fi as this laptop."
-    ip = m.group(1)
     adb(adb_path, "-s", dev, "tcpip", "5555", timeout=15)
     time.sleep(2)
     res = adb(adb_path, "connect", f"{ip}:5555", timeout=15)
     text = (res.stdout + res.stderr).strip()
     if "connected" in text and "cannot" not in text:
-        return f"Wireless at {ip}:5555 - you can unplug the cable."
+        h = current_headset(dev)
+        if h:
+            known = load_wireless(out_dir)
+            known[h["serial"]] = f"{ip}:5555"
+            save_wireless(out_dir, known)
+        return f"Wireless at {ip}:5555 - you can unplug the cable. It reconnects by itself if the link drops."
     return f"Couldn't connect to {ip}:5555 ({text[:120]}). Same Wi-Fi? Campus Wi-Fi may block it - try a phone hotspot."
 
 
@@ -297,7 +350,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             dev = self.query("device")
             if not current_headset(dev):
                 return self.send_error(404)
-            return self.send_json({"message": make_wireless(dev)})
+            return self.send_json({"message": make_wireless(dev, self.out)})
         return self.send_error(404)
 
     def stream_live(self, dev, size):
