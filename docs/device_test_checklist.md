@@ -188,6 +188,25 @@ Do these once, solo (Condition A) first, then once as a team:
       X_case_01..03 voice clips are recorded).
 - [ ] Clue texts: wet "BEST MANAGER" mug, glove ("fired Kumar"), sketch ("Rizal stole my design"), note ("promised me").
 
+## First test of the finger-joint log + moving props (2026-11-11, headset-untested)
+
+- [ ] Rebuild; do a short run while moving the fingers (open/close, pinch, point) and pick up / drop a few clues.
+- [ ] Next to the run log there is `{run}_hands.csv` (about 1 MB per minute); `python -I tools/check_logs.py StudyData`
+      shows no hands errors; untracked hands are empty rows, not frozen poses.
+- [ ] Frame time still fine: `frame_dt_ms` in the run log stays around 13.9 ms (72 fps) as before.
+- [ ] In the viewer (`python -I tools/viewer_server.py`, plug the headset in): the run panel says "Hands: real finger
+      movement from the joint log"; with Follow, the replay fingers open/close and pinch like you did; clues move.
+- [ ] Team run: both headsets write their own `_hands.csv`; the run opens with both players' fingers moving.
+
+## Live view of the headsets (website, optional)
+
+- [ ] Laptop: `python -I tools/viewer_server.py`, open http://localhost:8000 in Chrome or Edge -> Live.
+- [ ] Each headset once per boot: plug in by USB with the game running, press **Make wireless** on its tile, unplug.
+      Same Wi-Fi as the laptop (if campus Wi-Fi blocks it, use a phone hotspot). After a headset reboot, repeat.
+- [ ] Team run: two tiles side by side. "Headset view" = flat picture like Meta's cast, "Both eyes" = raw lens view,
+      "Full screen" for the monitor.
+- [ ] Only watch live; nothing is recorded. Check the ethics approval covers live video of participants.
+
 ## Troubleshooting
 
 | Symptom | Fix |

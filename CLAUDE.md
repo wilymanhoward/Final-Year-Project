@@ -177,12 +177,23 @@ Scripts/Interaction/ClueHighlight (hover outline shell)
 tools/receive_data.py  laptop receiver for DataUploader (python, stdlib; UDP beacon + HTTP PUT -> StudyData/)
 tools/pull_data.sh   pulls *.csv/*.json (+ Unity log) from every connected headset to StudyData/<date>/<serial>/,
                      flags runs whose summary still says Interrupted (Git Bash; uses Windows paths for adb.exe)
-tools/check_logs.py  `python -I tools/check_logs.py StudyData [--quiet]`: per run, CSV vs summary vs meta (columns, time order,
+tools/check_logs.py  `python -I tools/check_logs.py StudyData [--quiet]`: per run (+ its `_hands.csv`), CSV vs summary vs meta (columns, time order,
                      10 Hz, quaternions, empty-not-zero, 1 s zone cooldown, event counts == totals); exit 1 on errors
 tools/viewer_server.py `python -I tools/viewer_server.py` -> http://localhost:8000: serves the viewer, pulls new *.csv/*.json from every
                      USB-connected headset every 3 s (changed size/time; StudyData/<date>/<serial>/, index StudyData/pulled_index.json,
                      never deletes on the headset) and lists all runs (newest copy wins) as a library by date; team runs open with
                      the partner's log (same pair/case/condition, start < 3 min apart). 127.0.0.1 only. `.claude/launch.json` runs it
+                     **Live page (user, 2026-11-11):** per headset, the real headset screen (passthrough room + game), shown flat
+                     like Meta's cast by default (`flat.js`: left eye, lens pre-warp undone with r/(1+k1 r^2+k2 r^4), k1 0.6, k2 0.2,
+                     zoom 0.65, tuned by eye on a screenshot; "Both eyes" = raw) via `adb exec-out screenrecord --output-format=h264
+                     --size 1920x1024 (falls back to 1280x688) --time-limit 0 -`
+                     piped by GET /live, decoded in the browser with WebCodecs (`tools/viewer/live.js`, Chrome/Edge); nothing saved.
+                     "Make wireless" = POST /api/wireless (adb tcpip 5555 + connect; lasts until the headset reboots). Tested on
+                     P01's headset: 64-67 fps picture over USB and campus Wi-Fi, game stayed 72/72 fps. Files pull only after
+                     15 s unchanged (not mid-run). Ethics: live video of participants - check the approval/consent covers it.
+                     Look: Apple-style (awesome-design-md/apple). Avatars: Lee Perry-Smith head scan (CC BY 3.0, cropped to the head
+                     in `headOnly`) + WebXR generic hands (MIT), both from jsDelivr; hand rotation isn't logged, so `poseHand` aims
+                     the fingers from an estimated shoulder to the logged hand. Cameras: Orbit / Follow / Top / Eyes 1-2
 tools/viewer/        web replay viewer (three.js 0.160 from jsDelivr): `python -m http.server 8000 -d tools/viewer`, drop 1-2 run
                      CSVs; scenes/case_X|Y.obj+.json (+ clue/suspect/zone names for the event texts) written by FYP > Export Web Viewer Scenes (`WebViewerExportTool`, Unity
                      CaseRoot-local, viewer mirrors X); rerun the export after any prop/layout change
@@ -248,6 +259,14 @@ Data flow:
   saying Interrupted means the app was killed or crashed.
 - **Start requires a placement** (`SessionManager.requirePlacement`, default on); the refusal reason is shown via
   `ExperimenterPanel.BuildStatus()` ("not started: Place the scene first").
+- **Finger-joint log (user, 2026-11-11, for the replay viewer):** `{base}_hands.csv` next to the run log, 20 Hz
+  (`HandJointCsv`: session_time_s, utc_time, then x/y/z of 25 joints per hand, left then right, wrist .. pinky tip =
+  OpenXR order without the palm, WebXR names with '_', CaseRoot-local, 1 mm, untracked hand = empty cells, allocation-free
+  number formatting). Source: `HandJointReader` (Meta asm, self-installs, `IHand.GetJointPose`, the visible ISDK hand
+  visual; ISDK always defines ISDK_OPENXR_HAND so `HandJointId` 1..25 = wrist .. pinky tip) registered in
+  `HandJointSources.Current`; `DataLogger` writes it only when a source exists, same tracked rule as the main log.
+  ~15 MB per 15 min run. Main CSV, summary and meta unchanged. The viewer turns each replay finger bone towards its
+  next logged joint (`poseFromJoints`); runs without the file keep the estimated hand pose. Headset-untested.
 - Log rows = `sample` (10 Hz), `event`, or `object` (2026-11-11, for the web replay viewer: `clue_pose` detail
   `<id>;x=;y=;z=;qx=;qy=;qz=;qw=;held=0|1`, CaseRoot-local, on the 10 Hz tick for every clue of the active case at
   the first tick and then only when it moved > 5 mm / 2 deg, `ObjectPoseFilter`; each headset logs its own view).

@@ -16,6 +16,7 @@ namespace FYP.Detective
     /// A file is opened on session start and closed on session end.
     /// Flushes to disk every <see cref="flushIntervalSeconds"/>, on every session
     /// event, and when the app is paused (headset taken off) or quits.
+    /// When a hand-joint source is installed it also writes "{base}_hands.csv" (<see cref="HandJointCsv"/>, 20 Hz).
     /// </summary>
     public class DataLogger : MonoBehaviour
     {
@@ -46,6 +47,11 @@ namespace FYP.Detective
         private Clue[] _clues = Array.Empty<Clue>();   // the active case's clues, for clue_pose rows
         private readonly ObjectPoseFilter _clueFilter = new ObjectPoseFilter();
         private string _metaPath;
+        private CsvLogWriter _handWriter;   // {base}_hands.csv, every finger joint for the replay viewer
+        private readonly StringBuilder _handBuilder = new StringBuilder(4096);
+        private readonly Vector3[] _leftJoints = new Vector3[HandJointCsv.JointCount];
+        private readonly Vector3[] _rightJoints = new Vector3[HandJointCsv.JointCount];
+        private double _nextHandTime;
 
         public string CurrentFilePath => _writer?.FilePath;
         public static string OutputDirectory => Application.persistentDataPath;
@@ -132,9 +138,17 @@ namespace FYP.Detective
                 if (_nextSampleTime < now) _nextSampleTime = now + interval;
             }
 
+            if (_handWriter != null && now >= _nextHandTime)
+            {
+                WriteHandRow();
+                _nextHandTime += 1.0 / HandJointCsv.RateHz;
+                if (_nextHandTime < now) _nextHandTime = now + 1.0 / HandJointCsv.RateHz;
+            }
+
             if (now >= _nextFlushTime)
             {
                 _writer.Flush();
+                _handWriter?.Flush();
                 _nextFlushTime = now + flushIntervalSeconds;
             }
 
@@ -200,6 +214,44 @@ namespace FYP.Detective
             }
         }
 
+        // ---- Hand joints (replay viewer) ----
+
+        private void OpenHandFile(string runPath)
+        {
+            if (HandJointSources.Current == null) return;
+            string path = Path.Combine(Path.GetDirectoryName(runPath),
+                Path.GetFileNameWithoutExtension(runPath) + HandJointCsv.FileSuffix + ".csv");
+            try
+            {
+                _handWriter = new CsvLogWriter(path);
+                _handWriter.WriteLine(HandJointCsv.Header);
+                _nextHandTime = SessionManager.Now;
+            }
+            catch (Exception e)
+            {
+                Debug.LogError("[DataLogger] Could not create hand-joint log: " + e.Message);
+                _handWriter = null;
+            }
+        }
+
+        private void WriteHandRow()
+        {
+            IHandJointSource src = HandJointSources.Current;
+            bool left = ReadHand(src, BodyPart.LeftHand, _leftJoints);
+            bool right = ReadHand(src, BodyPart.RightHand, _rightJoints);
+            _handWriter.WriteLine(HandJointCsv.FormatRow(session.ElapsedSeconds, DateTime.UtcNow,
+                _leftJoints, left, _rightJoints, right, _handBuilder));
+        }
+
+        // Same rule as the main log: an untracked hand is empty, never a frozen last pose.
+        private bool ReadHand(IHandJointSource src, BodyPart part, Vector3[] joints)
+        {
+            if (src == null || (rig != null && !rig.IsTracked(part)) || !src.TryGetJoints(part, joints)) return false;
+            if (caseRoot != null)
+                for (int i = 0; i < joints.Length; i++) joints[i] = caseRoot.transform.InverseTransformPoint(joints[i]);
+            return true;
+        }
+
         // ---- Session lifecycle ----
 
         private void HandleSessionStarted()
@@ -219,6 +271,7 @@ namespace FYP.Detective
             }
             _writer.WriteLine(CsvFormatter.Header);
             string path = _writer.FilePath;
+            OpenHandFile(path);
             _metaPath = Path.Combine(Path.GetDirectoryName(path), Path.GetFileNameWithoutExtension(path) + "_meta.json");
             double now = SessionManager.Now;
             _nextSampleTime = now;
@@ -339,7 +392,7 @@ namespace FYP.Detective
             LogEvent(LogEvents.AppResumed, FormattableString.Invariant($"pause_count={s.PauseCount};paused_s={s.PausedSeconds:F3}"));
             WriteSnapshot();
             // Restart the sample grid instead of writing the samples missed during the pause.
-            _nextSampleTime = SessionManager.Now;
+            _nextSampleTime = _nextHandTime = SessionManager.Now;
         }
 
         private string PositionFrame => caseRoot != null ? "CaseRoot" : "world";
@@ -407,6 +460,12 @@ namespace FYP.Detective
 
         private void CloseFile()
         {
+            if (_handWriter != null)
+            {
+                try { _handWriter.Dispose(); }
+                catch (Exception e) { Debug.LogError("[DataLogger] Error closing hand-joint log: " + e.Message); }
+                _handWriter = null;
+            }
             if (_writer == null) return;
             try { _writer.Dispose(); }
             catch (Exception e) { Debug.LogError("[DataLogger] Error closing log: " + e.Message); }
@@ -415,12 +474,12 @@ namespace FYP.Detective
 
         private void OnApplicationPause(bool paused)
         {
-            if (paused && _writer != null) _writer.Flush();
+            if (paused && _writer != null) { _writer.Flush(); _handWriter?.Flush(); }
         }
 
         private void OnApplicationFocus(bool focused)
         {
-            if (!focused && _writer != null) _writer.Flush();
+            if (!focused && _writer != null) { _writer.Flush(); _handWriter?.Flush(); }
         }
 
         // ---- CaseState events ----

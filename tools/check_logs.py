@@ -3,6 +3,8 @@
 For every run log ({base}.csv) it checks the file against its _summary.csv and _meta.json:
 column count, time order, 10 Hz sampling gaps, unit quaternions, missing tracking = empty (never 0),
 plausible head height, contamination 1 s cooldown per zone, event counts == summary totals.
+A {base}_hands.csv (finger joints, 20 Hz) is checked too: columns, time order, a hand is all-or-nothing, rate,
+plausible wrist-to-knuckle length.
 Prints one line per problem; exit code 1 if any run has a problem (warnings don't count).
 """
 import csv, json, math, sys
@@ -144,14 +146,59 @@ def check_run(log):
     return errs, warns
 
 
+HAND_COLS = 2 + 2 * 25 * 3
+
+
+def check_hands(path):
+    """{base}_hands.csv: 25 joints x xyz per hand; an untracked hand is 75 empty cells."""
+    errs, warns = [], []
+    with open(path, newline="", encoding="utf-8") as fh:
+        reader = csv.reader(fh)
+        header = next(reader, None)
+        rows = list(reader)
+    if header is None or len(header) != HAND_COLS:
+        return [f"hands: header has {len(header or [])} columns, expected {HAND_COLS}"], warns
+    t_prev, times, odd_len, tracked = -1.0, [], 0, 0
+    for n, r in enumerate(rows, 2):
+        if len(r) != HAND_COLS:
+            errs.append(f"hands line {n}: {len(r)} columns")
+            continue
+        t = float(r[0])
+        if t < t_prev - 1e-6:
+            errs.append(f"hands t={t}: time goes backwards")
+        t_prev = t
+        times.append(t)
+        for h in range(2):
+            cells = r[2 + h * 75: 2 + (h + 1) * 75]
+            filled = sum(1 for c in cells if c != "")
+            if filled not in (0, 75):
+                errs.append(f"hands t={t}: {'left' if h == 0 else 'right'} hand half filled ({filled}/75)")
+            elif filled:
+                tracked += 1
+                v = [float(c) for c in cells]
+                wrist, knuckle = v[0:3], v[11 * 3: 11 * 3 + 3]   # wrist -> middle-finger-phalanx-proximal
+                if not 0.05 <= math.dist(wrist, knuckle) <= 0.15:
+                    odd_len += 1
+    if tracked and odd_len > 0.05 * tracked:
+        warns.append(f"hands: wrist-to-knuckle length implausible in {odd_len} of {tracked} hand rows")
+    gaps = [b - a for a, b in zip(times, times[1:]) if b - a <= 1.0]
+    if gaps and len(gaps) / sum(gaps) < 15:
+        warns.append(f"hands: rate {len(gaps) / sum(gaps):.1f} Hz (expected 20)")
+    return errs, warns
+
+
 def main():
     root = Path(sys.argv[1] if len(sys.argv) > 1 else "StudyData")
     quiet = "--quiet" in sys.argv
     logs = sorted(p for p in root.rglob("*.csv")
-                  if not p.name.endswith("_summary.csv") and p.name.count("_") >= 5)
+                  if not p.name.endswith(("_summary.csv", "_hands.csv")) and p.name.count("_") >= 5)
     bad = 0
     for log in logs:
         errs, warns = check_run(log)
+        hands = log.with_name(log.stem + "_hands.csv")
+        if hands.exists():
+            he, hw = check_hands(hands)
+            errs, warns = errs + he, warns + hw
         bad += bool(errs)
         if errs or (warns and not quiet):
             print(f"\n{log.relative_to(root)}")

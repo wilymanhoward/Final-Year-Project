@@ -72,9 +72,11 @@ namespace FYP.Detective.Meta
         }
 
         // The hand visual this headset is showing now (hands; the controller-driven visuals are hidden then).
-        private HandVisual Visible(Handedness side)
+        private HandVisual Visible(Handedness side) => Visible(_visuals, side);
+
+        internal static HandVisual Visible(HandVisual[] visuals, Handedness side)
         {
-            foreach (HandVisual v in _visuals)
+            foreach (HandVisual v in visuals)
                 if (v != null && v.isActiveAndEnabled && v.IsVisible && v.Hand != null && v.Hand.Handedness == side) return v;
             return null;
         }
