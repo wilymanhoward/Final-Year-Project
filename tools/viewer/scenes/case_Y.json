@@ -1,0 +1,23 @@
+{
+  "case": "Y",
+  "zones": [
+    {"id": "Y_Z1", "x": -0.9, "z": 1.25, "yaw": 0, "sx": 0.6, "sz": 0.6, "name": "Pool of blood"},
+    {"id": "Y_Z2", "x": -1.25, "z": -0.25, "yaw": 13.4, "sx": 0.45, "sz": 2.2, "name": "Bloody footprints"},
+    {"id": "Y_Z3", "x": 1.55, "z": 1.45, "yaw": 0, "sx": 0.45, "sz": 0.45, "name": "Broken vase"}
+  ],
+  "clues": [
+    {"id": "Y_K1", "x": -1.5, "y": 1.5, "z": 2.35, "name": "Smashed wall clock", "key": true, "pointsAt": null},
+    {"id": "Y_K2", "x": 1.81, "y": 0.765, "z": 0.56, "name": "Visitor logbook", "key": true, "pointsAt": null},
+    {"id": "Y_K3", "x": 0.35, "y": 0.036, "z": 0.88, "name": "Torn scarf scrap", "key": true, "pointsAt": null},
+    {"id": "Y_K4", "x": 1.81, "y": 0.754, "z": -0.94, "name": "Printed email", "key": true, "pointsAt": null},
+    {"id": "Y_R1", "x": 0.45, "y": 0.0525, "z": 2.15, "name": "Torch", "key": false, "pointsAt": "Y_tan"},
+    {"id": "Y_R2", "x": -2, "y": 0.034, "z": -1.85, "name": "Business card", "key": false, "pointsAt": "Y_lim"},
+    {"id": "Y_R3", "x": -2.2, "y": 1.5, "z": 0.31, "name": "Noticeboard note", "key": false, "pointsAt": "Y_sofia"}
+  ],
+  "suspects": [
+    {"id": "Y_farid", "name": "Farid Rahman", "role": "Tour guide", "culprit": true},
+    {"id": "Y_tan", "name": "Mr Tan", "role": "Security guard", "culprit": false},
+    {"id": "Y_sofia", "name": "Dr Sofia Idris", "role": "Curator", "culprit": false},
+    {"id": "Y_lim", "name": "Mr Lim", "role": "Private collector", "culprit": false}
+  ]
+}

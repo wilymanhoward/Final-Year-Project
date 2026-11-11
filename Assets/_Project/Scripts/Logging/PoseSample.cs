@@ -34,11 +34,12 @@ namespace FYP.Detective
         }
     }
 
-    /// <summary>One CSV row: either a 10 Hz "sample" or a discrete "event".</summary>
+    /// <summary>One CSV row: a 10 Hz "sample", a discrete "event", or an "object" pose (clue_pose, for the replay viewer).</summary>
     public struct LogRow
     {
         public const string TypeSample = "sample";
         public const string TypeEvent = "event";
+        public const string TypeObject = "object";
 
         public double SessionTime;
         public System.DateTime UtcTime;
@@ -72,6 +73,8 @@ namespace FYP.Detective
         public const string HandTrackingRegained = "hand_tracking_regained";
         public const string ClueReset = "clue_reset";
         public const string ClueThrown = "clue_thrown";
+        /// <summary>Row type "object": <c>id;x=;y=;z=;qx=;qy=;qz=;qw=;held=0|1</c>, CaseRoot-local, when a clue moved.</summary>
+        public const string CluePose = "clue_pose";
         public const string Briefing = "briefing";
         public const string BoardOrder = "board_order";
         public const string DepthOcclusion = "depth_occlusion";

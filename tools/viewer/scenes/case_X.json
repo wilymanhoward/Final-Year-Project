@@ -1,0 +1,23 @@
+{
+  "case": "X",
+  "zones": [
+    {"id": "X_Z1", "x": -1.24, "z": 1.47, "yaw": 0, "sx": 0.36, "sz": 0.4, "name": "Broken glass"},
+    {"id": "X_Z2", "x": 1.81, "z": 1.33, "yaw": 0, "sx": 0.4, "sz": 0.5, "name": "Spilled coffee"},
+    {"id": "X_Z3", "x": 1.36, "z": -1.78, "yaw": 328, "sx": 0.35, "sz": 0.9, "name": "Muddy footprints"}
+  ],
+  "clues": [
+    {"id": "X_K1", "x": -0.65, "y": 1.5, "z": 1.81, "name": "Display case lock panel", "key": true, "pointsAt": null},
+    {"id": "X_K2", "x": 1.81, "y": 0.7575, "z": 0.56, "name": "Sign-in sheet", "key": true, "pointsAt": null},
+    {"id": "X_K3", "x": -0.69, "y": 0.0825, "z": 1.61, "name": "Wet mug", "key": true, "pointsAt": null},
+    {"id": "X_K4", "x": -1.81, "y": 0.754, "z": -0.94, "name": "Printed email", "key": true, "pointsAt": null},
+    {"id": "X_R1", "x": -0.51, "y": 0.05, "z": 1.99, "name": "Cleaning glove", "key": false, "pointsAt": "X_kumar"},
+    {"id": "X_R2", "x": 2.04, "y": 0.034, "z": -1.91, "name": "Torn sketch", "key": false, "pointsAt": "X_lena"},
+    {"id": "X_R3", "x": -2.2, "y": 1.5, "z": 0.31, "name": "Sticky note", "key": false, "pointsAt": "X_aiman"}
+  ],
+  "suspects": [
+    {"id": "X_grace", "name": "Grace Wong", "role": "Studio manager", "culprit": true},
+    {"id": "X_kumar", "name": "Kumar Raj", "role": "Night cleaner", "culprit": false},
+    {"id": "X_lena", "name": "Lena Ortiz", "role": "Rival designer next door", "culprit": false},
+    {"id": "X_aiman", "name": "Aiman Hakim", "role": "Junior designer", "culprit": false}
+  ]
+}

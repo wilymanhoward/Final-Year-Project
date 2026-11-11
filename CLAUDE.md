@@ -177,6 +177,15 @@ Scripts/Interaction/ClueHighlight (hover outline shell)
 tools/receive_data.py  laptop receiver for DataUploader (python, stdlib; UDP beacon + HTTP PUT -> StudyData/)
 tools/pull_data.sh   pulls *.csv/*.json (+ Unity log) from every connected headset to StudyData/<date>/<serial>/,
                      flags runs whose summary still says Interrupted (Git Bash; uses Windows paths for adb.exe)
+tools/check_logs.py  `python -I tools/check_logs.py StudyData [--quiet]`: per run, CSV vs summary vs meta (columns, time order,
+                     10 Hz, quaternions, empty-not-zero, 1 s zone cooldown, event counts == totals); exit 1 on errors
+tools/viewer_server.py `python -I tools/viewer_server.py` -> http://localhost:8000: serves the viewer, pulls new *.csv/*.json from every
+                     USB-connected headset every 3 s (changed size/time; StudyData/<date>/<serial>/, index StudyData/pulled_index.json,
+                     never deletes on the headset) and lists all runs (newest copy wins) as a library by date; team runs open with
+                     the partner's log (same pair/case/condition, start < 3 min apart). 127.0.0.1 only. `.claude/launch.json` runs it
+tools/viewer/        web replay viewer (three.js 0.160 from jsDelivr): `python -m http.server 8000 -d tools/viewer`, drop 1-2 run
+                     CSVs; scenes/case_X|Y.obj+.json (+ clue/suspect/zone names for the event texts) written by FYP > Export Web Viewer Scenes (`WebViewerExportTool`, Unity
+                     CaseRoot-local, viewer mirrors X); rerun the export after any prop/layout change
 docs/cases.md        case content (source of truth for CaseSpecs)   docs/device_test_checklist.md  session procedure
 Tests/ (FYP.Detective.Tests.asmdef, Editor-only, EditMode NUnit)
 Art/Shaders/GhostHand.shader (URP, "FYP/GhostHand"), OccludedProp / OccludedUI (Depth API)   Art/Materials/HandGhost.mat
@@ -239,7 +248,10 @@ Data flow:
   saying Interrupted means the app was killed or crashed.
 - **Start requires a placement** (`SessionManager.requirePlacement`, default on); the refusal reason is shown via
   `ExperimenterPanel.BuildStatus()` ("not started: Place the scene first").
-- Log rows = `sample` (10 Hz) or `event`, in one file. Event rows also carry the current pose.
+- Log rows = `sample` (10 Hz), `event`, or `object` (2026-11-11, for the web replay viewer: `clue_pose` detail
+  `<id>;x=;y=;z=;qx=;qy=;qz=;qw=;held=0|1`, CaseRoot-local, on the 10 Hz tick for every clue of the active case at
+  the first tick and then only when it moved > 5 mm / 2 deg, `ObjectPoseFilter`; each headset logs its own view).
+  Analysis that counts events must filter `row_type == "event"`. Log rows were `sample` or `event`, in one file. Event rows also carry the current pose.
   Missing tracking = empty cells, never zeros. `head_yaw_deg`/`head_pitch_deg` are computed from the head
   forward vector (for future head-gaze analysis). `frame_dt_ms` lets you check fps from the log.
 - **Placement (Phase A):** experimenter stands on the taped floor mark facing the front wall and presses

@@ -43,6 +43,8 @@ namespace FYP.Detective
         private readonly TrackingEventFilter _leftTrackingFilter = new TrackingEventFilter();
         private readonly TrackingEventFilter _rightTrackingFilter = new TrackingEventFilter();
         private ExperimentConfig _config;   // snapshot taken at session start
+        private Clue[] _clues = Array.Empty<Clue>();   // the active case's clues, for clue_pose rows
+        private readonly ObjectPoseFilter _clueFilter = new ObjectPoseFilter();
         private string _metaPath;
 
         public string CurrentFilePath => _writer?.FilePath;
@@ -124,6 +126,7 @@ namespace FYP.Detective
             if (now >= _nextSampleTime)
             {
                 WriteRow(LogRow.TypeSample, null, null);
+                LogCluePoses();
                 _nextSampleTime += interval;
                 // After a hitch, don't burst-write missed samples; resume the grid from now.
                 if (_nextSampleTime < now) _nextSampleTime = now + interval;
@@ -167,6 +170,36 @@ namespace FYP.Detective
             _writer.WriteLine(CsvFormatter.FormatRow(row, _config, _rowBuilder));
         }
 
+        // ---- Clue poses (replay viewer) ----
+
+        private void FindClues()
+        {
+            _clueFilter.Reset();
+            string prefix = _config.CaseCode + "_";
+            var list = new System.Collections.Generic.List<Clue>();
+            foreach (var c in FindObjectsByType<Clue>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+                if (c.ClueId.StartsWith(prefix, StringComparison.Ordinal)) list.Add(c);
+            _clues = list.ToArray();
+        }
+
+        /// <summary>
+        /// One "object" row per clue that moved since its last row (first tick: every clue), CaseRoot-local, so the
+        /// replay viewer can move the props as the participant saw them. Each headset logs its own view.
+        /// </summary>
+        private void LogCluePoses()
+        {
+            foreach (var c in _clues)
+            {
+                if (c == null) continue;
+                Transform t = c.transform;
+                Vector3 p = caseRoot != null ? caseRoot.transform.InverseTransformPoint(t.position) : t.position;
+                Quaternion q = caseRoot != null ? Quaternion.Inverse(caseRoot.transform.rotation) * t.rotation : t.rotation;
+                if (!_clueFilter.ShouldLog(c.ClueId, p, q)) continue;
+                WriteRow(LogRow.TypeObject, LogEvents.CluePose, FormattableString.Invariant(
+                    $"{c.ClueId};x={p.x:F4};y={p.y:F4};z={p.z:F4};qx={q.x:F5};qy={q.y:F5};qz={q.z:F5};qw={q.w:F5};held={(c.IsHeld ? 1 : 0)}"));
+            }
+        }
+
         // ---- Session lifecycle ----
 
         private void HandleSessionStarted()
@@ -191,6 +224,7 @@ namespace FYP.Detective
             _nextSampleTime = now;
             _nextFlushTime = now + flushIntervalSeconds;
             _leftTrackingFilter.Reset();
+            FindClues();
             _rightTrackingFilter.Reset();
             var caseDef = session.ActiveCase;
             var placement = session.Placement;
