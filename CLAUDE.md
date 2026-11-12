@@ -192,8 +192,8 @@ tools/viewer_server.py `python -I tools/viewer_server.py` -> http://localhost:80
                      StudyData/wireless_headsets.json and re-connected every 10 s when dropped (adb restart in Build and Run, sleep). Tested on
                      P01's headset: 64-67 fps picture over USB and campus Wi-Fi, game stayed 72/72 fps. Files pull only after
                      15 s unchanged (not mid-run). Ethics: live video of participants - check the approval/consent covers it.
-                     Look: Apple-style (awesome-design-md/apple). Avatars: Lee Perry-Smith head scan (CC BY 3.0, cropped to the head
-                     in `headOnly`) + WebXR generic hands (MIT), both from jsDelivr; hand rotation isn't logged, so `poseHand` aims
+                     Look: Apple-style (awesome-design-md/apple). Avatars: Lee Perry-Smith head scan (CC BY 3.0, cut cleanly at the neck
+                     in `headOnly`/`clipBelow`, bottom closed by `closeNeck`) + WebXR generic hands (MIT), both from jsDelivr; hand rotation isn't logged, so `poseHand` aims
                      the fingers from an estimated shoulder to the logged hand. Cameras: Orbit / Follow / Top / Eyes 1-2
 tools/viewer/        web replay viewer (three.js 0.160 from jsDelivr): `python -m http.server 8000 -d tools/viewer`, drop 1-2 run
                      CSVs; scenes/case_X|Y.obj+.json (+ clue/suspect/zone names for the event texts) written by FYP > Export Web Viewer Scenes (`WebViewerExportTool`, Unity

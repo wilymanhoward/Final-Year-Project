@@ -235,23 +235,17 @@ const avatarAssets = (async () => {
 })();
 avatarAssets.catch((e) => console.warn('Avatar models not loaded, using simple markers:', e));
 
-// The scan is a bust (shoulders + head). Fractions of its height, measured once on this model: below 0.27 = shoulders
-// (cut off), neck from 0.46, eyes at 0.725. Scaled so the head is 20 cm nose-to-back; origin = the headset's centre
-// eye (eye height, 3 cm behind the brow), like the partner head in the app.
+// The scan is a bust (shoulders + head). Fractions of its height, measured once on this model: below 0.33 = shoulders and
+// the flaring base of the neck (cut off), neck from 0.46, eyes at 0.725. The open bottom of the neck is closed with a cap
+// (closeNeck). Scaled so the head is 20 cm nose-to-back; origin = the headset's centre eye (eye height, 3 cm behind the
+// brow), like the partner head in the app.
 function headOnly(src) {
   let g = src.index ? src.toNonIndexed() : src;
   g.computeBoundingBox();
   const b = g.boundingBox, h = b.max.y - b.min.y;
   g.translate(-(b.min.x + b.max.x) / 2, -b.min.y, 0).scale(1 / h, 1 / h, 1 / h);
-  const pos = g.attributes.position, keep = [];
-  for (let t = 0; t < pos.count; t += 3)
-    if (Math.min(pos.getY(t), pos.getY(t + 1), pos.getY(t + 2)) > 0.27) keep.push(t, t + 1, t + 2);
-  const out = new THREE.BufferGeometry();
-  for (const [name, attr] of Object.entries(g.attributes)) {
-    const arr = new Float32Array(keep.length * attr.itemSize);
-    keep.forEach((v, i) => { for (let c = 0; c < attr.itemSize; c++) arr[i * attr.itemSize + c] = attr.array[v * attr.itemSize + c]; });
-    out.setAttribute(name, new THREE.BufferAttribute(arr, attr.itemSize));
-  }
+  const out = clipBelow(g, 0.33);
+  closeNeck(out, 0.33);
   const p = out.attributes.position;
   let zBack = 9, zFront = -9, brow = -9;
   for (let i = 0; i < p.count; i++) {
@@ -261,6 +255,73 @@ function headOnly(src) {
   }
   const s = 0.2 / (zFront - zBack);
   return out.translate(0, -0.725, -(brow - 0.03 / s)).scale(s, s, s);
+}
+
+// Cuts a non-indexed mesh at the plane y = cutY and keeps what is above, splitting the triangles that cross it (all
+// attributes interpolated), so the neck ends in a clean ring instead of a jagged row of whole triangles.
+function clipBelow(g, cutY) {
+  const names = Object.keys(g.attributes), out = Object.fromEntries(names.map((n) => [n, []]));
+  const pos = g.attributes.position;
+  const vert = (i) => Object.fromEntries(names.map((n) => [n, Array.from(g.attributes[n].array.slice(i * g.attributes[n].itemSize, (i + 1) * g.attributes[n].itemSize))]));
+  const mix = (a, b, k) => Object.fromEntries(names.map((n) => [n, a[n].map((v, j) => v + (b[n][j] - v) * k)]));
+  const emit = (...vs) => { for (const v of vs) for (const n of names) out[n].push(...v[n]); };
+  for (let t = 0; t < pos.count; t += 3) {
+    const ys = [pos.getY(t), pos.getY(t + 1), pos.getY(t + 2)];
+    const above = ys.map((y) => y >= cutY), nUp = above.filter(Boolean).length;
+    if (nUp === 0) continue;
+    const v = [vert(t), vert(t + 1), vert(t + 2)];
+    if (nUp === 3) { emit(...v); continue; }
+    // rotate so the odd one out is first, keeping the winding
+    const odd = nUp === 1 ? above.indexOf(true) : above.indexOf(false);
+    const [a, b, c] = [v[odd], v[(odd + 1) % 3], v[(odd + 2) % 3]];
+    const [ya, yb, yc] = [ys[odd], ys[(odd + 1) % 3], ys[(odd + 2) % 3]];
+    const ab = mix(a, b, (cutY - ya) / (yb - ya)), ac = mix(a, c, (cutY - ya) / (yc - ya));
+    for (const x of [ab, ac]) x.position[1] = cutY;
+    if (nUp === 1) emit(a, ab, ac);              // only the tip is above
+    else { emit(ab, b, c); emit(ab, c, ac); }    // only the tip is below
+  }
+  const r = new THREE.BufferGeometry();
+  for (const n of names) r.setAttribute(n, new THREE.BufferAttribute(new Float32Array(out[n]), g.attributes[n].itemSize));
+  return r;
+}
+
+// Closes the ring the cut leaves at the bottom of the neck: every open edge on the cut plane gets a triangle to a centre
+// point 1.5 % of the bust height lower (a gently rounded bottom), wound like the edge's own triangle reversed so the cap
+// faces outwards; the rim keeps its own skin UVs and normals bend from sideways (rim) to straight down (centre).
+function closeNeck(g, cutY) {
+  const pos = g.attributes.position, uv = g.attributes.uv, nor = g.attributes.normal;
+  const key = (i) => `${pos.getX(i).toFixed(5)},${pos.getY(i).toFixed(5)},${pos.getZ(i).toFixed(5)}`;
+  const edges = new Map();   // undirected key -> [count, from vertex, to vertex] (direction as in its triangle)
+  for (let t = 0; t < pos.count; t += 3) {
+    for (const [a, b] of [[t, t + 1], [t + 1, t + 2], [t + 2, t]]) {
+      const ka = key(a), kb = key(b), k = ka < kb ? ka + '|' + kb : kb + '|' + ka;
+      const e = edges.get(k);
+      if (e) e[0]++; else edges.set(k, [1, a, b]);
+    }
+  }
+  const onCut = (i) => Math.abs(pos.getY(i) - cutY) < 1e-4;
+  const rim = [...edges.values()].filter(([n, a, b]) => n === 1 && onCut(a) && onCut(b));
+  if (!rim.length) return;
+  const c = new THREE.Vector3(), cuv = new THREE.Vector2();
+  for (const [, a] of rim) { c.x += pos.getX(a); c.z += pos.getZ(a); if (uv) { cuv.x += uv.getX(a); cuv.y += uv.getY(a); } }
+  c.x /= rim.length; c.z /= rim.length; c.y = cutY - 0.015; cuv.divideScalar(rim.length);
+  const n0 = pos.count, n = n0 + rim.length * 3;
+  const grow = (attr, size) => { const arr = new Float32Array(n * size); arr.set(attr.array); return arr; };
+  const P = grow(pos, 3), N = nor ? grow(nor, 3) : null, U = uv ? grow(uv, 2) : null;
+  const d = new THREE.Vector3();
+  rim.forEach(([, a, b], k) => {
+    [b, a, -1].forEach((v, j) => {   // reversed edge + centre
+      const o = n0 + k * 3 + j;
+      if (v < 0) { P.set([c.x, c.y, c.z], o * 3); if (N) N.set([0, -1, 0], o * 3); if (U) U.set([cuv.x, cuv.y], o * 2); return; }
+      P.set([pos.getX(v), pos.getY(v), pos.getZ(v)], o * 3);
+      d.set(pos.getX(v) - c.x, 0, pos.getZ(v) - c.z).normalize().multiplyScalar(0.6).add(new THREE.Vector3(0, -0.8, 0)).normalize();
+      if (N) N.set([d.x, d.y, d.z], o * 3);
+      if (U) U.set([uv.getX(v), uv.getY(v)], o * 2);
+    });
+  });
+  g.setAttribute('position', new THREE.BufferAttribute(P, 3));
+  if (N) g.setAttribute('normal', new THREE.BufferAttribute(N, 3));
+  if (U) g.setAttribute('uv', new THREE.BufferAttribute(U, 2));
 }
 
 function label(text, color) {
