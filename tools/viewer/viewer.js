@@ -647,9 +647,11 @@ function describe(e) {
       return `Scene ${e.type === 'placement_set' ? 'placed' : 'loaded'} with ${PLACEMENT[d.method] || d.method}` +
         (d.room_fit ? ` - room check: ${d.room_fit === 'ok' ? 'fits the room' : d.room_fit === 'no_scan' ? 'no room scan' : `${d.room_problems} problem(s), ${d.room_warnings} warning(s)`}` : '');
     case 'placement_check': return `Floor height check ${d.ok === '1' ? 'OK' : 'FAILED'} (scene ${(d.height_m * 100).toFixed(0)} cm from the floor` +
-      (d.head_m ? `, head ${Number(d.head_m).toFixed(2)} m above it` : '') + `)${d.when === 'after_recenter' ? ' after a recentre' : ''}`;
+      (d.head_m ? `, head ${Number(d.head_m).toFixed(2)} m above it` : '') +
+      (d.floor_check && d.floor_check !== 'none' ? `, real floor measured by ${d.floor_check === 'touch' ? 'hand' : 'depth sensor'}` : '') + `)${d.when === 'after_recenter' ? ' after a recentre' : ''}`;
     case 'depth_occlusion': return `Depth occlusion ${{ active: 'on', off: 'off', waiting: 'starting', no_permission: 'blocked (no spatial data permission)', unsupported: 'not supported' }[d.status] || d.status}`;
     case 'tracking_recentered': return 'Headset tracking was recentred';
+    case 'floor_corrected': return `Scene moved ${Math.abs(d.moved_m * 100).toFixed(0)} cm ${d.moved_m > 0 ? 'up' : 'down'} onto the real floor (${d.method === 'touch' ? 'hand on the floor' : 'depth sensor'}, after ${{ mount: 'the headset was put on', recenter: 'a recentre', placement: 'placing', button: 'Fix floor' }[d.trigger] || d.trigger})`;
     case 'clue_found': return `Found ${clueText(first)} (first time picked up or touched)`;
     case 'clue_tagged': return `Tagged ${clueText(first)} as evidence`;
     case 'clue_untagged': return `Removed the evidence tag from ${clueText(first)}`;

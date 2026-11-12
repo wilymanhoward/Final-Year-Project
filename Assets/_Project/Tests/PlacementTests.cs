@@ -21,7 +21,7 @@ namespace FYP.Detective.Tests
         {
             StringAssert.Contains("2.00 m", PlacementHeight.FloorLooksWrongMessage(2f));
             StringAssert.Contains("again within 5 s", PlacementHeight.FloorLooksWrongMessage(2f));
-            StringAssert.Contains("re-place with A", PlacementHeight.LoadedFloorLooksWrongMessage(0.9f));
+            StringAssert.Contains("Fix floor", PlacementHeight.LoadedFloorLooksWrongMessage(0.9f));
         }
     }
 

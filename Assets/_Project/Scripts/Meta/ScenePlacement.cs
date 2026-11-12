@@ -669,7 +669,8 @@ namespace FYP.Detective.Meta
             return saved.Length > 0 && Guid.TryParse(saved, out uuid) && uuid != Guid.Empty;
         }
 
-        private void SetStatus(string status)
+        /// <summary>Shows a placement status (label + setup panel); also used by FloorCalibrator.</summary>
+        internal void SetStatus(string status)
         {
             Status = status;
             Debug.Log("[ScenePlacement] " + status);

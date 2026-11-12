@@ -282,6 +282,25 @@ Data flow:
   `EraseAnchorsAsync` + delete the PlayerPrefs key + CaseRoot back to origin. 15 s timeout → "Anchor failed - use
   Manual". Placement is refused while a session runs. Placement happens before a run (no log file open), so
   `placement_set`/`placement_loaded` is written right after `session_start` with `at_utc` = when it happened.
+- **Floor check (user, 2026-11-12: "after I hand the headset to my supervisor the floor doesn't match"; logs: after a
+  7 min headset-off the head was 1.13-1.24 m above the scene = Quest floor AND anchor ~40 cm off together, so re-setting
+  the Quest floor was the only fix):** `FloorCalibrator` (Meta asm, added next to ScenePlacement by Set Up Headset UI)
+  measures the real floor and moves CaseRoot up/down (x/z/heading kept) via `SessionManager.CorrectFloor(y, method,
+  trigger)`. Auto: 2 s after `OVRManager.HMDMounted`, a recenter or any placement. Depth: MRUK `EnvironmentRaycastManager`
+  (OpenXR provider, own component enabled only while checking, independent of the occlusion toggle), 9 rays 35-55 deg
+  below head forward for 1.5 s, hits within 3 m, horizontal hits only, floor = `FloorEstimate.TryFindFloor` (lowest 4 cm
+  band with >= 12 hits and >= 25 %, then re-centred 3x on the median of hits within +/-4 cm; corrections <= 0.8 m, head
+  >= 0.5 m above; moved when > 1.5 cm (auto) / > 5 mm (Fix floor button, touch)). **Low-floor fix (user, 2026-11-13:
+  "sometimes a little below the real floor"; run G01_P02_A_X_20261113 logged floor_check=depth, moved 0):** was a 3 cm
+  threshold for every check (a measured 1-3 cm error was left alone), the median of the lowest band (sits in the floor's
+  low noise tail, ~1 cm low in `NoisyFloorIsNotPulledTowardsItsLowestHits`) and 25 deg rays up to 3.4 m away. Setup panel **Fix floor** button (Placement card,
+  row with Auto place / Occlusion): depth now, and if that fails asks for a hand held flat on the floor for 1 s
+  (`TouchFloorDetector`: joints within 4 cm in height, >= 0.4 m below the head, still within 1.5 cm; floor = lowest joint
+  - 8 mm, untuned). Auto failures are silent. After a check the 5 cm height check is measured from the checked height
+  (the Quest's own floor no longer has to agree); reset by a new placement. Logged: `placement_check` gets
+  `floor_check=none|depth|touch;floor_moved_m=`; during a run each move is a `floor_corrected` row
+  (`method=;moved_m=;trigger=mount|recenter|placement|button`, logged heights jump by it). Floor-guard texts point to
+  Fix floor instead of the Quest settings. Headset-untested (depth hits on the floor, touch offset).
 - **Shared anchor on the client's own floor (session 6 fix, user: "height wrong every time I join"):** the host's anchor
   sits at the host headset's floor estimate, which differs from the client's by a few cm, so the 5 cm height check failed
   on every join. `ScenePlacement.LoadSharedPlacement` now attaches CaseRoot with `CaseRoot.AttachToOnFloor` /
@@ -739,6 +758,9 @@ stop after each for the user's headset test, commit only after the user confirms
    Also new: partner head + hands (incl. the floating-hand fix), feet estimate (lean over a zone = no entry, step in =
    entry), no grabbing before Start, R3 notes grabbable + snap home, red flash in both eyes, `zone_point` in the log.
    Before the team session, try `FYP > Debug: Show Me As Partner` on one headset.
+   Also new (2026-11-12): the floor check - take the headset off for a few minutes, put it on: label "Floor fixed: scene
+   moved N cm" or nothing if it was right; Fix floor with occlusion off; touch fallback (press Fix floor while looking at the ceiling:
+   no depth rays for 5 s, then it asks for a hand on the floor); `floor_check` in `placement_check`.
 2. Answer the open questions below, then a pilot with real participants.
 3. Later (not built, don't start without the user): interpersonal distance and shared head-gaze attention analysis.
 
@@ -754,7 +776,8 @@ stop after each for the user's headset test, commit only after the user confirms
 - `placement_check when=after_recenter` can be a false alarm after the headset is put back on (the Quest's floor
   estimate moves, not the anchor; only logged during a run). Head height above CaseRoot (`head_m`) is the truth.
 - A wrong Quest floor estimate puts the whole scene under/over the real floor; the floor guard refuses placement when
-  the head is outside 1.20–1.95 m above the floor. Fix = re-set the floor in Quest settings.
+  the head is outside 1.20–1.95 m above the floor. Fix = the floor check (automatic on put-on, or Fix floor on the setup
+  panel); the Quest settings are the last resort.
 
 **Useful commands / tips**
 - adb: `"/c/Program Files/Unity/Hub/Editor/6000.3.25f1/Editor/Data/PlaybackEngines/AndroidPlayer/SDK/platform-tools/adb.exe"`.

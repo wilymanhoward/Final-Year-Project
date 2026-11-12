@@ -44,7 +44,10 @@ namespace FYP.Detective.EditorTools
             DeleteExisting<SetupPanel>();
             DeleteExisting<ParticipantCard>();
 
-            SetupPanel setup = BuildSetupPanel(session, panel, rig.Head, placement, coordinator);
+            // Floor check (2026-11-12) lives next to ScenePlacement; its Fix floor button is on the panel.
+            var floor = placement.GetComponent<FloorCalibrator>();
+            if (floor == null) floor = placement.gameObject.AddComponent<FloorCalibrator>();
+            SetupPanel setup = BuildSetupPanel(session, panel, rig.Head, placement, coordinator, floor);
             ParticipantCard card = BuildParticipantCard(session, rig.Head);
 
             // Status feeds and the menu button.
@@ -87,7 +90,7 @@ namespace FYP.Detective.EditorTools
         private static readonly Color AbortColor = new Color(0.62f, 0.14f, 0.11f, 1f);
 
         private static SetupPanel BuildSetupPanel(SessionManager session, ExperimenterPanel panel, Transform head,
-            ScenePlacement placement, ColocationCoordinator coordinator)
+            ScenePlacement placement, ColocationCoordinator coordinator, FloorCalibrator floor)
         {
             const float width = 780f, height = 650f, gap = 12f, headerH = 82f, nextH = 46f;
             float top = headerH + 8f + nextH + 10f;
@@ -202,13 +205,17 @@ namespace FYP.Detective.EditorTools
 
             // 2 Placement & View.
             float rowA = cardH - 12f - 2 * bh - 8f, rowB = cardH - 12f - bh;
-            float w3 = (inner - 16f) / 3f, w2 = (inner - 8f) / 2f;
+            float w3 = (inner - 16f) / 3f;
             var place = Card(1, "PLACEMENT & VIEW", "placementText", "placementLight", new Rect(14f, 44f, inner, rowA - 50f));
             // Auto place = fit the scanned room (user, 2026-11-04); the three below are the manual options (room check warns).
-            Btn(place, "Auto place (A)", new Rect(14f, rowA, w2, bh), placement.AutoPlace, NeutralButton);
-            var occlusion = Btn(place, "Occlusion", new Rect(14f + w2 + 8f, rowA, w2, bh), panel.ToggleOcclusion, NeutralButton);
+            Btn(place, "Auto place (A)", new Rect(14f, rowA, w3, bh), placement.AutoPlace, NeutralButton, 14);
+            var occlusion = Btn(place, "Occlusion", new Rect(14f + w3 + 8f, rowA, w3, bh), panel.ToggleOcclusion, NeutralButton, 13);
+            Btn(place, "Fix floor", new Rect(14f + 2 * (w3 + 8f), rowA, w3, bh), floor.FixFloor, NeutralButton, 14);
             var occlusionText = occlusion.GetComponentInChildren<Text>();
             occlusionText.text = "Occlusion: OFF";
+            occlusionText.resizeTextForBestFit = true;   // "Occlusion: ON  (active)" in a third of the card
+            occlusionText.resizeTextMinSize = 9;
+            occlusionText.resizeTextMaxSize = 13;
             MainSceneBuilder.SetObject(setup, "occlusionLabel", occlusionText);
             Btn(place, "Place here", new Rect(14f, rowB, w3, bh), placement.PlaceSceneHere, NeutralButton, 14);
             Btn(place, "Load saved (B)", new Rect(14f + w3 + 8f, rowB, w3, bh), placement.LoadSavedPlacement, NeutralButton, 14);

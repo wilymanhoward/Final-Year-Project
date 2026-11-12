@@ -35,7 +35,8 @@ namespace FYP.Detective
             string range = MinStandingHeadHeight.ToString("0.00", CultureInfo.InvariantCulture) + "-" +
                            MaxStandingHeadHeight.ToString("0.00", CultureInfo.InvariantCulture);
             return "Floor looks wrong: your head is " + h + " m above it (standing should be " + range + " m). " +
-                   "Stand up straight, re-set the floor in Quest settings, or press A again within 5 s to place anyway.";
+                   "Stand up straight, or press A again within 5 s to place anyway (the floor check then corrects the height; " +
+                   "if it doesn't, press Fix floor).";
         }
 
         /// <summary>Label text when a loaded placement sits at an implausible height.</summary>
@@ -43,7 +44,7 @@ namespace FYP.Detective
         {
             return "Loaded, but the scene floor looks wrong: your head is " +
                    headAboveScene.ToString("0.00", CultureInfo.InvariantCulture) +
-                   " m above it - re-set the Quest floor and re-place with A";
+                   " m above it - the floor check corrects it in a moment, else press Fix floor";
         }
 
         /// <summary>Label text, e.g. "Placement height wrong (+0.62 m) - re-place".</summary>

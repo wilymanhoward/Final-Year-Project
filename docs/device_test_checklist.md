@@ -198,6 +198,21 @@ Do these once, solo (Condition A) first, then once as a team:
       movement from the joint log"; with Follow, the replay fingers open/close and pinch like you did; clues move.
 - [ ] Team run: both headsets write their own `_hands.csv`; the run opens with both players' fingers moving.
 
+## First test of the floor check (2026-11-12, headset-untested)
+
+Rebuild after FYP > Set Up Everything (the Fix floor button comes from Set Up Headset UI).
+1. Place the scene (A). About 2 s later the label may say "Floor fixed: scene moved N cm ..."; nothing = it was already right.
+2. Take the headset off for a few minutes (let it sleep), hand it to someone else, put it on, look ahead at the floor.
+   Within ~3 s the virtual floor should sit on the real floor again ("Floor fixed ..." on the label).
+3. Setup panel > Fix floor with occlusion OFF: "Floor checked ..." or "Floor fixed ...".
+   Low-floor fix (2026-11-13): after Fix floor, put a hand flat on the floor - the virtual floor should be level with it,
+   not 1-3 cm below. Repeat 3-4 times in different spots; tell Claude if it is still low (and by about how much).
+4. Touch fallback: press Fix floor while looking at the ceiling; after ~5 s it says "crouch and hold one hand flat on the
+   floor"; do it for 1 s. Check the virtual floor is level with the real one (if it sits ~1 cm high/low, tell Claude:
+   the hand offset is a guess).
+5. In the run log: `placement_check` ends with `floor_check=depth` (or touch / none) and `floor_moved_m`; take the headset
+   off and on during a run: a `floor_corrected` row if the scene moved.
+
 ## Live view of the headsets (website, optional)
 
 - [ ] Laptop: `python -I tools/viewer_server.py`, open http://localhost:8000 in Chrome or Edge -> Live.

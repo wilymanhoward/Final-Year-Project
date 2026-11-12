@@ -120,8 +120,14 @@ namespace FYP.Detective
         /// <summary>Tracking-space recenters reported since launch.</summary>
         public int RecenterCount { get; private set; }
 
-        /// <summary>CaseRoot height above the tracking floor in metres (0 when there is no CaseRoot).</summary>
-        public float PlacementHeightOffset
+        /// <summary>
+        /// CaseRoot height above the tracking floor in metres (0 when there is no CaseRoot), measured from where the last
+        /// floor check (<see cref="CorrectFloor"/>) left it: once the real floor was measured, the Quest's own floor
+        /// estimate no longer has to agree with CaseRoot.
+        /// </summary>
+        public float PlacementHeightOffset => RawPlacementHeightOffset - _floorCheckOffset;
+
+        private float RawPlacementHeightOffset
         {
             get
             {
@@ -129,6 +135,40 @@ namespace FYP.Detective
                 float floorY = floorReference != null ? floorReference.position.y : 0f;
                 return caseRoot.transform.position.y - floorY;
             }
+        }
+
+        private float _floorCheckOffset;
+
+        /// <summary>World height of the scene floor (CaseRoot), 0 without a CaseRoot.</summary>
+        public float CaseRootFloorY => caseRoot != null ? caseRoot.transform.position.y : 0f;
+
+        /// <summary>How the floor was last checked since the placement: "none", "depth" or "touch".</summary>
+        public string LastFloorCheck { get; private set; } = "none";
+
+        /// <summary>Metres CaseRoot was moved by the last floor check (0 when it was already right).</summary>
+        public float LastFloorCorrection { get; private set; }
+
+        /// <summary>Raised after every floor check: method ("depth"/"touch"), metres moved (0 = was right), trigger.</summary>
+        public event Action<string, float, string> FloorChecked;
+
+        /// <summary>
+        /// Puts CaseRoot on the measured real floor (world height <paramref name="floorY"/>) if it is more than
+        /// <paramref name="threshold"/> off (FloorEstimate.AutoCorrectionThreshold / ManualCorrectionThreshold), keeping its x/z and heading. Allowed during a run (logged
+        /// floor_corrected): logged heights then jump by the correction, x/z and zones are unaffected.
+        /// Returns the metres moved (0 = left alone).
+        /// </summary>
+        public float CorrectFloor(float floorY, string method, string trigger, float threshold = FloorEstimate.AutoCorrectionThreshold)
+        {
+            if (caseRoot == null || Placement.Method == PlacementMethod.None) return 0f;
+            float delta = floorY - caseRoot.transform.position.y;
+            if (!FloorEstimate.NeedsCorrection(caseRoot.transform.position.y, floorY, threshold)) delta = 0f;
+            else caseRoot.transform.position += Vector3.up * delta;
+            _floorCheckOffset = RawPlacementHeightOffset;
+            LastFloorCheck = method;
+            LastFloorCorrection = delta;
+            Debug.Log($"[SessionManager] Floor check ({method}, {trigger}): moved {delta:+0.000;-0.000} m");
+            FloorChecked?.Invoke(method, delta, trigger);
+            return delta;
         }
 
         /// <summary>True when nothing is placed or the placement sits on the floor (within tolerance).</summary>
@@ -183,6 +223,9 @@ namespace FYP.Detective
         {
             if (State.IsRunning || record == null) return false;
             Placement = record;
+            _floorCheckOffset = 0f;
+            LastFloorCheck = "none";
+            LastFloorCorrection = 0f;
             Debug.Log($"[SessionManager] {record.EventName}: {record.FormatDetail()}");
             PlacementChanged?.Invoke(record);
             return true;

@@ -73,6 +73,7 @@ namespace FYP.Detective
             session.HeadsetRemoved += HandleHeadsetRemoved;
             session.HeadsetPutOn += HandleHeadsetPutOn;
             session.TrackingRecentered += HandleTrackingRecentered;
+            session.FloorChecked += HandleFloorChecked;
             session.DepthOcclusionChanged += HandleDepthOcclusionChanged;
             var s = session.State;
             s.ClueFound += HandleClueFound;
@@ -99,6 +100,7 @@ namespace FYP.Detective
                 session.HeadsetRemoved -= HandleHeadsetRemoved;
                 session.HeadsetPutOn -= HandleHeadsetPutOn;
                 session.TrackingRecentered -= HandleTrackingRecentered;
+                session.FloorChecked -= HandleFloorChecked;
                 session.DepthOcclusionChanged -= HandleDepthOcclusionChanged;
                 var s = session.State;
                 s.ClueFound -= HandleClueFound;
@@ -377,13 +379,20 @@ namespace FYP.Detective
             _pendingPlacementCheckAt = SessionManager.Now + 1.0;
         }
 
+        // Only moves are logged during a run; the state before the run is in placement_check (floor_check, floor_moved_m).
+        private void HandleFloorChecked(string method, float moved, string trigger)
+        {
+            if (_writer == null || moved == 0f) return;
+            LogEvent(LogEvents.FloorCorrected, FormattableString.Invariant($"method={method};moved_m={moved:F3};trigger={trigger}"));
+        }
+
         private void LogPlacementCheck(string when)
         {
             // head_m = head height above the scene floor (CaseRoot); ~1.5-1.8 m when standing, else the floor was off.
             string head = rig != null && rig.Head != null && caseRoot != null
                 ? (rig.Head.position.y - caseRoot.transform.position.y).ToString("F3", CultureInfo.InvariantCulture) : "";
             LogEvent(LogEvents.PlacementCheck, FormattableString.Invariant(
-                $"when={when};height_m={session.PlacementHeightOffset:F3};ok={(session.IsPlacementHeightOk ? 1 : 0)};recenters={session.RecenterCount};head_m={head}"));
+                $"when={when};height_m={session.PlacementHeightOffset:F3};ok={(session.IsPlacementHeightOk ? 1 : 0)};recenters={session.RecenterCount};head_m={head};floor_check={session.LastFloorCheck};floor_moved_m={session.LastFloorCorrection:F3}"));
         }
 
         private void HandleAppResumed()
