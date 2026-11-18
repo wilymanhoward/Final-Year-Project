@@ -14,6 +14,10 @@ then open http://localhost:8000. Leave it running: plug a headset in after a tes
 - GET /data/<path under StudyData> -> a .csv/.json file
 - GET /live?device=<adb id> -> live H.264 (Annex B) of that headset's screen (`adb exec-out screenrecord`, what the
   player sees: passthrough room + the app); the viewer decodes it with WebCodecs. Nothing is saved.
+- GET /api/setup?device=<adb id> -> that headset's pair code, participant, case and condition (experiment_config.json)
+- POST /api/setup?device=<adb id> with JSON {pairCode, participantId, caseId: X|Y, condition: A|B} -> writes them into
+  the headset's experiment_config.json over adb (other settings kept); the app picks them up within ~2 s between runs
+  (SessionManager watches the file), a running session takes them once it ends. Codes: 1-16 letters/digits/'-'.
 - POST /api/wireless?device=<adb id> -> switches a USB headset to adb over Wi-Fi (tcpip 5555 + connect), so it can be
   watched live without a cable. Remembered in StudyData/wireless_headsets.json and reconnected by itself whenever the
   Wi-Fi link drops (adb restarts during Unity's Build and Run, the headset slept); after a headset reboot press it again.
@@ -30,6 +34,7 @@ import os
 import re
 import shutil
 import subprocess
+import tempfile
 import threading
 import time
 
@@ -47,6 +52,8 @@ RECONNECT_S = 10
 # both eyes, same aspect as the 4128x2208 display, multiples of 16; the viewer asks for the big one and falls back
 LIVE_SIZES = {"1920x1024": "8M", "1280x688": "4M"}
 LOCK = threading.Lock()
+CODE = re.compile(r"^[A-Za-z0-9\-]{1,16}$")   # ExperimentConfig.IsValidCode
+CONFIG_PATH = f"{REMOTE_DIR}/experiment_config.json"
 
 
 def find_adb():
@@ -296,6 +303,57 @@ def make_wireless(dev, out_dir):
     return f"Couldn't connect to {ip}:5555 ({text[:120]}). Same Wi-Fi? Campus Wi-Fi may block it - try a phone hotspot."
 
 
+def setup_view(cfg):
+    """The four values the setup card shows. JsonUtility writes enums as numbers (CaseId X=0/Y=1, StudyCondition A=0/B=1)."""
+    return {"pairCode": str(cfg.get("pairCode", "")), "participantId": str(cfg.get("participantId", "")),
+            "caseId": "Y" if cfg.get("caseId") == 1 else "X", "condition": "B" if cfg.get("condition") == 1 else "A"}
+
+
+def merge_setup(cfg, body):
+    """The config with the card's values put in, every other setting kept; ValueError with a reason if a value is bad."""
+    if not isinstance(body, dict):
+        raise ValueError("Send pairCode, participantId, caseId and condition.")
+    pair, who = str(body.get("pairCode", "")).strip(), str(body.get("participantId", "")).strip()
+    if not CODE.match(pair):
+        raise ValueError("Pair code must be 1-16 letters, digits or '-' (no names).")
+    if not CODE.match(who):
+        raise ValueError("Participant must be 1-16 letters, digits or '-' (no names).")
+    if body.get("caseId") not in ("X", "Y") or body.get("condition") not in ("A", "B"):
+        raise ValueError("Case must be X or Y and condition A or B.")
+    return {**cfg, "pairCode": pair, "participantId": who,
+            "caseId": 1 if body["caseId"] == "Y" else 0, "condition": 1 if body["condition"] == "B" else 0}
+
+
+def read_config(adb_path, dev):
+    r = adb(adb_path, "-s", dev, "shell", f"cat {CONFIG_PATH}", timeout=10)
+    try:
+        cfg = json.loads(r.stdout)
+        return cfg if isinstance(cfg, dict) else {}
+    except ValueError:
+        return {}   # no file yet (app never saved one): the app fills in its defaults for everything else
+
+
+def write_setup(dev, body):
+    adb_path = find_adb()
+    new = merge_setup(read_config(adb_path, dev), body)
+    fd, tmp = tempfile.mkstemp(suffix=".json")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as f:   # no BOM: Unity's JsonUtility reads it
+            json.dump(new, f, indent=4)
+        res = adb(adb_path, "-s", dev, "push", tmp, CONFIG_PATH, timeout=20)
+    finally:
+        os.remove(tmp)
+    if res.returncode != 0:
+        raise ValueError(f"Couldn't write to the headset: {(res.stderr or res.stdout).strip()[:160]}")
+    if setup_view(read_config(adb_path, dev)) != setup_view(new):
+        raise ValueError("Written, but the headset reads back something else - try again.")
+    if dev in INFO:
+        INFO[dev]["checked"] = 0   # the tile shows the new participant on the next loop
+    v = setup_view(new)
+    return (f"Sent: pair {v['pairCode']} · {v['participantId']} · case {v['caseId']} · condition {v['condition']}. "
+            "The headset switches within a few seconds (after the run, if one is going).")
+
+
 class Handler(http.server.SimpleHTTPRequestHandler):
     out = ""
 
@@ -339,13 +397,39 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             return self.wfile.write(body)
         if path == "/live":
             return self.stream_live(self.query("device"), self.query("size"))
+        if path == "/api/setup":
+            dev = self.query("device")
+            if not current_headset(dev):
+                return self.send_error(404)
+            return self.send_json(setup_view(read_config(find_adb(), dev)))
         return super().do_GET()
 
     def query(self, key):
         from urllib.parse import parse_qs, urlsplit
         return (parse_qs(urlsplit(self.path).query).get(key) or [""])[0]
 
+    def same_site(self):
+        """POSTs change headsets: only from this viewer (no other web page, no DNS rebinding)."""
+        port = self.server.server_address[1]
+        hosts = {f"localhost:{port}", f"127.0.0.1:{port}"}
+        origin = self.headers.get("Origin")
+        return self.headers.get("Host") in hosts and (origin is None or origin in {"http://" + h for h in hosts})
+
     def do_POST(self):
+        if not self.same_site():
+            return self.send_error(403)
+        if self.path.split("?", 1)[0] == "/api/setup":
+            dev = self.query("device")
+            if not current_headset(dev):
+                return self.send_error(404)
+            if self.headers.get("Content-Type", "").split(";")[0].strip() != "application/json":
+                return self.send_error(415)
+            try:
+                length = int(self.headers.get("Content-Length") or 0)
+                body = json.loads(self.rfile.read(min(length, 4096)) or b"{}")
+                return self.send_json({"ok": True, "message": write_setup(dev, body)})
+            except ValueError as e:
+                return self.send_json({"ok": False, "message": str(e)})
         if self.path.split("?", 1)[0] == "/api/wireless":
             dev = self.query("device")
             if not current_headset(dev):

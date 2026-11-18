@@ -198,20 +198,25 @@ Do these once, solo (Condition A) first, then once as a team:
       movement from the joint log"; with Follow, the replay fingers open/close and pinch like you did; clues move.
 - [ ] Team run: both headsets write their own `_hands.csv`; the run opens with both players' fingers moving.
 
-## First test of the floor check (2026-11-12, headset-untested)
+## First test of the floor by touch (2026-11-19, headset-untested)
 
-Rebuild after FYP > Set Up Everything (the Fix floor button comes from Set Up Headset UI).
-1. Place the scene (A). About 2 s later the label may say "Floor fixed: scene moved N cm ..."; nothing = it was already right.
-2. Take the headset off for a few minutes (let it sleep), hand it to someone else, put it on, look ahead at the floor.
-   Within ~3 s the virtual floor should sit on the real floor again ("Floor fixed ..." on the label).
-3. Setup panel > Fix floor with occlusion OFF: "Floor checked ..." or "Floor fixed ...".
-   Low-floor fix (2026-11-13): after Fix floor, put a hand flat on the floor - the virtual floor should be level with it,
-   not 1-3 cm below. Repeat 3-4 times in different spots; tell Claude if it is still low (and by about how much).
-4. Touch fallback: press Fix floor while looking at the ceiling; after ~5 s it says "crouch and hold one hand flat on the
-   floor"; do it for 1 s. Check the virtual floor is level with the real one (if it sits ~1 cm high/low, tell Claude:
-   the hand offset is a guess).
-5. In the run log: `placement_check` ends with `floor_check=depth` (or touch / none) and `floor_moved_m`; take the headset
-   off and on during a run: a `floor_corrected` row if the scene moved.
+Rebuild after FYP > Set Up Everything.
+1. Before placing: setup panel > Fix floor. The label asks to "crouch and hold one hand flat on the floor"; do it for 1 s.
+   Label: "Floor set by touch - now place the scene". Then Place here / Auto place: no "Floor looks wrong" refusal, and
+   the virtual floor is level with the real one (put the hand flat on it again to compare).
+2. With the scene placed: Fix floor + touch again -> "Floor fixed: scene moved N cm ..." or "Floor checked ...".
+3. Take the headset off for a few minutes (no run going), put it on: the label asks for a hand on the floor within ~2 s;
+   touch -> the scene moves onto the real floor. During a run nothing is asked.
+4. If the floor ends up ~1 cm high or low after a touch, tell Claude (the hand thickness offset is 8 mm, a guess).
+5. Run log: `placement_check` ends with `floor_check=touch`; a touch during a run (Fix floor) writes `floor_corrected`.
+
+## Set the codes from the laptop (2026-11-18, headset-untested)
+
+Rebuild the headset first. Start the website (`python -I tools/viewer_server.py`), plug the headset in (or make it wireless).
+1. Live page: under the headset's picture, set Pair / Participant / Case / Condition and press Send to headset.
+2. In the headset (game running, no run going): within ~2 s the label says "Set from the laptop: ..."; the setup panel shows
+   the new codes. ARM + run: the CSV file name has the new pair/participant/condition/case.
+3. Send again during a run: nothing changes until the run ends, then the label appears.
 
 ## Live view of the headsets (website, optional)
 

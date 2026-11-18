@@ -192,6 +192,13 @@ tools/viewer_server.py `python -I tools/viewer_server.py` -> http://localhost:80
                      StudyData/wireless_headsets.json and re-connected every 10 s when dropped (adb restart in Build and Run, sleep). Tested on
                      P01's headset: 64-67 fps picture over USB and campus Wi-Fi, game stayed 72/72 fps. Files pull only after
                      15 s unchanged (not mid-run). Ethics: live video of participants - check the approval/consent covers it.
+                     **Laptop setup (user, 2026-11-18):** each Live tile has Pair / Participant / Case / Condition + "Send to
+                     headset": GET/POST /api/setup reads/writes the four values in that headset's experiment_config.json over adb
+                     (`merge_setup`: other settings kept, codes 1-16 letters/digits/-, enums as JsonUtility numbers, no BOM, read
+                     back to verify); POSTs need Host/Origin = this localhost page (403) and JSON (415). The app re-reads the file
+                     every 2 s between runs (`SessionManager.CheckConfigFile`, own saves ignored) and applies a change of those
+                     four like a setup panel edit; label "Set from the laptop: ..." (`ConfigChangedFromFile`); a change sent during
+                     a run applies when it ends. Tested with a fake adb (not yet on a headset).
                      Look: Apple-style (awesome-design-md/apple). Avatars: Lee Perry-Smith head scan (CC BY 3.0, cut cleanly at the neck
                      in `headOnly`/`clipBelow`, bottom closed by `closeNeck`) + WebXR generic hands (MIT), both from jsDelivr; hand rotation isn't logged, so `poseHand` aims
                      the fingers from an estimated shoulder to the logged hand. Cameras: Orbit / Follow / Top / Eyes 1-2
@@ -301,6 +308,16 @@ Data flow:
   `floor_check=none|depth|touch;floor_moved_m=`; during a run each move is a `floor_corrected` row
   (`method=;moved_m=;trigger=mount|recenter|placement|button`, logged heights jump by it). Floor-guard texts point to
   Fix floor instead of the Quest settings. Headset-untested (depth hits on the floor, touch offset).
+- **Floor by touch only (user, 2026-11-19: "Fix floor asks to place first, but placing is refused because I'm too
+  tall"; the depth check "sometimes not the right height"):** the depth-sensor path above is REMOVED (no
+  EnvironmentRaycastManager; `FloorEstimate` keeps only the thresholds). `FloorCalibrator` = touch only: Fix floor (works
+  before placing) and, between runs only, 1.5 s after `HMDMounted` with the label prompt "crouch and hold one hand flat on
+  the floor"; 30 s timeout (silent when automatic). The touched height is stored in `ScenePlacement` as an offset to
+  TrackingSpace (`SetTouchedFloor`, `FloorY`, `HasTouchedFloor`); every placement (Place here, Auto place, Manual, the
+  shared anchor) and the floor guard use `FloorY`, so a wrong Quest floor no longer blocks placing. With a scene placed,
+  the touch moves it via `CorrectFloor(y, "touch", trigger, 5 mm)`; 0.5 s after any placement the touched floor is
+  applied/recorded so the 5 cm height check agrees. Touches > 0.8 m from the Quest's floor are refused. Triggers now
+  mount|placement|button. Guard texts say "press Fix floor and touch the floor". Headset-untested (8 mm hand offset).
 - **Shared anchor on the client's own floor (session 6 fix, user: "height wrong every time I join"):** the host's anchor
   sits at the host headset's floor estimate, which differs from the client's by a few cm, so the 5 cm height check failed
   on every join. `ScenePlacement.LoadSharedPlacement` now attaches CaseRoot with `CaseRoot.AttachToOnFloor` /
@@ -758,9 +775,8 @@ stop after each for the user's headset test, commit only after the user confirms
    Also new: partner head + hands (incl. the floating-hand fix), feet estimate (lean over a zone = no entry, step in =
    entry), no grabbing before Start, R3 notes grabbable + snap home, red flash in both eyes, `zone_point` in the log.
    Before the team session, try `FYP > Debug: Show Me As Partner` on one headset.
-   Also new (2026-11-12): the floor check - take the headset off for a few minutes, put it on: label "Floor fixed: scene
-   moved N cm" or nothing if it was right; Fix floor with occlusion off; touch fallback (press Fix floor while looking at the ceiling:
-   no depth rays for 5 s, then it asks for a hand on the floor); `floor_check` in `placement_check`.
+   Also new (2026-11-19): the floor by touch - Fix floor before placing, touch the floor, then Place here; put the headset
+   back on between runs: the label asks for a hand on the floor; `floor_check=touch` in `placement_check`.
 2. Answer the open questions below, then a pilot with real participants.
 3. Later (not built, don't start without the user): interpersonal distance and shared head-gaze attention analysis.
 

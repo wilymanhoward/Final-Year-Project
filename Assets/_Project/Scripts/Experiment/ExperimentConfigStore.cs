@@ -32,6 +32,33 @@ namespace FYP.Detective
             }
         }
 
+        /// <summary>The file's text, or null if it is missing or unreadable (checked every 2 s between runs).</summary>
+        public static string ReadText()
+        {
+            try
+            {
+                return File.Exists(FilePath) ? File.ReadAllText(FilePath) : null;
+            }
+            catch (Exception)
+            {
+                return null;   // being written by adb right now: the next check reads it
+            }
+        }
+
+        /// <summary>Overwrites <paramref name="target"/> from JSON text; false if it doesn't parse.</summary>
+        public static bool TryParseInto(string json, ExperimentConfig target)
+        {
+            try
+            {
+                JsonUtility.FromJsonOverwrite(json, target);
+                return true;
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+        }
+
         public static bool Save(ExperimentConfig config)
         {
             try

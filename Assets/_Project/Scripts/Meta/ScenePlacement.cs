@@ -108,6 +108,25 @@ namespace FYP.Detective.Meta
         public bool IsBusy => _deadline > 0f;
         public bool HasSavedPlacement => PlayerPrefs.HasKey(SavedAnchorKey);
 
+        // Real floor height relative to TrackingSpace, measured by touching it (FloorCalibrator); null = trust the Quest's
+        // floor. Kept relative so it follows TrackingSpace; touching again replaces it.
+        private float? _touchedFloorOffset;
+
+        /// <summary>World height of the headset's own floor estimate (TrackingSpace with tracking origin Floor Level).</summary>
+        public float TrackingFloorY => trackingSpace != null ? trackingSpace.position.y : 0f;
+
+        /// <summary>
+        /// World height placement uses: the touched floor once someone touched it (user, 2026-11-19: the Quest's floor was
+        /// wrong, so the floor guard refused placing and the scene sat at the wrong height), else the Quest's floor.
+        /// </summary>
+        public float FloorY => TrackingFloorY + (_touchedFloorOffset ?? 0f);
+
+        /// <summary>True once the floor was set by touch in this app run.</summary>
+        public bool HasTouchedFloor => _touchedFloorOffset.HasValue;
+
+        /// <summary>Called by FloorCalibrator with the touched floor's world height.</summary>
+        internal void SetTouchedFloor(float worldY) => _touchedFloorOffset = worldY - TrackingFloorY;
+
         /// <summary>UUID of the anchor CaseRoot follows now (Guid.Empty for none / manual).</summary>
         public Guid CurrentAnchorUuid => _anchor != null ? _anchor.Uuid : Guid.Empty;
 
@@ -263,7 +282,7 @@ namespace FYP.Detective.Meta
             await Task.Run(() => fit = RoomFit.FindBest(room, boxes, preferredYaw, out at, out yaw));   // pure maths, off the main thread
             if (!IsCurrent(op)) return;
 
-            float floorY = trackingSpace != null ? trackingSpace.position.y : 0f;
+            float floorY = FloorY;
             SetRoomFit(room, fit);
             await CreateAnchorAsync(op, new Pose(new Vector3(at.x, floorY, at.y), Quaternion.Euler(0f, yaw, 0f)),
                 PlacementMethod.AutoAnchor, StatusAutoPlaced);
@@ -440,7 +459,7 @@ namespace FYP.Detective.Meta
 
                 // The anchor is at the host's floor estimate; stand the scene on this headset's own floor instead
                 // (same position and heading), otherwise the height check fails on every join.
-                float floorY = trackingSpace != null ? trackingSpace.position.y : 0f;
+                float floorY = FloorY;
                 float heightCorrection = floorY - go.transform.position.y;
                 UseAnchor(anchor, floorY);
                 LastRoomFit = RoomFitResult.NoScan;   // the host checked the room when it placed
@@ -562,7 +581,7 @@ namespace FYP.Detective.Meta
         /// </summary>
         private bool FloorLooksRightOrOverridden()
         {
-            float floorY = trackingSpace != null ? trackingSpace.position.y : 0f;
+            float floorY = FloorY;
             float head = rig.Head.position.y - floorY;
             if (PlacementHeight.IsHeadHeightPlausible(head)) return true;
             if (Time.unscaledTime <= _floorOverrideUntil)
@@ -584,7 +603,7 @@ namespace FYP.Detective.Meta
 
         private Pose HeadFloorPose()
         {
-            float floorY = trackingSpace != null ? trackingSpace.position.y : 0f;
+            float floorY = FloorY;
             return PlacementMath.FloorPoseFromHead(rig.Head.position, rig.Head.rotation, floorY);
         }
 

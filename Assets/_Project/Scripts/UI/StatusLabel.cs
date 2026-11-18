@@ -53,12 +53,22 @@ namespace FYP.Detective
         {
             if (session == null) return;
             session.PauseEnded += HandlePauseEnded;
+            session.ConfigChangedFromFile += HandleConfigFromFile;
         }
 
         private void OnDisable()
         {
             if (session == null) return;
             session.PauseEnded -= HandlePauseEnded;
+            session.ConfigChangedFromFile -= HandleConfigFromFile;
+        }
+
+        // Codes sent from the laptop's setup card: confirm them in the headset.
+        private void HandleConfigFromFile()
+        {
+            var c = session.Config;
+            Show("Set from the laptop: pair " + c.pairCode + " · " + c.participantId + " · case " + c.CaseCode +
+                 " · condition " + c.ConditionCode);
         }
 
         private void HandlePauseEnded(double pauseSeconds)

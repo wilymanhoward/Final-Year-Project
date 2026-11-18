@@ -70,6 +70,11 @@ namespace FYP.Detective
         public event Action<SessionEndReason> SessionEnded;
         public event Action SessionReset;
         public event Action ConfigChanged;
+        /// <summary>
+        /// The pair code / participant / case / condition were changed in experiment_config.json from outside (the laptop's
+        /// setup card, tools/viewer_server.py over adb) and applied. Not raised for this app's own saves.
+        /// </summary>
+        public event Action ConfigChangedFromFile;
         public event Action<PlacementRecord> PlacementChanged;
 
         /// <summary>Raised (only while running) when the app is paused / resumed. Pause stats are already in State.</summary>
@@ -186,6 +191,7 @@ namespace FYP.Detective
         private void Awake()
         {
             if (loadSavedConfig) ExperimentConfigStore.TryLoadInto(config);
+            _configFileText = ExperimentConfigStore.ReadText();
             if (caseRoot == null) caseRoot = FindFirstObjectByType<CaseRoot>();
             if (floorReference == null)
             {
@@ -197,12 +203,46 @@ namespace FYP.Detective
 
         private void Update()
         {
-            if (!State.IsRunning) return;
+            if (!State.IsRunning)
+            {
+                if (loadSavedConfig && Time.unscaledTime >= _nextConfigCheck) CheckConfigFile();
+                return;
+            }
             double now = Now;
             State.SetElapsed(_timer.Elapsed(now));
             // Headset off keeps Unity updating: keep the open pause current so Interrupted snapshots count it.
             if (_pauses.IsPaused) State.SetPauseStats(_pauses.PausedSeconds(now), _pauses.PauseCount);
             if (_timer.IsCapReached(now)) EndSession(SessionEndReason.TimeCap);
+        }
+
+        private string _configFileText;
+        private float _nextConfigCheck;
+
+        // Laptop setup (user, 2026-11-18): the website writes the codes into experiment_config.json over adb; between runs
+        // the file is re-read every 2 s and a change of the four setup values is applied like a setup panel edit. A change
+        // made during a run waits until it ends (this only runs between runs). Other settings in the file are left alone.
+        private void CheckConfigFile()
+        {
+            _nextConfigCheck = Time.unscaledTime + 2f;
+            string text = ExperimentConfigStore.ReadText();
+            if (text == null || text == _configFileText) return;
+            _configFileText = text;
+            var file = config.Clone();
+            if (!ExperimentConfigStore.TryParseInto(text, file)) return;
+            if (file.pairCode == config.pairCode && file.participantId == config.participantId &&
+                file.caseId == config.caseId && file.condition == config.condition) return;
+            if (!ExperimentConfig.IsValidCode(file.pairCode) || !ExperimentConfig.IsValidCode(file.participantId))
+            {
+                Debug.LogWarning("[SessionManager] experiment_config.json has an invalid code - ignored");
+                return;
+            }
+            var c = config.Clone();
+            c.pairCode = file.pairCode;
+            c.participantId = file.participantId;
+            c.caseId = file.caseId;
+            c.condition = file.condition;
+            Debug.Log($"[SessionManager] Setup from experiment_config.json: {c.pairCode} {c.participantId} {c.ConditionCode} {c.CaseCode}");
+            if (ApplyConfig(c)) ConfigChangedFromFile?.Invoke();
         }
 
         /// <summary>Replaces the config (only while no session is running) and saves it.</summary>
@@ -211,6 +251,7 @@ namespace FYP.Detective
             if (State.IsRunning || newConfig == null) return false;
             config = newConfig.Clone();
             ExperimentConfigStore.Save(config);
+            _configFileText = ExperimentConfigStore.ReadText();   // our own save isn't an outside change
             ConfigChanged?.Invoke();
             return true;
         }

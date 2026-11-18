@@ -1,21 +1,17 @@
-using System.Collections.Generic;
-using Meta.XR;
 using UnityEngine;
 
 namespace FYP.Detective.Meta
 {
     /// <summary>
-    /// Puts the scene back on the real floor without the Quest's floor settings (user, 2026-11-12: after the headset is
-    /// taken off and handed over, the Quest's floor and the anchor can come back ~40 cm off). Runs 2 s after the headset
-    /// is put on (<c>OVRManager.HMDMounted</c>, Scripts/OVRManager.cs:305), after a recenter and after every placement,
-    /// and on the setup panel's "Fix floor" button (<see cref="FixFloor"/>).
-    /// Depth: MRUK 207 <c>EnvironmentRaycastManager</c> (Core/Scripts/EnvironmentRaycastManager.cs: static
-    /// <c>IsSupported</c>, <c>Raycast(Ray, out EnvironmentRaycastHit, float)</c>; OpenXR provider, needs the spatial data
-    /// permission, independent of the occlusion toggle), enabled only while checking (it costs GPU). 9 rays 35-55 deg below
-    /// the head's forward for 1.5 s, hits within 3 m (depth noise grows with distance and grazing angle; was 25-45 deg / 6 m,
-    /// user 2026-11-13: floor a little low); the floor = <see cref="FloorEstimate.TryFindFloor"/>.
-    /// Backup (button only, when depth fails): <see cref="TouchFloorDetector"/> - a hand held flat on the floor for 1 s.
-    /// Moves CaseRoot through <see cref="SessionManager.CorrectFloor"/>. Added next to ScenePlacement by Set Up Headset UI.
+    /// Sets the floor by touch, without the Quest's floor settings (user, 2026-11-12: after the headset is handed over the
+    /// Quest's floor, and the anchor with it, can come back ~40 cm off; 2026-11-19: the depth-sensor check sometimes got the
+    /// height wrong and needed a placement first, which the floor guard then refused - so touch only, and before placing).
+    /// Someone holds one hand flat on the floor for 1 s (<see cref="TouchFloorDetector"/>, hand joints from
+    /// <see cref="HandJointSources"/>). The touched height goes to <see cref="ScenePlacement.SetTouchedFloor"/>, so
+    /// placing (and its floor guard) uses it, and an existing scene is moved onto it through
+    /// <see cref="SessionManager.CorrectFloor"/>. Starts from the setup panel's "Fix floor" button
+    /// (<see cref="FixFloor"/>), and by itself when the headset is put on between runs (<c>OVRManager.HMDMounted</c>,
+    /// Scripts/OVRManager.cs:305), with a prompt on the label. Added next to ScenePlacement by Set Up Headset UI.
     /// </summary>
     public class FloorCalibrator : MonoBehaviour
     {
@@ -23,24 +19,15 @@ namespace FYP.Detective.Meta
         [SerializeField] private PlayerRig rig;
         [SerializeField] private ScenePlacement placement;
 
-        private const float AutoDelaySeconds = 2f;      // let tracking settle after put-on / recenter / placing
-        private const float DepthTimeoutSeconds = 5f;   // includes the raycaster's start-up
-        private const float SampleSeconds = 1.5f;
-        private const float MaxRayDistance = 3f;
         private const float TouchTimeoutSeconds = 30f;
-        private const float MinDownSlope = -0.34f;      // rays less than 20 deg below horizontal would hit walls
+        private const float MountDelaySeconds = 1.5f;     // let tracking settle after the headset goes on
+        private const float PlacementDelaySeconds = 0.5f;  // CaseRoot sits on its anchor by then
 
-        private enum Mode { Idle, Depth, Touch }
-
-        private Mode _mode;
-        private float _modeStart, _firstHitAt, _autoAt = -1f;
-        private bool _manual;
+        private bool _touching, _manual;
+        private float _touchStart, _startAt = -1f, _applyAt = -1f;
         private string _trigger = "";
-        private EnvironmentRaycastManager _raycaster;
-        private readonly List<float> _hits = new List<float>(1024);
         private readonly TouchFloorDetector[] _touch = { new TouchFloorDetector(), new TouchFloorDetector() };
         private readonly Vector3[] _joints = new Vector3[HandJointCsv.JointCount];
-        private static readonly Vector3[] RayDirections = BuildRays();
 
         private void Awake()
         {
@@ -52,126 +39,71 @@ namespace FYP.Detective.Meta
         private void OnEnable()
         {
             OVRManager.HMDMounted += HandleMounted;
-            if (session == null) return;
-            session.PlacementChanged += HandlePlacement;
-            session.TrackingRecentered += HandleRecentered;
+            if (session != null) session.PlacementChanged += HandlePlacement;
         }
 
         private void OnDisable()
         {
             OVRManager.HMDMounted -= HandleMounted;
-            if (session != null)
-            {
-                session.PlacementChanged -= HandlePlacement;
-                session.TrackingRecentered -= HandleRecentered;
-            }
-            StopRaycaster();
-            _mode = Mode.Idle;
+            if (session != null) session.PlacementChanged -= HandlePlacement;
+            _touching = false;
         }
 
-        /// <summary>Setup panel button: depth check now; if that fails, asks for a hand on the floor.</summary>
-        public void FixFloor()
+        /// <summary>Setup panel button: asks for a hand on the floor. Works before the scene is placed.</summary>
+        public void FixFloor() => BeginTouch(true, "button");
+
+        // Not during a run: a participant's flat hand on the floor while picking up a clue must not move the scene.
+        private void HandleMounted()
         {
-            if (!HasPlacement()) { Say("Place the scene first, then Fix floor"); return; }
-            _manual = true;
-            _trigger = "button";
-            BeginDepth();
+            if (session != null && session.IsRunning) return;
+            _startAt = Time.unscaledTime + MountDelaySeconds;
         }
 
-        private void HandleMounted() => Schedule("mount");
-        private void HandlePlacement(PlacementRecord _) => Schedule("placement");
-        private void HandleRecentered() => Schedule("recenter");
-
-        private void Schedule(string trigger)
+        // A new placement stands on FloorY already; this records the touched floor as checked for the height check
+        // (and puts a loaded anchor, saved at another floor height, onto it).
+        private void HandlePlacement(PlacementRecord _)
         {
-            if (_mode == Mode.Touch) return;   // someone is already touching the floor
-            _autoAt = Time.unscaledTime + AutoDelaySeconds;
-            _trigger = trigger;
+            if (placement != null && placement.HasTouchedFloor) _applyAt = Time.unscaledTime + PlacementDelaySeconds;
         }
 
         private bool HasPlacement() => session != null && session.Placement.Method != PlacementMethod.None;
 
         private void Update()
         {
-            if (_autoAt > 0f && Time.unscaledTime >= _autoAt && _mode == Mode.Idle)
+            if (_startAt > 0f && Time.unscaledTime >= _startAt)
             {
-                _autoAt = -1f;
-                if (HasPlacement()) { _manual = false; BeginDepth(); }
+                _startAt = -1f;
+                if (!_touching && (session == null || !session.IsRunning)) BeginTouch(false, "mount");
             }
-            if (_mode == Mode.Depth) UpdateDepth();
-            else if (_mode == Mode.Touch) UpdateTouch();
+            if (_applyAt > 0f && Time.unscaledTime >= _applyAt)
+            {
+                _applyAt = -1f;
+                if (HasPlacement() && placement.HasTouchedFloor)
+                    session.CorrectFloor(placement.FloorY, "touch", "placement", FloorEstimate.ManualCorrectionThreshold);
+            }
+            if (_touching) UpdateTouch();
         }
 
-        private void BeginDepth()
+        private void BeginTouch(bool manual, string trigger)
         {
-            if (!EnvironmentRaycastManager.IsSupported || rig == null || rig.Head == null) { DepthFailed("depth sensor not available"); return; }
-            if (_raycaster == null)
-            {
-                var go = new GameObject("FloorCheckRaycaster");
-                go.transform.SetParent(transform, false);
-                _raycaster = go.AddComponent<EnvironmentRaycastManager>();
-            }
-            _raycaster.enabled = true;
-            _hits.Clear();
-            _mode = Mode.Depth;
-            _modeStart = Time.unscaledTime;
-            _firstHitAt = -1f;
-            if (_manual) Say("Checking the floor... look ahead at the floor");
-        }
-
-        private void UpdateDepth()
-        {
-            Transform head = rig.Head;
-            foreach (Vector3 local in RayDirections)
-            {
-                Vector3 dir = head.rotation * local;
-                if (dir.y > MinDownSlope) continue;
-                if (!_raycaster.Raycast(new Ray(head.position, dir), out EnvironmentRaycastHit hit, MaxRayDistance)) continue;
-                if (hit.normalConfidence > 0f && hit.normal.y < 0.7f) continue;   // not a horizontal surface
-                _hits.Add(hit.point.y);
-                if (_firstHitAt < 0f) _firstHitAt = Time.unscaledTime;
-            }
-            if (_firstHitAt >= 0f && Time.unscaledTime - _firstHitAt >= SampleSeconds)
-            {
-                StopRaycaster();
-                float sceneY = session.CaseRootFloorY;
-                if (FloorEstimate.TryFindFloor(_hits, out float floorY, out int support) &&
-                    FloorEstimate.IsPlausible(sceneY, floorY, head.position.y))
-                {
-                    _mode = Mode.Idle;
-                    Report("depth", session.CorrectFloor(floorY, "depth", _trigger, Threshold), support + " depth hits");
-                }
-                else DepthFailed(_hits.Count + " hits, no clear floor");
-                return;
-            }
-            if (Time.unscaledTime - _modeStart > DepthTimeoutSeconds)
-            {
-                StopRaycaster();
-                DepthFailed("no depth hits");
-            }
-        }
-
-        private void DepthFailed(string why)
-        {
-            Debug.Log("[FloorCalibrator] Depth floor check failed: " + why);
-            _mode = Mode.Idle;
-            if (!_manual) return;   // automatic checks fail quietly; the button falls back to touch
             foreach (var t in _touch) t.Reset();
-            _mode = Mode.Touch;
-            _modeStart = Time.unscaledTime;
-            Say("Floor: crouch and hold one hand flat on the floor for 1 s");
+            _touching = true;
+            _manual = manual;
+            _trigger = trigger;
+            _touchStart = Time.unscaledTime;
+            Say("Floor check: crouch and hold one hand flat on the floor for a second");
         }
 
         private void UpdateTouch()
         {
-            if (Time.unscaledTime - _modeStart > TouchTimeoutSeconds)
+            if (Time.unscaledTime - _touchStart > TouchTimeoutSeconds)
             {
-                _mode = Mode.Idle;
-                Say("Floor not set (no hand on the floor) - press Fix floor to try again");
+                _touching = false;
+                if (_manual) Say("Floor not set (no hand on the floor) - press Fix floor to try again");
                 return;
             }
             IHandJointSource source = HandJointSources.Current;
-            if (source == null || rig == null || rig.Head == null) return;
+            if (source == null || rig == null || rig.Head == null || placement == null) return;
             for (int side = 0; side < 2; side++)
             {
                 BodyPart part = side == 0 ? BodyPart.LeftHand : BodyPart.RightHand;
@@ -179,43 +111,34 @@ namespace FYP.Detective.Meta
                 float lo = float.MaxValue, hi = float.MinValue;
                 foreach (Vector3 j in _joints) { lo = Mathf.Min(lo, j.y); hi = Mathf.Max(hi, j.y); }
                 if (!_touch[side].Update(Time.unscaledTimeAsDouble, rig.Head.position.y, lo, hi, out float floorY)) continue;
-                if (Mathf.Abs(floorY - session.CaseRootFloorY) > FloorEstimate.MaxCorrection) { _touch[side].Reset(); continue; }
-                _mode = Mode.Idle;
-                Report("touch", session.CorrectFloor(floorY, "touch", _trigger, FloorEstimate.ManualCorrectionThreshold), "hand on the floor");
+                // Far from the Quest's own floor = a table or a knee, not the floor.
+                if (Mathf.Abs(floorY - placement.TrackingFloorY) > FloorEstimate.MaxCorrection) { _touch[side].Reset(); continue; }
+                _touching = false;
+                Apply(floorY);
                 return;
             }
         }
 
-        // The Fix floor button applies even small differences; automatic checks only clear ones.
-        private float Threshold => _manual ? FloorEstimate.ManualCorrectionThreshold : FloorEstimate.AutoCorrectionThreshold;
-
-        private void Report(string method, float moved, string how)
+        private void Apply(float floorY)
         {
-            Debug.Log($"[FloorCalibrator] {method} ({_trigger}, {how}): moved {moved:+0.000;-0.000} m");
-            if (moved != 0f)
-                Say("Floor fixed: scene moved " + Mathf.RoundToInt(Mathf.Abs(moved) * 100f) + " cm " + (moved > 0f ? "up" : "down") +
-                    " onto the real floor (" + how + ")");
-            else if (_manual) Say("Floor checked: the scene is on the real floor (" + how + ")");
+            placement.SetTouchedFloor(floorY);
+            if (!HasPlacement())
+            {
+                Debug.Log($"[FloorCalibrator] Floor touched ({_trigger}) {floorY - placement.TrackingFloorY:+0.000;-0.000} m from the Quest's floor");
+                Say("Floor set by touch - now place the scene");
+                return;
+            }
+            float moved = session.CorrectFloor(floorY, "touch", _trigger, FloorEstimate.ManualCorrectionThreshold);
+            Debug.Log($"[FloorCalibrator] Floor touched ({_trigger}): scene moved {moved:+0.000;-0.000} m");
+            Say(moved != 0f
+                ? "Floor fixed: scene moved " + Mathf.RoundToInt(Mathf.Abs(moved) * 100f) + " cm " + (moved > 0f ? "up" : "down") + " onto the floor you touched"
+                : "Floor checked: the scene is on the floor you touched");
         }
 
         private void Say(string text)
         {
             if (placement != null) placement.SetStatus(text);
             else Debug.Log("[FloorCalibrator] " + text);
-        }
-
-        private void StopRaycaster()
-        {
-            if (_raycaster != null) _raycaster.enabled = false;
-        }
-
-        private static Vector3[] BuildRays()
-        {
-            var rays = new List<Vector3>();
-            foreach (float pitch in new[] { 35f, 45f, 55f })
-                foreach (float yaw in new[] { -20f, 0f, 20f })
-                    rays.Add(Quaternion.Euler(pitch, yaw, 0f) * Vector3.forward);
-            return rays.ToArray();
         }
     }
 }

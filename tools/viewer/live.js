@@ -2,6 +2,8 @@
 // (GET /live?device=..., raw H.264 Annex B from `adb exec-out screenrecord`) and decoded here with WebCodecs.
 // Shown flat like Meta's cast (flat.js: left eye, lens warp undone, 16:9) or raw (both eyes).
 // Nothing is recorded. Streams only run while the Live page is open.
+// Each tile also has the session setup (pair, participant, case, condition), sent to that headset's
+// experiment_config.json by the server (POST /api/setup); the app picks it up between runs.
 import { createFlattener } from './flat.js';
 const $ = (id) => document.getElementById(id);
 const esc = (v) => String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -47,7 +49,15 @@ class LiveTile {
       <footer><span class="stat"></span><span class="actions">
         <button class="btn-s wireless" hidden>Make wireless</button>
         <button class="btn-s full">Full screen</button>
-        <button class="btn-s toggle">Stop</button></span></footer>`;
+        <button class="btn-s toggle">Stop</button></span></footer>
+      <form class="setup" autocomplete="off">
+        <label>Pair<input name="pairCode" required maxlength="16" pattern="[A-Za-z0-9\\-]{1,16}" title="1-16 letters, digits or -; codes only, no names"></label>
+        <label>Participant<input name="participantId" required maxlength="16" pattern="[A-Za-z0-9\\-]{1,16}" title="1-16 letters, digits or -; codes only, no names"></label>
+        <label>Case<select name="caseId"><option>X</option><option>Y</option></select></label>
+        <label>Condition<select name="condition"><option value="A">A · solo</option><option value="B">B · team</option></select></label>
+        <button class="btn-s toggle send" type="submit">Send to headset</button>
+        <p class="setup-msg" role="status"></p>
+      </form>`;
     this.canvas = this.el.querySelector('canvas.raw');
     this.ctx = this.canvas.getContext('2d');
     this.flatCanvas = this.el.querySelector('canvas.flat');
@@ -62,7 +72,10 @@ class LiveTile {
     this.el.querySelector('.toggle').onclick = () => { this.wanted = !this.wanted; this.sync(); };
     this.el.querySelector('.full').onclick = () => this.el.querySelector('.screen').requestFullscreen?.();
     this.el.querySelector('.wireless').onclick = () => this.makeWireless();
+    this.form = this.el.querySelector('.setup');
+    this.form.onsubmit = (e) => { e.preventDefault(); this.sendSetup(); };
     this.update(h);
+    this.loadSetup();
   }
 
   update(h) {
@@ -159,6 +172,30 @@ class LiveTile {
     if (this.canvas.width !== cw || this.canvas.height !== ch) { this.canvas.width = cw; this.canvas.height = ch; }
     this.ctx.drawImage(vf, sx, sy, sw, sh, 0, 0, cw, ch);
     this.msg('');
+  }
+
+  // Fills the setup row with what the headset has now.
+  loadSetup() {
+    fetch(`/api/setup?device=${encodeURIComponent(this.h.id)}`, { cache: 'no-store' })
+      .then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); })
+      .then((v) => { for (const k of ['pairCode', 'participantId', 'caseId', 'condition']) this.form.elements[k].value = v[k] ?? ''; })
+      .catch(() => this.setupMsg("Couldn't read this headset's setup - is the game installed?", true));
+  }
+
+  sendSetup() {
+    const f = this.form.elements, b = this.form.querySelector('.send');
+    const body = { pairCode: f.pairCode.value.trim(), participantId: f.participantId.value.trim(), caseId: f.caseId.value, condition: f.condition.value };
+    b.disabled = true; this.setupMsg('Sending…');
+    fetch(`/api/setup?device=${encodeURIComponent(this.h.id)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      .then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); })
+      .then((j) => this.setupMsg(j.message, !j.ok))
+      .catch((e) => this.setupMsg('Failed: ' + e.message, true))
+      .finally(() => { b.disabled = false; });
+  }
+
+  setupMsg(text, bad = false) {
+    const m = this.form.querySelector('.setup-msg');
+    m.textContent = text; m.classList.toggle('bad', bad);
   }
 
   makeWireless() {
