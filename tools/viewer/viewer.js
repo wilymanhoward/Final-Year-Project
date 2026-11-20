@@ -911,6 +911,7 @@ async function deleteLibraryRun(button) {
     const response = await fetch(`/api/runs/delete?name=${encodeURIComponent(name)}`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
     });
+    if (response.status === 404) throw new Error('This viewer server is out of date. Restart Run Replay to enable deletion.');
     if (!response.ok) throw new Error('Could not delete the run.');
     const result = await response.json();
     if (!result.ok) throw new Error(result.message);
