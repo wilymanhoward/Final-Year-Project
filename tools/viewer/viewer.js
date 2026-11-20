@@ -888,7 +888,7 @@ function renderLibrary() {
         <span class="metrics"><div><b>${sec ? fmt(sec).replace(/\.\d$/, '') : '–'}</b>time</div><div><b>${r.found !== '' ? esc(r.found) : '–'}</b>clues found</div>
           <div><b style="color:${Number(r.contamination) > 0 ? 'var(--red)' : 'inherit'}">${r.contamination !== '' ? esc(r.contamination) : '–'}</b>contamination</div></span>
       </button><button class="run-delete" data-delete="${esc(r.name)}"
-        aria-label="Delete ${esc(r.participant)}, pair ${esc(r.pair)}, ${esc(r.title || 'Case ' + r.case)}, ${d} at ${t}">Delete</button></div>`;
+        aria-label="Delete ${esc(r.participant)}, pair ${esc(r.pair)}, ${esc(r.title || 'Case ' + r.case)}, ${d} at ${t}" title="Delete run"><span class="trash-icon" aria-hidden="true"></span></button></div>`;
     }).join('') + '</div></section>').join('');
 }
 async function openLibraryRun(name) {
