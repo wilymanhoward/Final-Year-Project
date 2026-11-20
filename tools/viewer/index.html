@@ -57,6 +57,14 @@
   .day h2 { font-size:21px; line-height:1.19; font-weight:600; margin:0 0 14px; display:flex; align-items:baseline; gap:10px; }
   .day h2 span { color:var(--muted); font-weight:400; font-size:14px; }
   .cards { display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:20px; }
+  .run-entry { display:flex; flex-direction:column; align-items:stretch; gap:4px; }
+  .run-entry .card { flex:1; }
+  .run-delete { align-self:end; padding:8px 12px; border:0; background:transparent; color:var(--red); cursor:pointer; }
+  .run-delete:hover { text-decoration:underline; }
+  .run-delete:disabled { opacity:.6; cursor:wait; }
+  #deleteRunDialog { width:min(420px, calc(100% - 32px)); padding:24px; border:1px solid var(--hairline); border-radius:18px; color:var(--ink); }
+  #deleteRunDialog::backdrop { background:#0006; }
+  #deleteRunDialog form { display:flex; justify-content:flex-end; gap:8px; }
   .card { background:var(--canvas); border:1px solid var(--hairline); border-radius:18px; padding:20px 22px; text-align:left;
           cursor:pointer; display:flex; flex-direction:column; gap:10px; transition:transform .15s ease; color:var(--ink); }
   .card:hover { border-color:rgba(0,102,204,.35); }
@@ -214,8 +222,16 @@
         <label class="search"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="7" cy="7" r="5.2"/><path d="M11 11l3.5 3.5"/></svg>
           <input id="libFilter" type="search" placeholder="Search pair, participant, case" aria-label="Search runs"></label>
       </div>
-      <div id="libMsg"></div>
+      <div id="libMsg" role="status"></div>
       <div id="libList"></div>
+      <dialog id="deleteRunDialog" aria-labelledby="deleteRunPrompt" aria-describedby="deleteRunDetails">
+        <h2 id="deleteRunPrompt"></h2>
+        <p id="deleteRunDetails">A backup stays on this laptop.</p>
+        <form method="dialog">
+          <button class="btn ghost" value="cancel" autofocus>Cancel</button>
+          <button class="btn" value="delete">Delete run</button>
+        </form>
+      </dialog>
       <div class="dropcard"><b>Replay a file</b>Drop one run CSV here, or two from the same team run.<br><br>
         <button class="btn ghost" id="pick">Choose files…</button></div>
       <input id="file" type="file" accept=".csv" multiple hidden>

@@ -880,14 +880,15 @@ function renderLibrary() {
       const end = { Submitted: ['ok', 'Submitted'], TimeCap: ['warn', 'Time cap'], Aborted: ['bad', 'Aborted'], Interrupted: ['bad', 'Interrupted'] }[r.end] || ['', r.end];
       const verdict = r.end === 'Submitted' ? (r.correct === '1' ? '<span class="chip ok">Right culprit</span>' : '<span class="chip bad">Wrong culprit</span>') : '';
       const sec = Number(r.elapsed);
-      return `<button class="card" data-name="${esc(r.name)}">
+      return `<div class="run-entry"><button class="card" data-name="${esc(r.name)}">
         <span class="top"><span class="case">Case ${esc(r.case)} · ${r.condition === 'A' ? 'Solo' : 'Team'}</span><span>${t}</span></span>
         <h3>${esc(r.title || 'Case ' + r.case)}</h3>
         <span class="who">${esc(r.participant)} · pair ${esc(r.pair)}${r.team ? (r.partner ? ' · opens with partner' : ' · partner log not pulled') : ''}</span>
         <span class="chips"><span class="chip ${end[0]}">${esc(end[1])}</span>${verdict}</span>
         <span class="metrics"><div><b>${sec ? fmt(sec).replace(/\.\d$/, '') : '–'}</b>time</div><div><b>${r.found !== '' ? esc(r.found) : '–'}</b>clues found</div>
           <div><b style="color:${Number(r.contamination) > 0 ? 'var(--red)' : 'inherit'}">${r.contamination !== '' ? esc(r.contamination) : '–'}</b>contamination</div></span>
-      </button>`;
+      </button><button class="run-delete" data-delete="${esc(r.name)}"
+        aria-label="Delete ${esc(r.participant)}, pair ${esc(r.pair)}, ${esc(r.title || 'Case ' + r.case)}, ${d} at ${t}">Delete</button></div>`;
     }).join('') + '</div></section>').join('');
 }
 async function openLibraryRun(name) {
@@ -896,6 +897,31 @@ async function openLibraryRun(name) {
   const partner = libRuns.find((x) => x.url === r.partner);
   const urls = [r.url, r.hands, r.partner, partner && partner.hands].filter(Boolean);
   await loadFiles(urls.map((u) => ({ name: u.split('/').pop(), text: () => fetch(u).then((res) => res.text()) })));
+}
+async function deleteLibraryRun(button) {
+  const name = button.dataset.delete;
+  const dialog = $('deleteRunDialog');
+  $('deleteRunPrompt').textContent = button.getAttribute('aria-label') + '?';
+  dialog.returnValue = '';
+  dialog.showModal();
+  await new Promise((resolve) => dialog.addEventListener('close', resolve, { once: true }));
+  if (dialog.returnValue !== 'delete') return;
+  button.disabled = true;
+  try {
+    const response = await fetch(`/api/runs/delete?name=${encodeURIComponent(name)}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+    });
+    if (!response.ok) throw new Error('Could not delete the run.');
+    const result = await response.json();
+    if (!result.ok) throw new Error(result.message);
+    libRuns = result.runs;
+    renderLibrary();
+    $('libMsg').textContent = `Run deleted. ${$('libMsg').textContent}`;
+    $('libFilter').focus();
+  } catch (error) {
+    $('libMsg').textContent = error.message;
+    button.disabled = false;
+  }
 }
 async function pollServer() {
   try {
@@ -914,7 +940,12 @@ async function pollServer() {
   }
 }
 $('libFilter').oninput = renderLibrary;
-$('libList').onclick = (e) => { const c = e.target.closest('.card'); if (c) openLibraryRun(c.dataset.name); };
+$('libList').onclick = (e) => {
+  const button = e.target.closest('.run-delete');
+  if (button) return deleteLibraryRun(button);
+  const card = e.target.closest('.card');
+  if (card) openLibraryRun(card.dataset.name);
+};
 pollServer();
 
 let last = performance.now();

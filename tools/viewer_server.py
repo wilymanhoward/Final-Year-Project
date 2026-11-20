@@ -10,6 +10,7 @@ then open http://localhost:8000. Leave it running: plug a headset in after a tes
   Never deletes anything on the headset. What was pulled is remembered in StudyData/pulled_index.json.
 - GET /api/runs   -> every run (one per run name, newest copy wins, like analyze_runs.py) with its summary values
                     (+ "hands": url of {base}_hands.csv when the finger joints were logged)
+- POST /api/runs/delete?name=<run CSV> -> archive that run's local files under StudyData/.deleted
 - GET /api/status -> connected headsets + the last pull messages
 - GET /data/<path under StudyData> -> a .csv/.json file
 - GET /live?device=<adb id> -> live H.264 (Annex B) of that headset's screen (`adb exec-out screenrecord`, what the
@@ -44,6 +45,9 @@ REMOTE_DIR = "/sdcard/Android/data/com.xmum.fyp.detective/files"
 UNITY_ADB = r"C:\Program Files\Unity\Hub\Editor\6000.3.25f1\Editor\Data\PlaybackEngines\AndroidPlayer\SDK\platform-tools\adb.exe"
 SAFE_NAME = re.compile(r"^[A-Za-z0-9_\-][A-Za-z0-9_.\-]{0,127}\.(csv|json)$")
 RUN_NAME = re.compile(r"^([A-Za-z0-9\-]+)_([A-Za-z0-9\-]+)_([AB])_([XY])_(\d{8}_\d{6})$")
+RUN_SUFFIXES = (".csv", "_summary.csv", "_hands.csv", "_meta.json")
+DELETED_DIR = ".deleted"
+RUN_FILE_LOCK = threading.Lock()
 
 STATE = {"devices": {}, "headsets": [], "messages": [], "version": 0}
 INFO = {}   # adb id -> {"serial", "participant", "checked"}: real serial (Wi-Fi ids are ip:port) + code from the config
@@ -110,7 +114,12 @@ def pull_device(adb_path, out, dev, serial, index):
             if SAFE_NAME.match(name) and (now is None or now - int(parts[1]) >= SETTLE_S):   # still being written: later
                 remote[name] = f"{parts[0]}|{parts[1]}"
     known = index.setdefault(serial, {})
-    todo = [n for n, sig in remote.items() if known.get(n) != sig]
+
+    def deleted(name):
+        return any(name.endswith(suffix) and os.path.isdir(os.path.join(out, DELETED_DIR, name[:-len(suffix)]))
+                   for suffix in RUN_SUFFIXES)
+
+    todo = [n for n, sig in remote.items() if known.get(n) != sig and not deleted(n)]
     if not todo:
         return 0
     have = local_sizes(out, serial) if any(n not in known for n in todo) else {}
@@ -219,7 +228,8 @@ def device_loop(out, pull):
             for h in sorted(headsets, key=lambda h: h["wireless"]):   # USB first; one pull per real headset
                 if pull and h["serial"] not in done:
                     done.add(h["serial"])
-                    changed += pull_device(adb_path, out, h["id"], h["serial"], index)
+                    with RUN_FILE_LOCK:
+                        changed += pull_device(adb_path, out, h["id"], h["serial"], index)
             if changed:
                 with LOCK:
                     STATE["version"] += 1
@@ -240,11 +250,50 @@ def read_summary(path):
         return {}
 
 
+def run_folders(out):
+    for folder, dirs, files in os.walk(out):
+        if DELETED_DIR in dirs:
+            dirs.remove(DELETED_DIR)
+        yield folder, files
+
+
+def archive_run(out, name):
+    stem = name[:-4]
+    if not SAFE_NAME.fullmatch(name) or not name.endswith(".csv") or not RUN_NAME.fullmatch(stem):
+        raise ValueError("Invalid run name.")
+    archive = os.path.join(out, DELETED_DIR)
+    target = os.path.join(archive, stem)
+    if os.path.isdir(target):
+        return
+    names = {stem + suffix for suffix in RUN_SUFFIXES}
+    paths = [os.path.join(folder, f) for folder, files in run_folders(out) for f in files if f in names]
+    if not any(os.path.basename(path) == name for path in paths):
+        raise FileNotFoundError("That run is no longer in the library.")
+    os.makedirs(archive, exist_ok=True)
+    staging = tempfile.mkdtemp(dir=archive)
+    moved = []
+    try:
+        for path in paths:
+            # The backup extension keeps archived runs out of CSV analysis and the data endpoint.
+            backup = os.path.join(staging, os.path.relpath(path, out) + ".bak")
+            os.makedirs(os.path.dirname(backup), exist_ok=True)
+            os.rename(path, backup)
+            moved.append((path, backup))
+        os.rename(staging, target)
+    except OSError:
+        for path, backup in reversed(moved):
+            os.rename(backup, path)
+        shutil.rmtree(staging, ignore_errors=True)
+        raise
+
+
 def list_runs(out):
     newest = {}
-    for folder, _, files in os.walk(out):
+    for folder, files in run_folders(out):
         for f in files:
-            if not f.endswith(".csv") or f.endswith("_summary.csv") or not RUN_NAME.match(f[:-4]):
+            if not f.endswith(".csv") or not RUN_NAME.fullmatch(f[:-4]):
+                continue
+            if os.path.isdir(os.path.join(out, DELETED_DIR, f[:-4])):
                 continue
             path = os.path.join(folder, f)
             if f not in newest or os.path.getmtime(path) > os.path.getmtime(newest[f]):
@@ -377,7 +426,9 @@ class Handler(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
         path = self.path.split("?", 1)[0]
         if path == "/api/runs":
-            return self.send_json(list_runs(self.out))
+            with RUN_FILE_LOCK:
+                runs = list_runs(self.out)
+            return self.send_json(runs)
         if path == "/api/status":
             with LOCK:
                 return self.send_json(dict(STATE))
@@ -418,6 +469,21 @@ class Handler(http.server.SimpleHTTPRequestHandler):
     def do_POST(self):
         if not self.same_site():
             return self.send_error(403)
+        if self.path.split("?", 1)[0] == "/api/runs/delete":
+            if self.headers.get("Content-Type") != "application/json":
+                return self.send_error(415)
+            try:
+                with RUN_FILE_LOCK:
+                    archive_run(self.out, self.query("name"))
+                    runs = list_runs(self.out)
+                    with LOCK:
+                        STATE["version"] += 1
+            except (ValueError, FileNotFoundError) as e:
+                return self.send_json({"ok": False, "message": str(e)})
+            except OSError as e:
+                note(f"Run archive failed: {e}")
+                return self.send_json({"ok": False, "message": "Could not archive the run. Check the server log."})
+            return self.send_json({"ok": True, "runs": runs})
         if self.path.split("?", 1)[0] == "/api/setup":
             dev = self.query("device")
             if not current_headset(dev):
